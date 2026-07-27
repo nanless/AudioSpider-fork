@@ -338,9 +338,15 @@ class Storage:
         file_count = 0
         for root, _, files in os.walk(DOWNLOAD_DIR):
             for fname in files:
+                if ".tmp_conv" in fname or ".tmp_convert" in fname:
+                    continue
                 fp = os.path.join(root, fname)
-                disk_total += os.path.getsize(fp)
-                file_count += 1
+                try:
+                    disk_total += os.path.getsize(fp)
+                    file_count += 1
+                except OSError:
+                    # 转换/下载过程中临时文件可能被删或重命名
+                    continue
         print("  " + "─" * 58)
         print(f"  磁盘: {file_count} 个文件, {disk_total / 1024 / 1024:.1f} MB")
         print("=" * 62 + "\n")
