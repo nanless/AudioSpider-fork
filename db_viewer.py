@@ -33,9 +33,16 @@ def connect():
     if not os.path.exists(DB_PATH):
         print(f"数据库不存在: {DB_PATH}")
         sys.exit(1)
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=60)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA temp_store = MEMORY")
+    # 与 Storage 保持一致：补齐 published_at 列
+    try:
+        conn.execute("ALTER TABLE audio_urls ADD COLUMN published_at TEXT DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError as e:
+        if "duplicate column" not in str(e).lower():
+            raise
     return conn
 
 
@@ -79,6 +86,7 @@ def show_overview(conn: sqlite3.Connection):
         for r in rows:
             print(f"    {r['language']:12s}  {r['cnt']}")
 
+    show_published_stats(conn)
     show_duration_stats(conn)
 
     cp = conn.execute("SELECT COUNT(*) FROM crawl_checkpoints").fetchone()[0]
@@ -86,8 +94,136 @@ def show_overview(conn: sqlite3.Connection):
     print()
 
 
+def show_published_stats(conn: sqlite3.Connection):
+    print("\n  发布时间 (published_at):")
+    has = conn.execute(
+        "SELECT COUNT(*) FROM audio_urls WHERE published_at != '' AND published_at IS NOT NULL"
+    ).fetchone()[0]
+    empty = conn.execute(
+        "SELECT COUNT(*) FROM audio_urls WHERE published_at = '' OR published_at IS NULL"
+    ).fetchone()[0]
+    print(f"    已填写          {has}")
+    print(f"    未填写          {empty}")
+    if has:
+        row = conn.execute(
+            "SELECT MIN(published_at) AS earliest, MAX(published_at) AS latest "
+            "FROM audio_urls WHERE published_at != '' AND published_at IS NOT NULL"
+        ).fetchone()
+        print(f"    最早            {row['earliest'][:19]}")
+        print(f"    最晚            {row['latest'][:19]}")
+
+
+def _query_published_months(
+    conn: sqlite3.Connection, since: str = "", before: str = ""
+) -> list[sqlite3.Row]:
+    where = "WHERE published_at != '' AND published_at IS NOT NULL"
+    params: list = []
+    if since:
+        where += " AND published_at >= ?"
+        params.append(since)
+    if before:
+        where += " AND published_at <= ?"
+        params.append(before)
+    return conn.execute(
+        f"SELECT substr(published_at, 1, 7) AS month, COUNT(*) AS cnt "
+        f"FROM audio_urls {where} "
+        f"GROUP BY month ORDER BY month DESC",
+        params,
+    ).fetchall()
+
+
+def show_published_month_menu(
+    conn: sqlite3.Connection, since: str = "", before: str = ""
+):
+    """按月分组展示数量，可选中某月查看详情"""
+    while True:
+        rows = _query_published_months(conn, since=since, before=before)
+        if not rows:
+            has = conn.execute(
+                "SELECT COUNT(*) FROM audio_urls "
+                "WHERE published_at != '' AND published_at IS NOT NULL"
+            ).fetchone()[0]
+            if has == 0:
+                print("  当前没有任何已填写 published_at 的记录。")
+                print("  请先跑 discover.py（会回填历史空值），再回来查看按月分布。")
+            else:
+                print("  该日期范围内没有匹配的发布时间记录。")
+            return
+
+        total = sum(r["cnt"] for r in rows)
+        print(f"\n{'=' * 60}")
+        print("  按发布时间（月）浏览")
+        if since or before:
+            print(f"  范围: {since or '...'} ~ {before or '...'}")
+        print(f"{'=' * 60}")
+        print(f"  共 {len(rows)} 个月, {total} 条\n")
+
+        months: list[str] = []
+        for i, r in enumerate(rows, 1):
+            months.append(r["month"])
+            print(f"    {i:>3}. {r['month']}    {r['cnt']:>8} 条")
+
+        print(f"\n    f. 按日期范围重新筛选")
+        print(f"    0. 返回上级菜单")
+        sel = input("\n  输入编号查看该月详情> ").strip().lower()
+        if sel == "0" or sel == "":
+            return
+        if sel == "f":
+            since = input("  起始日期 (如 2024-01-01, 直接回车不限): ").strip()
+            before = input("  截止日期 (如 2024-12-31, 直接回车不限): ").strip()
+            continue
+        if not sel.isdigit():
+            print("  无效选择。")
+            continue
+        idx = int(sel)
+        if idx < 1 or idx > len(months):
+            print("  无效编号。")
+            continue
+
+        ym = months[idx - 1]
+        print(f"\n  [{ym}] 共 {_month_count(conn, ym)} 条")
+        n = input("  显示该月的记录? 输入条数 (直接回车跳过, a=全部): ").strip().lower()
+        if n == "a":
+            show_month_records(conn, ym)
+        elif n.isdigit() and int(n) > 0:
+            show_month_records(conn, ym, limit=int(n))
+
+
+def _month_count(conn: sqlite3.Connection, ym: str) -> int:
+    return conn.execute(
+        "SELECT COUNT(*) FROM audio_urls "
+        "WHERE published_at != '' AND published_at LIKE ?",
+        (f"{ym}%",),
+    ).fetchone()[0]
+
+
+def show_month_records(conn: sqlite3.Connection, ym: str, limit: int = 0):
+    """查看指定月份 YYYY-MM 的记录"""
+    where = "WHERE published_at != '' AND published_at LIKE ?"
+    params: list = [f"{ym}%"]
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM audio_urls {where}", params
+    ).fetchone()[0]
+    query = f"SELECT * FROM audio_urls {where} ORDER BY published_at DESC, id DESC"
+    if limit > 0:
+        query += " LIMIT ?"
+        params = params + [limit]
+    rows = conn.execute(query, params).fetchall()
+    if not rows:
+        print("  没有匹配的记录。")
+        return
+    if limit > 0 and total > limit:
+        print(f"\n  [{ym}] 共 {total} 条, 显示前 {limit} 条\n")
+    else:
+        print(f"\n  [{ym}] 共 {total} 条\n")
+    for i, r in enumerate(rows, 1):
+        _print_record(r, i)
+
+
 def show_all_records(conn: sqlite3.Connection, source_filter: str = "", status_filter: str = "",
-                     category_filter: str = "", language_filter: str = "", limit: int = 0):
+                     category_filter: str = "", language_filter: str = "",
+                     published_since: str = "", published_before: str = "",
+                     limit: int = 0):
     where = "WHERE 1=1"
     filter_params: list = []
     if source_filter:
@@ -102,10 +238,18 @@ def show_all_records(conn: sqlite3.Connection, source_filter: str = "", status_f
     if language_filter:
         where += " AND language = ?"
         filter_params.append(language_filter)
+    if published_since:
+        where += " AND published_at != '' AND published_at >= ?"
+        filter_params.append(published_since)
+    if published_before:
+        where += " AND published_at != '' AND published_at <= ?"
+        filter_params.append(published_before)
 
     total = conn.execute(f"SELECT COUNT(*) FROM audio_urls {where}", filter_params).fetchone()[0]
 
-    query = f"SELECT * FROM audio_urls {where} ORDER BY id"
+    query = f"SELECT * FROM audio_urls {where} ORDER BY published_at DESC, id DESC"
+    if not published_since and not published_before:
+        query = f"SELECT * FROM audio_urls {where} ORDER BY id"
     params = list(filter_params)
     if limit > 0:
         query += " LIMIT ?"
@@ -121,33 +265,16 @@ def show_all_records(conn: sqlite3.Connection, source_filter: str = "", status_f
     else:
         print(f"\n  共 {total} 条记录\n")
     for i, r in enumerate(rows, 1):
-        print(f"── 记录 #{i} (ID={r['id']}) {'─' * 48}")
-        print(f"  标题:       {r['title'] or '-'}")
-        print(f"  来源:       {r['source']}")
-        print(f"  状态:       {r['status']}")
-        print(f"  URL:        {r['url']}")
-        print(f"  格式:       {r['file_format'] or '-'}")
-        print(f"  大小:       {fmt_size(r['file_size'])}")
-        print(f"  时长:       {fmt_duration(r['duration'])}")
-        print(f"  语言:       {r['language'] or '-'}")
-        print(f"  分类:       {r['category'] or '-'}")
-        print(f"  说话人:     {r['speaker'] or '-'}")
-        print(f"  本地路径:   {r['local_path'] or '-'}")
-        print(f"  内容哈希:   {r['content_hash'] or '-'}")
-        print(f"  源站 ID:    {r['source_id'] or '-'}")
-        print(f"  发现时间:   {r['discovered_at'] or '-'}")
-        print(f"  下载时间:   {r['downloaded_at'] or '-'}")
-        print()
+        _print_record(r, i)
 
 
-def show_single_record(conn: sqlite3.Connection, record_id: int):
-    r = conn.execute("SELECT * FROM audio_urls WHERE id = ?", (record_id,)).fetchone()
-    if not r:
-        print(f"  未找到 ID={record_id} 的记录。")
-        return
-    print(f"\n{'=' * 60}")
-    print(f"  记录详情  (ID={r['id']})")
-    print(f"{'=' * 60}")
+def _print_record(r: sqlite3.Row, index: int | None = None):
+    if index is not None:
+        print(f"── 记录 #{index} (ID={r['id']}) {'─' * 48}")
+    else:
+        print(f"\n{'=' * 60}")
+        print(f"  记录详情  (ID={r['id']})")
+        print(f"{'=' * 60}")
     print(f"  标题:       {r['title'] or '-'}")
     print(f"  来源:       {r['source']}")
     print(f"  状态:       {r['status']}")
@@ -161,10 +288,18 @@ def show_single_record(conn: sqlite3.Connection, record_id: int):
     print(f"  本地路径:   {r['local_path'] or '-'}")
     print(f"  内容哈希:   {r['content_hash'] or '-'}")
     print(f"  源站 ID:    {r['source_id'] or '-'}")
+    print(f"  发布时间:   {r['published_at'] or '-'}")
     print(f"  发现时间:   {r['discovered_at'] or '-'}")
     print(f"  下载时间:   {r['downloaded_at'] or '-'}")
     print()
 
+
+def show_single_record(conn: sqlite3.Connection, record_id: int):
+    r = conn.execute("SELECT * FROM audio_urls WHERE id = ?", (record_id,)).fetchone()
+    if not r:
+        print(f"  未找到 ID={record_id} 的记录。")
+        return
+    _print_record(r)
 
 def show_checkpoints(conn: sqlite3.Connection):
     rows = conn.execute(
@@ -306,10 +441,12 @@ def interactive(conn: sqlite3.Connection):
         print("    3  按状态筛选记录")
         print("    4  按分类筛选记录")
         print("    5  按语种筛选记录")
-        print("    6  查看单条记录 (输入 ID)")
-        print("    7  查看爬取检查点")
-        print("    8  查看时长统计")
-        print("    9  重新显示概览")
+        print("    6  按发布时间筛选")
+        print("    7  查看单条记录 (输入 ID)")
+        print("    8  查看爬取检查点")
+        print("    9  查看时长统计")
+        print("    10 查看发布时间统计")
+        print("    11 重新显示概览")
         print("    q  退出")
         print("─" * 50)
         choice = input("  请选择> ").strip().lower()
@@ -344,16 +481,21 @@ def interactive(conn: sqlite3.Connection):
             limit = int(n) if n.isdigit() else 0
             show_all_records(conn, language_filter=lang, limit=limit)
         elif choice == "6":
+            show_published_month_menu(conn)
+        elif choice == "7":
             try:
                 rid = int(input("  输入记录 ID: ").strip())
                 show_single_record(conn, rid)
             except ValueError:
                 print("  无效 ID")
-        elif choice == "7":
-            show_checkpoints(conn)
         elif choice == "8":
-            show_duration_stats(conn)
+            show_checkpoints(conn)
         elif choice == "9":
+            show_duration_stats(conn)
+        elif choice == "10":
+            show_published_stats(conn)
+            print()
+        elif choice == "11":
             show_overview(conn)
         elif choice == "q":
             print("  再见！")
@@ -370,9 +512,18 @@ def _parse_limit(args: list[str]) -> int:
     return 0
 
 
+def _parse_flag_value(args: list[str], flag: str) -> str:
+    """从参数列表中提取 --flag VALUE"""
+    for i, a in enumerate(args):
+        if a == flag and i + 1 < len(args) and not args[i + 1].startswith("-"):
+            return args[i + 1]
+    return ""
+
+
 def main():
     args = sys.argv[1:]
     limit = _parse_limit(args)
+    before = _parse_flag_value(args, "--before")
 
     conn = connect()
     try:
@@ -392,6 +543,25 @@ def main():
             show_all_records(conn, category_filter=args[1], limit=limit)
         elif args[0] == "language" and len(args) > 1:
             show_all_records(conn, language_filter=args[1], limit=limit)
+        elif args[0] == "since" and len(args) > 1:
+            show_published_month_menu(conn, since=args[1], before=before)
+        elif args[0] == "months":
+            since = args[1] if len(args) > 1 and not args[1].startswith("-") else ""
+            show_published_month_menu(conn, since=since, before=before)
+        elif args[0] == "month" and len(args) > 1:
+            show_month_records(conn, args[1], limit=limit)
+        elif args[0] == "published":
+            show_published_stats(conn)
+            print()
+            rows = _query_published_months(conn)
+            if rows:
+                print("  按月分布:")
+                for r in rows[:24]:
+                    print(f"    {r['month']}    {r['cnt']:>8} 条")
+                if len(rows) > 24:
+                    print(f"    ... 另有 {len(rows) - 24} 个月 "
+                          f"(python db_viewer.py months 查看全部)")
+                print()
         elif args[0] == "categories":
             show_category_menu(conn)
         elif args[0] == "checkpoints":
@@ -407,6 +577,13 @@ def main():
             print("  python db_viewer.py status NAME [-n N] 按状态筛选")
             print("  python db_viewer.py category NAME [-n N] 按分类筛选")
             print("  python db_viewer.py language CODE [-n N] 按语种筛选 (如 zh, en)")
+            print("  python db_viewer.py months [SINCE] [--before DATE]")
+            print("                                     按月分组浏览发布时间")
+            print("  python db_viewer.py since DATE [--before DATE]")
+            print("                                     同 months，须指定起始日期")
+            print("  python db_viewer.py month YYYY-MM [-n N]")
+            print("                                     查看指定月记录")
+            print("  python db_viewer.py published          发布时间填写统计")
             print("  python db_viewer.py categories         查看分类概览")
             print("  python db_viewer.py id NUM             查看指定 ID")
             print("  python db_viewer.py checkpoints        查看爬取检查点")

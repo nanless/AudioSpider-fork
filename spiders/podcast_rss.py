@@ -6,6 +6,8 @@ RSS 是最干净的播客分发协议，<enclosure> 直接包含音频直链。
 支持增量爬取：记录每个 feed 最后一次看到的 episode guid。
 """
 
+from email.utils import parsedate_to_datetime
+
 import aiohttp
 from bs4 import BeautifulSoup
 
@@ -99,6 +101,11 @@ class PodcastRSSSpider(BaseSpider):
 
                     size = int(enclosure.get("length", 0) or 0)
 
+                    published_at = ""
+                    pub_tag = item.find("pubDate")
+                    if pub_tag:
+                        published_at = self._parse_pubdate(pub_tag.get_text(strip=True))
+
                     record = self._make_record(url=audio_url, title=title, file_format=fmt)
                     record.file_size = size
                     record.duration = duration
@@ -106,11 +113,19 @@ class PodcastRSSSpider(BaseSpider):
                     record.language = language
                     record.speaker = podcast_title
                     record.source_id = guid
+                    record.published_at = published_at
                     records.append(record)
 
         except Exception as e:
             self.logger.error(f"RSS 解析失败 {feed_url}: {e}")
         return records
+
+    @staticmethod
+    def _parse_pubdate(text: str) -> str:
+        try:
+            return parsedate_to_datetime(text).isoformat()
+        except Exception:
+            return ""
 
     @staticmethod
     def _parse_duration(text: str) -> int:

@@ -70,11 +70,22 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
                     new_records.append(r)
 
                 if new_records:
-                    added = storage.add_urls_batch(new_records)
+                    added, backfilled = storage.add_urls_batch(new_records)
                     total_new += added
-                    logger.info(f"<<< {spider.name}: 发现 {len(records)} 个, 新增 {added} 个")
+                    logger.info(
+                        f"<<< {spider.name}: 发现 {len(records)} 个, 新增 {added} 个"
+                        + (f", 回填 published_at {backfilled}" if backfilled else "")
+                    )
                 else:
-                    logger.info(f"<<< {spider.name}: 发现 {len(records)} 个, 全部已存在")
+                    # 已存在的也可能缺 published_at，再跑一遍回填
+                    _, backfilled = storage.add_urls_batch(records)
+                    if backfilled:
+                        logger.info(
+                            f"<<< {spider.name}: 发现 {len(records)} 个, "
+                            f"全部已存在, 回填 published_at {backfilled}"
+                        )
+                    else:
+                        logger.info(f"<<< {spider.name}: 发现 {len(records)} 个, 全部已存在")
             else:
                 logger.info(f"<<< {spider.name}: 未发现音频")
         except Exception as e:

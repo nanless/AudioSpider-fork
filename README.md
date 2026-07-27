@@ -40,14 +40,14 @@ AudioSpider/
 
 **三个独立程序，按需运行：**
 
-1. **`discover.py`** — 自动发现新源。通过两个数据源（Apple Podcasts、Podcast Index）全网发现播客，拿到 RSS 地址并解析全部剧集的音频 URL 入库。仅采集中英文播客。相当于"开拓新领地"。
+1. **`discover.py`** — 自动发现新源。通过两个数据源（Apple Podcasts、Podcast Index）全网发现播客 RSS；默认只解析**尚未爬过**的 feed 并入库。另可用 `--backfill-published` 重扫**已爬过**的 feed（补 `published_at`、顺带捞新剧集）。仅采集中英文播客。相当于"开拓新领地"。
 2. **`collect.py`** — 从已有固定源抓取。只跑 `config.py` 里配置好的来源（小宇宙、喜马拉雅等），抓取最新音频。相当于"巡逻老地盘"。
 3. **`main.py`** — 消费下载。从数据库取待下载 URL，批量下载到本地。
 
 ```
-discover.py → [搜索全网播客] ─┐
-                              ├→ audiospider.db → [取URL] → main.py → [下载+转码] → downloads/ (*.opus)
-collect.py  → [抓已有来源]  ──┘
+discover.py --loop              → 搜新 feed → 只解析未爬过的 feed ─┐
+discover.py --backfill-published → 重解析已爬 feed（补日期/捞新集）─┼→ audiospider.db → main.py → downloads/
+collect.py                      → 抓 config 里固定来源            ─┘
 ```
 
 ## 快速开始
@@ -98,6 +98,15 @@ python main.py --limit 100
 
 通过两个数据源全网发现播客 RSS，自动解析音频 URL 入库。仅采集中英文播客。
 
+**两种互不替代的运行模式：**
+
+| 模式 | 命令 | 做什么 | 不做什么 |
+|---|---|---|---|
+| **发现新源** | `python discover.py --loop` | 每轮搜索新的 RSS feed；只解析**尚未爬过**的 feed，新剧集 URL 入库 | **不会**回头检查历史已解析 feed 有没有出新剧集 |
+| **回填 / 扫旧源** | `python discover.py --backfill-published` | 重新拉取并解析**已经爬过**的 feed：① 给历史空的 `published_at` 补日期；② 即便日期都补齐了，也能捞到旧 feed 里新上的剧集 | **不会**去 Apple / Podcast Index 搜新 feed |
+
+> 两者可分开跑（甚至并行）。`--backfill-published` 走独立分支，加了该参数后本轮**不会**再执行「搜新 feed」。要两件事都做，开两个进程即可。
+
 **两个数据源：**
 
 | 源 | 说明 | 覆盖量 |
@@ -133,8 +142,14 @@ python discover.py --top 200
 # Podcast Index 翻页更深（100 页 × 1000 条 = 最多 10 万条 feeds）
 python discover.py --pi-max-pages 100
 
-# 每天自动搜索一次
+# 持续发现新源：每轮搜新 feed，只解析未爬过的（默认间隔 1 天）
 python discover.py --loop --interval 86400
+
+# 回填历史 published_at，并检查已爬 feed 是否有新剧集
+python discover.py --backfill-published
+
+# 只解析库里还未解析的 feeds（跳过搜索阶段）
+python discover.py --parse-only
 
 # 查看已发现的所有播客源
 python discover.py --list-feeds
@@ -207,14 +222,13 @@ python collect.py --loop --interval 3600
 
 ### discover.py vs collect.py
 
-| | `discover.py` | `collect.py` |
-|---|---|---|
-| **做什么** | 搜索全网，发现新的播客源 | 从已有固定源抓取音频链接 |
-| **数据来源** | Apple Podcasts（关键词搜索+分类排行榜） + Podcast Index API | `config.py` 中配置的 5 个固定爬虫 |
-| **URL 数量** | 无上限，两源组合覆盖数十万播客 | 单次约 1500 条 |
-| **语言** | 仅中英文 | 取决于配置 |
-| **适合场景** | 大量扩充 URL 池 | 定期检查已有播客的更新 |
-| **类比** | "去新书店找书" | "去常去的书店看有没有上新" |
+| | `discover.py --loop` | `discover.py --backfill-published` | `collect.py` |
+|---|---|---|---|
+| **做什么** | 搜索全网，发现新的播客 feed，只解析未爬过的 | 重解析已爬过的 feed：补 `published_at` + 捞新剧集 | 从已有固定源抓取音频链接 |
+| **数据来源** | Apple Podcasts + Podcast Index | `discovered_feeds` 里已标记爬过的 RSS | `config.py` 中配置的固定爬虫 |
+| **是否扫旧 feed 新剧集** | 否 | 是 | 是（限配置里的源） |
+| **适合场景** | 大量扩充 feed / URL 池 | 历史日期回填；持续检查已发现播客的更新 | 定期检查 config 里固定播客的更新 |
+| **类比** | "去新书店找没进过的店" | "回常去的店看有没有上新 / 补标签" | "去常去的几家店看有没有上新" |
 
 ### 下载音频（main.py）
 
@@ -275,8 +289,17 @@ python main.py fix-meta
 # 交互式查看
 python db_viewer.py
 
-# 数据库概览
+# 数据库概览（含 published_at 填写统计）
 python db_viewer.py overview
+
+# 发布时间填写统计
+python db_viewer.py published
+
+# 按发布时间筛选
+python db_viewer.py months
+python db_viewer.py months 2024-01-01 --before 2024-12-31
+python db_viewer.py month 2024-06 -n 10
+python db_viewer.py since 2024-01-01
 
 # 按来源/状态筛选
 python db_viewer.py source bilibili -n 10
@@ -291,6 +314,13 @@ python db_viewer.py id 42
 
 # 查看时长统计
 python db_viewer.py duration
+```
+
+按发布时间筛选下载（`main.py`）：
+
+```bash
+python main.py --since 2024-01-01
+python main.py --since 2024-01-01 --before 2024-12-31 --limit 100
 ```
 
 示例输出（`python db_viewer.py overview`）：
@@ -390,9 +420,10 @@ python collect.py && python main.py --limit 100
 # 偶尔：用新关键词扩充源
 python discover.py --keywords 英语学习 科技播客
 
-# 后台持续运行（discover + main 同时跑，discover 写入新 URL，main 实时下载）
-python discover.py --source apple & # 终端1: 发现新源
-python main.py --loop &             # 终端2: 持续下载（默认 20 并发）
+# 后台持续运行（推荐两路 discover + 下载）
+python discover.py --loop &                  # 终端1: 搜新 feed，只解析未爬过的
+python discover.py --backfill-published &    # 终端2: 扫已爬 feed，补 published_at / 捞新剧集
+python main.py --loop &                      # 终端3: 持续下载
 ```
 
 ## 数据来源

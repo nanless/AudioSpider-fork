@@ -252,7 +252,7 @@ class FeedStore:
     """管理已发现的 RSS feeds，避免重复搜索"""
 
     def __init__(self, db_path: str = DB_PATH):
-        self.conn = sqlite3.connect(db_path, timeout=30)
+        self.conn = sqlite3.connect(db_path, timeout=60)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA temp_store = MEMORY")
         self.conn.execute("PRAGMA journal_mode = WAL")
@@ -297,6 +297,12 @@ class FeedStore:
     def get_uncrawled(self) -> list[dict]:
         rows = self.conn.execute(
             "SELECT * FROM discovered_feeds WHERE last_crawled='' ORDER BY discovered_at"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_crawled(self) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM discovered_feeds WHERE last_crawled!='' ORDER BY last_crawled"
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -753,13 +759,15 @@ def _store_podcasts(feed_store: FeedStore, podcasts: list[dict], via: str) -> in
 async def discover_and_collect(keywords: list[str], top: int = 200,
                                 sources: list[str] | None = None,
                                 pi_max_pages: int = 20,
-                                parse_only: bool = False):
+                                parse_only: bool = False,
+                                backfill_published: bool = False):
     """主流程：搜索 → 发现 feeds → 解析 → 入库
 
     Args:
         sources: 启用的数据源，可选 "apple", "podcastindex"，默认全部启用
         pi_max_pages: Podcast Index recent feeds 最大翻页数
         parse_only: 若为 True，跳过发现阶段，只解析未解析的 feeds
+        backfill_published: 若为 True，重新解析已爬过的 feeds，回填空的 published_at
     """
     active = set(sources or ["apple", "podcastindex"])
     if "apple" in active:
@@ -769,6 +777,44 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
     storage = Storage()
 
     new_feeds = 0
+
+    if backfill_published:
+        feeds = feed_store.get_crawled()
+        if not feeds:
+            logger.info("没有已解析的 feed 可回填 published_at")
+            storage.show_stats()
+            return
+        logger.info(f"\n开始回填 published_at: 重新解析 {len(feeds)} 个已爬 feeds...")
+        total_added = 0
+        total_backfilled = 0
+        async with aiohttp.ClientSession() as session:
+            for i, feed in enumerate(feeds, 1):
+                feed_url = feed["feed_url"]
+                feed_name = feed["podcast_name"] or feed_url[:60]
+                await random_delay(0.3, 0.8)
+                print(f"  >> 回填中 [{i}/{len(feeds)}] {feed_name} | {feed_url}", flush=True)
+                feed_genres = [g.strip() for g in (feed.get("genre") or "").split(",") if g.strip()]
+                records = await parse_rss_feed(session, feed_url, genres=feed_genres)
+                feed_store.mark_crawled(feed_url, len(records))
+                if records:
+                    added, backfilled = storage.add_urls_batch(records)
+                    total_added += added
+                    total_backfilled += backfilled
+                    if added or backfilled:
+                        logger.info(
+                            f"  [{i}/{len(feeds)}] {feed_name}: "
+                            f"+{added} 新URL, 回填 published_at {backfilled} 条"
+                        )
+                if i % 20 == 0:
+                    logger.info(
+                        f"  进度: {i}/{len(feeds)}, "
+                        f"累计新增 {total_added}, 回填 {total_backfilled}"
+                    )
+        logger.info(
+            f"\n回填完成: 新增 URL {total_added}, 回填 published_at {total_backfilled}"
+        )
+        storage.show_stats()
+        return
 
     if parse_only:
         logger.info("跳过发现阶段，直接解析未解析的 feeds...")
@@ -861,13 +907,17 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
             feed_store.mark_crawled(feed_url, len(records))
 
             if records:
-                new_records = [r for r in records if not storage.url_exists(r.url)]
-                if new_records:
-                    added = storage.add_urls_batch(new_records)
-                    total_new += added
-                    logger.info(f"  [{i}/{len(uncrawled)}] {feed_name}: +{added} 条")
+                # 全部交给 add_urls_batch：新 URL 插入；已存在且 published_at 空则回填
+                added, backfilled = storage.add_urls_batch(records)
+                total_new += added
+                if added or backfilled:
+                    logger.info(
+                        f"  [{i}/{len(uncrawled)}] {feed_name}: "
+                        f"+{added} 条"
+                        + (f", 回填 published_at {backfilled}" if backfilled else "")
+                    )
                 else:
-                    logger.debug(f"  [{i}/{len(uncrawled)}] {feed_name}: 全部已存在")
+                    logger.debug(f"  [{i}/{len(uncrawled)}] {feed_name}: 全部已存在且已有日期")
 
             if i % 20 == 0:
                 logger.info(f"  进度: {i}/{len(uncrawled)}, 累计新增 {total_new} 条 URL")
@@ -904,6 +954,8 @@ def main():
     parser.add_argument("--interval", type=int, default=86400, help="循环间隔秒数(默认1天)")
     parser.add_argument("--parse-only", action="store_true",
                         help="跳过发现阶段，只解析数据库中未解析的 feeds")
+    parser.add_argument("--backfill-published", action="store_true",
+                        help="重新解析已爬过的 feeds，为历史 URL 回填 published_at")
     parser.add_argument("--list-feeds", action="store_true", help="列出所有已发现的 feeds")
     parser.add_argument("--stats", action="store_true", help="显示已发现 feeds 的统计信息")
 
@@ -959,7 +1011,8 @@ def main():
                 await discover_and_collect(keywords, args.top,
                                             sources=sources,
                                             pi_max_pages=args.pi_max_pages,
-                                            parse_only=args.parse_only)
+                                            parse_only=args.parse_only,
+                                            backfill_published=args.backfill_published)
                 logger.info(f"等待 {args.interval} 秒...")
                 await asyncio.sleep(args.interval)
         asyncio.run(loop())
@@ -967,7 +1020,8 @@ def main():
         asyncio.run(discover_and_collect(keywords, args.top,
                                           sources=sources,
                                           pi_max_pages=args.pi_max_pages,
-                                          parse_only=args.parse_only))
+                                          parse_only=args.parse_only,
+                                          backfill_published=args.backfill_published))
 
 
 if __name__ == "__main__":

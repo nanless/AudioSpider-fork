@@ -41,7 +41,7 @@ class Storage:
 
     def _get_conn(self) -> sqlite3.Connection:
         if not hasattr(self._local, "conn") or self._local.conn is None:
-            self._local.conn = sqlite3.connect(self.db_path, timeout=30)
+            self._local.conn = sqlite3.connect(self.db_path, timeout=60)
             self._local.conn.row_factory = sqlite3.Row
             self._local.conn.execute("PRAGMA temp_store = MEMORY")
             self._local.conn.execute("PRAGMA journal_mode = WAL")
@@ -132,7 +132,8 @@ class Storage:
         except sqlite3.Error:
             return False
 
-    def add_urls_batch(self, records: list[AudioRecord]) -> int:
+    def add_urls_batch(self, records: list[AudioRecord]) -> tuple[int, int]:
+        """批量入库。返回 (新增条数, 回填 published_at 条数)。"""
         conn = self._get_conn()
         now = datetime.now().isoformat()
         rows = [
@@ -149,8 +150,24 @@ class Storage:
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
+        added = conn.total_changes - before
+        # 回填历史空 published_at（INSERT OR IGNORE 不会更新已有行）
+        backfill = [
+            (r.published_at, r.url)
+            for r in records
+            if r.published_at
+        ]
+        backfilled = 0
+        if backfill:
+            before_bf = conn.total_changes
+            conn.executemany(
+                "UPDATE audio_urls SET published_at=? "
+                "WHERE url=? AND (published_at='' OR published_at IS NULL)",
+                backfill,
+            )
+            backfilled = conn.total_changes - before_bf
         conn.commit()
-        return conn.total_changes - before
+        return added, backfilled
 
     def get_pending(
         self,
