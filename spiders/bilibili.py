@@ -22,11 +22,13 @@ from config import SPIDER_CONFIGS
 from spiders.base import BaseSpider
 from storage import AudioRecord
 
+# 默认关键词兜底；实际以 config.py → bilibili.search_keywords 为准
 SEARCH_KEYWORDS = [
-    "有声书 合集", "评书 单田芳", "评书 袁阔成",
-    "相声 郭德纲", "相声 合集",
+    "有声书 合集", "有声书 全集", "听书 合集",
+    "评书 单田芳", "评书 袁阔成", "评书 田连元",
+    "相声 郭德纲", "相声 德云社", "相声 合集",
     "演讲 TED 中文", "脱口秀 合集",
-    "广播剧 全集", "朗读 名著",
+    "广播剧 全集", "朗读 名著", "百家讲坛",
 ]
 
 BILIBILI_HEADERS = {

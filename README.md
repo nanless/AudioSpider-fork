@@ -205,11 +205,34 @@ export PODCAST_INDEX_SECRET="你的secret"
 
 #### 5. B站（bilibili）
 
-通过 B站搜索 API 按关键词搜索语音类长视频，提取每个视频的 DASH 音频流（M4A 格式）。
+通过 B站搜索 API 按关键词翻页搜索语音类长视频，提取每个视频的 DASH 音频流（M4A 格式）。适合有声书、评书、相声、演讲、广播剧等长音频内容。
 
-> 想加更多搜索词？修改 `config.py` 中 `bilibili` → `search_keywords` 列表即可。
+**爬取流程（边搜边解析边入库）：**
+
+```
+关键词 → 搜索第 N 页 → 立刻解析该页每个视频的分P音频 URL → 每个视频解析完立刻入库
+         └─ 同时预取第 N+1 页搜索结果（asyncio）
+```
+
+- 不会等全部搜索完成再解析；也不会等整轮爬完再写库
+- 中断后已入库的 URL 会保留；重新执行时按 `source_id`（`{bvid}_p{分P}`）和 `url` 去重，不会重复插入
+- 音频流 URL 有时效性，下载时（`main.py`）会实时刷新
+
+**配置项**（`config.py` → `bilibili`）：
+
+| 配置 | 含义 | 默认（偏最大化） |
+|------|------|------------------|
+| `search_keywords` | 搜索关键词列表 | 有声书/评书/相声/演讲/脱口秀/广播剧/朗读/人文等 |
+| `max_search_pages` | 每个关键词最多翻多少页搜索（每页约 20 个视频） | `50` |
+| `max_videos_per_keyword` | 每个关键词最多解析多少个视频 | `1000` |
+| `max_pages_per_video` | 每个视频最多取多少分 P（大合集可上千 P） | `9999` |
+
+> 想加更多搜索词？修改 `config.py` 中 `bilibili` → `search_keywords` 即可。关键词越多覆盖越大。
 
 ```bash
+# 只跑 B站搜集
+python collect.py --spiders bilibili
+
 # 运行全部爬虫
 python collect.py
 
@@ -218,6 +241,13 @@ python collect.py --spiders xiaoyuzhou podcast_rss
 
 # 每小时自动搜集一次（适合抓播客更新）
 python collect.py --loop --interval 3600
+
+# 边搜集边下载（开两个终端）
+python collect.py --spiders bilibili          # 终端1：搜+入库
+python main.py --source bilibili --loop      # 终端2：持续下载 pending
+
+# 重试失败的 B站下载
+python main.py --retry-failed --source bilibili --limit 1000
 ```
 
 ### discover.py vs collect.py
@@ -275,6 +305,7 @@ python main.py --limit 999999999
 # 重试之前下载失败的 URL（只下载 failed 状态的，成功改 done，仍失败保持 failed）
 python main.py --retry-failed
 python main.py --retry-failed --limit 1000
+python main.py --retry-failed --source bilibili --limit 1000  # 只重试指定来源
 
 # 查看统计
 python main.py stats
