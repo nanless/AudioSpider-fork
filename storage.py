@@ -251,12 +251,20 @@ class Storage:
             conn.execute("UPDATE audio_urls SET status=? WHERE url=?", (status, url))
         conn.commit()
 
-    def get_failed(self, limit: int = 50) -> list[dict]:
-        """获取所有 failed 状态的 URL"""
+    def get_failed(self, limit: int = 50, source: str | None = None) -> list[dict]:
+        """获取 failed 状态的 URL，可按来源过滤"""
         conn = self._get_conn()
-        rows = conn.execute(
-            "SELECT * FROM audio_urls WHERE status='failed' ORDER BY id LIMIT ?", (limit,)
-        ).fetchall()
+        if source:
+            rows = conn.execute(
+                "SELECT * FROM audio_urls WHERE status='failed' AND source=? "
+                "ORDER BY id LIMIT ?",
+                (source, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM audio_urls WHERE status='failed' ORDER BY id LIMIT ?",
+                (limit,),
+            ).fetchall()
         return [dict(r) for r in rows]
 
     def set_content_hash(self, url: str, content_hash: str):

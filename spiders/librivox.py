@@ -20,7 +20,7 @@ class LibriVoxSpider(BaseSpider):
         self.max_items = cfg["max_items"]
         self.limiter = RateLimiter(rate=1.0, burst=3)
 
-    async def crawl(self) -> list[AudioRecord]:
+    async def crawl(self, on_batch=None) -> list[AudioRecord]:
         self.logger.info("开始爬取 LibriVox...")
         records = []
         async with aiohttp.ClientSession() as session:

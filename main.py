@@ -15,6 +15,7 @@
     python main.py --workers 10              # 10 并发下载
     python main.py --loop                    # 持续消费下载
     python main.py --retry-failed            # 重试所有失败的 URL
+    python main.py --retry-failed --source bilibili  # 只重试指定来源的失败 URL
     python main.py stats                     # 查看统计 + 已下载文件
 """
 
@@ -76,12 +77,14 @@ def main():
         return
 
     if args.retry_failed:
-        failed_items = storage.get_failed(limit=args.limit)
+        failed_items = storage.get_failed(limit=args.limit, source=args.source)
         logger = logging.getLogger("download")
         if not failed_items:
-            logger.info("没有失败的 URL 需要重试")
+            scope = f"来源={args.source}" if args.source else "全部来源"
+            logger.info(f"没有失败的 URL 需要重试（{scope}）")
             return
-        logger.info(f"准备重试 {len(failed_items)} 条失败的 URL")
+        scope = f"来源={args.source}" if args.source else "全部来源"
+        logger.info(f"准备重试 {len(failed_items)} 条失败的 URL（{scope}）")
 
         async def retry():
             dl = Downloader(storage, max_workers=args.workers)

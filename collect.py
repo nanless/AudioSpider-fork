@@ -45,6 +45,26 @@ def setup_logging():
     )
 
 
+def _flush_records(storage: Storage, records: list, logger: logging.Logger) -> tuple[int, int]:
+    """去重后批量入库，返回 (新增条数, 回填 published_at 条数)。"""
+    if not records:
+        return 0, 0
+    new_records = []
+    for r in records:
+        if r.source_id and storage.source_id_exists(r.source, r.source_id):
+            continue
+        if storage.url_exists(r.url):
+            continue
+        new_records.append(r)
+
+    if new_records:
+        return storage.add_urls_batch(new_records)
+
+    # 已存在的也可能缺 published_at，再跑一遍回填
+    _, backfilled = storage.add_urls_batch(records)
+    return 0, backfilled
+
+
 async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
     logger = logging.getLogger("collect")
     logger.info("=" * 60)
@@ -59,33 +79,47 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
 
         logger.info(f"\n>>> 启动爬虫: {spider.name}")
         try:
-            records = await spider.crawl()
-            if records:
-                new_records = []
-                for r in records:
-                    if r.source_id and storage.source_id_exists(r.source, r.source_id):
-                        continue
-                    if storage.url_exists(r.url):
-                        continue
-                    new_records.append(r)
+            # 增量入库：爬虫每产出一批（如 B站每解析完一页）就立刻写库
+            incremental = {"used": False, "added": 0, "backfilled": 0}
 
-                if new_records:
-                    added, backfilled = storage.add_urls_batch(new_records)
-                    total_new += added
+            def on_batch(batch):
+                incremental["used"] = True
+                added, backfilled = _flush_records(storage, batch, logger)
+                incremental["added"] += added
+                incremental["backfilled"] += backfilled
+                if added or backfilled:
+                    logger.info(
+                        f"    [{spider.name}] 增量入库 +{added}"
+                        + (f", 回填 published_at {backfilled}" if backfilled else "")
+                    )
+
+            records = await spider.crawl(on_batch=on_batch)
+
+            if incremental["used"]:
+                total_new += incremental["added"]
+                logger.info(
+                    f"<<< {spider.name}: 发现 {len(records)} 个, "
+                    f"增量新增 {incremental['added']} 个"
+                    + (
+                        f", 回填 published_at {incremental['backfilled']}"
+                        if incremental["backfilled"] else ""
+                    )
+                )
+            elif records:
+                added, backfilled = _flush_records(storage, records, logger)
+                total_new += added
+                if added:
                     logger.info(
                         f"<<< {spider.name}: 发现 {len(records)} 个, 新增 {added} 个"
                         + (f", 回填 published_at {backfilled}" if backfilled else "")
                     )
+                elif backfilled:
+                    logger.info(
+                        f"<<< {spider.name}: 发现 {len(records)} 个, "
+                        f"全部已存在, 回填 published_at {backfilled}"
+                    )
                 else:
-                    # 已存在的也可能缺 published_at，再跑一遍回填
-                    _, backfilled = storage.add_urls_batch(records)
-                    if backfilled:
-                        logger.info(
-                            f"<<< {spider.name}: 发现 {len(records)} 个, "
-                            f"全部已存在, 回填 published_at {backfilled}"
-                        )
-                    else:
-                        logger.info(f"<<< {spider.name}: 发现 {len(records)} 个, 全部已存在")
+                    logger.info(f"<<< {spider.name}: 发现 {len(records)} 个, 全部已存在")
             else:
                 logger.info(f"<<< {spider.name}: 未发现音频")
         except Exception as e:

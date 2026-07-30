@@ -67,7 +67,7 @@ class XimalayaSpider(BaseSpider):
         self.max_tracks = cfg["max_tracks_per_album"]
         self.limiter = RateLimiter(rate=0.5, burst=2)
 
-    async def crawl(self) -> list[AudioRecord]:
+    async def crawl(self, on_batch=None) -> list[AudioRecord]:
         self.logger.info("开始爬取喜马拉雅...")
         records: list[AudioRecord] = []
         seen_urls: set[str] = set()

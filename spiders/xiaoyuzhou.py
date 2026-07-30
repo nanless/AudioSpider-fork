@@ -31,7 +31,7 @@ class XiaoyuzhouSpider(BaseSpider):
         self.max_eps = cfg["max_episodes_per_podcast"]
         self.limiter = RateLimiter(rate=0.3, burst=2)
 
-    async def crawl(self) -> list[AudioRecord]:
+    async def crawl(self, on_batch=None) -> list[AudioRecord]:
         self.logger.info("开始爬取小宇宙播客...")
         records = []
         seen_urls = set()

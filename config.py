@@ -112,8 +112,12 @@ SPIDER_CONFIGS = {
             "演讲 TED 中文", "脱口秀 合集",
             "广播剧 全集", "朗读 名著",
         ],
-        "max_videos_per_keyword": 10,
-        "max_pages_per_video": 20,
+        # 搜索翻页：每页约 20 个视频；结果耗尽时会提前停止
+        "max_search_pages": 50,
+        # 每个关键词最多解析的视频数（建议 >= max_search_pages * 20）
+        "max_videos_per_keyword": 1000,
+        # 每个视频最多取多少分P（设很大 ≈ 不限）
+        "max_pages_per_video": 9999,
     },
 }
 

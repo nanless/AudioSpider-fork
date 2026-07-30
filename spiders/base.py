@@ -18,8 +18,12 @@ class BaseSpider(ABC):
         self.collected: list[AudioRecord] = []
 
     @abstractmethod
-    async def crawl(self) -> list[AudioRecord]:
-        """执行爬取，返回发现的音频记录列表"""
+    async def crawl(self, on_batch=None) -> list[AudioRecord]:
+        """执行爬取，返回发现的音频记录列表。
+
+        on_batch: 可选回调 ``(records: list[AudioRecord]) -> None``，
+        用于增量入库（例如每解析完一页就调用一次）。
+        """
         ...
 
     def _make_record(self, url: str, title: str = "", file_format: str = "") -> AudioRecord:

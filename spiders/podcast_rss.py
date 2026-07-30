@@ -27,7 +27,7 @@ class PodcastRSSSpider(BaseSpider):
         self.max_eps = cfg["max_episodes_per_feed"]
         self.limiter = RateLimiter(rate=0.5, burst=3)
 
-    async def crawl(self) -> list[AudioRecord]:
+    async def crawl(self, on_batch=None) -> list[AudioRecord]:
         self.logger.info(f"开始爬取 {len(self.feeds)} 个播客 RSS...")
         records = []
         async with aiohttp.ClientSession() as session:
