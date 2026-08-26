@@ -13,6 +13,7 @@
     python main.py --per-source --limit 20   # 每个来源各下载 20 条
     python main.py --per-category --limit 10 # 每个分类各下载 10 条
     python main.py --workers 10              # 10 并发下载
+    python main.py --format original         # 保留原始格式，跳过 ffmpeg 转 opus
     python main.py --loop                    # 持续消费下载
     python main.py --retry-failed            # 重试所有失败的 URL
     python main.py --retry-failed --source bilibili  # 只重试指定来源的失败 URL
@@ -54,6 +55,8 @@ def main():
     parser.add_argument("--per-category", action="store_true", help="每个分类各下载 --limit 条")
     parser.add_argument("--limit", type=int, default=50, help="单批下载数量(默认50)")
     parser.add_argument("--workers", type=int, default=None, help="并发下载数(默认5)")
+    parser.add_argument("--format", choices=["opus", "original"], default="opus",
+                        help="保存格式: opus=ffmpeg转opus(默认), original=保留原始格式(省CPU)")
     parser.add_argument("--retry-failed", action="store_true",
                         help="将所有 failed 状态重置为 pending 并重新下载")
     parser.add_argument("--loop", action="store_true", help="持续循环消费下载")
@@ -87,7 +90,8 @@ def main():
         logger.info(f"准备重试 {len(failed_items)} 条失败的 URL（{scope}）")
 
         async def retry():
-            dl = Downloader(storage, max_workers=args.workers)
+            dl = Downloader(storage, max_workers=args.workers,
+                            convert=args.format == "opus")
             return await dl.download_all(items=failed_items)
         asyncio.run(retry())
         storage.show_stats()
@@ -104,8 +108,10 @@ def main():
         published_before=args.before,
     )
 
+    convert = args.format == "opus"
+
     async def download_once():
-        dl = Downloader(storage, max_workers=args.workers)
+        dl = Downloader(storage, max_workers=args.workers, convert=convert)
         return await dl.download_all(**dl_kwargs)
 
     async def download_loop():
@@ -114,7 +120,7 @@ def main():
         while True:
             round_num += 1
             logger.info(f"\n=== 下载轮次 {round_num} ===")
-            dl = Downloader(storage, max_workers=args.workers)
+            dl = Downloader(storage, max_workers=args.workers, convert=convert)
             stats = await dl.download_all(**dl_kwargs)
             storage.show_stats()
             if stats["success"] == 0 and stats["failed"] == 0:

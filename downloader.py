@@ -144,9 +144,11 @@ def convert_to_target(filepath: str) -> str | None:
 
 
 class Downloader:
-    def __init__(self, storage: Storage, max_workers: int | None = None):
+    def __init__(self, storage: Storage, max_workers: int | None = None,
+                 convert: bool = True):
         self.storage = storage
         self.max_workers = max_workers or MAX_CONCURRENT_DOWNLOADS
+        self.convert = convert
         self.semaphore = asyncio.Semaphore(self.max_workers)
         self.stats = {"success": 0, "failed": 0, "skipped": 0, "dup": 0}
         self._connector = None
@@ -173,7 +175,8 @@ class Downloader:
             return self.stats
 
         total = len(pending)
-        logger.info(f"开始下载 {total} 个音频文件 (并发={self.max_workers})...")
+        fmt_hint = "opus" if self.convert else "原始格式"
+        logger.info(f"开始下载 {total} 个音频文件 (并发={self.max_workers}, 保存={fmt_hint})...")
 
         self._connector = aiohttp.TCPConnector(limit=self.max_workers, limit_per_host=3)
         async with aiohttp.ClientSession(connector=self._connector) as session:
@@ -245,12 +248,13 @@ class Downloader:
 
                 self.storage.set_content_hash(item["url"], content_hash)
 
-                converted_path = await asyncio.to_thread(convert_to_target, filepath)
-                if converted_path:
-                    filepath = converted_path
-                    filename = os.path.basename(filepath)
-                else:
-                    logger.warning(f"{progress} 格式转换失败, 保留原始文件: {filename}")
+                if self.convert:
+                    converted_path = await asyncio.to_thread(convert_to_target, filepath)
+                    if converted_path:
+                        filepath = converted_path
+                        filename = os.path.basename(filepath)
+                    else:
+                        logger.warning(f"{progress} 格式转换失败, 保留原始文件: {filename}")
 
                 self.storage.update_status(item["url"], "done", filepath)
                 self.stats["success"] += 1

@@ -54,7 +54,7 @@ collect.py                      → 抓 config 里固定来源            ─┘
 
 ### 安装系统依赖
 
-下载器会自动将音频转为 Opus 格式，需要系统安装 ffmpeg：
+默认下载后会用 ffmpeg 转为 Opus。若使用 `--format original` 保留原始格式，则不需要 ffmpeg：
 
 ```bash
 # Ubuntu / Debian
@@ -88,8 +88,9 @@ pip install -r requirements.txt
 python discover.py                         # 两个源全开（需配置 Podcast Index API Key，否则自动跳过）
 python discover.py --source apple          # 或只用 Apple 源（无需注册）
 
-# 5. 下载音频
+# 5. 下载音频（默认转 Opus；FORMAT=original 可跳过转码、降低 CPU）
 python main.py --limit 100
+python main.py --limit 100 --format original
 ```
 
 ## 用法
@@ -294,6 +295,10 @@ python main.py --language zh --source podcast_rss --limit 200
 # 20 并发下载（默认 20）
 python main.py --workers 20
 
+# 保存格式：opus=ffmpeg 转 opus（默认）；original=保留原始格式，不跑 ffmpeg
+python main.py --format opus
+python main.py --format original
+
 # 持续消费下载（每 60 秒检查一次，每轮下载 --limit 条）
 python main.py --loop
 
@@ -423,7 +428,7 @@ python main.py --since 2024-01-01 --before 2024-12-31 --limit 100
 
 ### 格式转换（convert_audio.py）
 
-下载器会自动将音频转为统一格式（见下方「音频格式」章节）。对于早期下载的、尚未转换的文件，可用批量转换脚本补转：
+默认下载后会转为统一 Opus（见下方「音频格式」章节）。若用 `--format original` 跳过了转码，或早期文件尚未转换，可用批量转换脚本补转：
 
 ```bash
 # 预览哪些文件需要转换
@@ -473,7 +478,25 @@ python main.py --loop &                      # 终端3: 持续下载
 
 ## 音频格式
 
-所有音频统一转为面向语音模型训练的标准格式：
+下载时可通过 `--format` 控制是否转码（默认 `opus`）：
+
+| `--format` | 行为 | 是否调用 ffmpeg |
+|---|---|---|
+| **opus**（默认） | 下载后转为统一 Opus | 是 |
+| **original** | 保留源站原始格式，不转码 | 否 |
+
+`download_zh_podcast.sh` 用环境变量透传同一选项：
+
+```bash
+bash download_zh_podcast.sh                    # 默认转 opus
+FORMAT=original bash download_zh_podcast.sh    # 保留原始格式，降低 CPU
+```
+
+原始格式按 URL 后缀识别，常见为 **mp3 / m4a / ogg / aac / wav / opus**（中文播客 RSS 以 m4a、mp3 为主）。无法识别的后缀按 mp3 保存。
+
+### 默认转码目标（`--format opus`）
+
+面向语音模型训练的统一格式：
 
 | 参数 | 值 |
 |------|-----|
@@ -497,7 +520,7 @@ import torchaudio
 wav, sr = torchaudio.load("audio.opus")  # sr=24000, wav.shape=[1, N]
 ```
 
-下载流程中自动完成格式转换（需要系统安装 `ffmpeg`），也可用 `convert_audio.py` 对已有文件批量补转。
+`--format opus` 时下载流程会自动转码（需要系统安装 `ffmpeg`）。已用 `--format original` 保存的文件，之后也可用 `convert_audio.py` 批量补转。
 
 ## 去重机制
 
