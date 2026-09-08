@@ -65,13 +65,15 @@ def sync_request(url: str, method: str = "GET", **kwargs) -> requests.Response |
     """带重试和反爬的同步请求"""
     for attempt in range(MAX_RETRIES):
         try:
-            kwargs.setdefault("headers", build_headers(kwargs.pop("referer", None)))
-            kwargs.setdefault("timeout", REQUEST_TIMEOUT)
+            request_kwargs = dict(kwargs)
+            referer = request_kwargs.pop("referer", None)
+            request_kwargs.setdefault("headers", build_headers(referer))
+            request_kwargs.setdefault("timeout", REQUEST_TIMEOUT)
             proxy = get_proxy()
             if proxy:
-                kwargs.setdefault("proxies", proxy)
+                request_kwargs["proxies"] = proxy
 
-            resp = requests.request(method, url, **kwargs)
+            resp = requests.request(method, url, **request_kwargs)
             resp.raise_for_status()
             return resp
         except requests.RequestException as e:
@@ -87,13 +89,15 @@ async def async_request(session: aiohttp.ClientSession, url: str,
     """带重试和反爬的异步请求"""
     for attempt in range(MAX_RETRIES):
         try:
-            kwargs.setdefault("headers", build_headers(kwargs.pop("referer", None)))
-            kwargs.setdefault("timeout", aiohttp.ClientTimeout(total=REQUEST_TIMEOUT))
+            request_kwargs = dict(kwargs)
+            referer = request_kwargs.pop("referer", None)
+            request_kwargs.setdefault("headers", build_headers(referer))
+            request_kwargs.setdefault("timeout", aiohttp.ClientTimeout(total=REQUEST_TIMEOUT))
             proxy = get_aio_proxy()
             if proxy:
-                kwargs.setdefault("proxy", proxy)
+                request_kwargs["proxy"] = proxy
 
-            async with session.request(method, url, **kwargs) as resp:
+            async with session.request(method, url, **request_kwargs) as resp:
                 resp.raise_for_status()
                 data = await resp.read()
                 return resp.status, data
@@ -109,6 +113,8 @@ class RateLimiter:
     """令牌桶限速器"""
 
     def __init__(self, rate: float = 1.0, burst: int = 5):
+        if rate <= 0 or burst <= 0:
+            raise ValueError("rate and burst must be positive")
         self.rate = rate
         self.burst = burst
         self._tokens = burst
@@ -116,15 +122,14 @@ class RateLimiter:
         self._lock = asyncio.Lock()
 
     async def acquire(self):
-        async with self._lock:
-            now = time.monotonic()
-            elapsed = now - self._last_refill
-            self._tokens = min(self.burst, self._tokens + elapsed * self.rate)
-            self._last_refill = now
-
-            if self._tokens < 1:
+        while True:
+            async with self._lock:
+                now = time.monotonic()
+                elapsed = now - self._last_refill
+                self._tokens = min(self.burst, self._tokens + elapsed * self.rate)
+                self._last_refill = now
+                if self._tokens >= 1:
+                    self._tokens -= 1
+                    return
                 wait = (1 - self._tokens) / self.rate
-                await asyncio.sleep(wait)
-                self._tokens = 0
-            else:
-                self._tokens -= 1
+            await asyncio.sleep(wait)

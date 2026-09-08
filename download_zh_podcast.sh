@@ -14,7 +14,7 @@ SOURCE="${SOURCE:-podcast_rss}"
 LANGUAGE="${LANGUAGE:-zh}"
 WORKERS="${WORKERS:-10}"
 LIMIT="${LIMIT:-1000}"
-INTERVAL="${INTERVAL:-0}"
+INTERVAL="${INTERVAL:-60}"
 FORMAT="${FORMAT:-opus}"   # opus | original
 
 if [[ "$FORMAT" != "opus" && "$FORMAT" != "original" ]]; then

@@ -51,8 +51,6 @@ SEED_TRACK_IDS = [
 
 # 探测范围：每个种子 ID 前后探测的个数
 PROBE_RANGE = 5
-# 同一专辑最多抓取的 track 数
-MAX_PER_ALBUM = 50
 # 总探测上限（防止无限扩展）
 MAX_TOTAL_PROBES = 500
 
@@ -71,7 +69,6 @@ class XimalayaSpider(BaseSpider):
         self.logger.info("开始爬取喜马拉雅...")
         records: list[AudioRecord] = []
         seen_urls: set[str] = set()
-        seen_track_ids: set[str] = set()
         album_track_count: dict[str, int] = {}
         total_probes = 0
 
@@ -84,28 +81,28 @@ class XimalayaSpider(BaseSpider):
                 if tid in processed:
                     continue
                 processed.add(tid)
+                total_probes += 1
 
                 await self.limiter.acquire()
                 record = await self._get_track_audio(session, tid)
                 if record:
                     if record.url not in seen_urls:
                         seen_urls.add(record.url)
-                        seen_track_ids.add(tid)
                         records.append(record)
+                        if on_batch is not None:
+                            on_batch([record])
 
                     album_id_str = await self._get_album_id(session, tid)
                     if album_id_str:
                         cnt = album_track_count.get(album_id_str, 0)
-                        if cnt < MAX_PER_ALBUM and total_probes < MAX_TOTAL_PROBES:
+                        if cnt < self.max_tracks and total_probes < MAX_TOTAL_PROBES:
                             tid_int = int(tid)
                             for delta in range(1, PROBE_RANGE + 1):
                                 for neighbor in (tid_int + delta, tid_int - delta):
                                     nid = str(neighbor)
                                     if nid not in processed and nid not in all_pending:
                                         all_pending.append(nid)
-                                        total_probes += 1
                             album_track_count[album_id_str] = cnt + 1
-                total_probes += 1
                 await random_delay(0.5, 1.5)
 
         self.logger.info(f"喜马拉雅 共发现 {len(records)} 个语音文件")

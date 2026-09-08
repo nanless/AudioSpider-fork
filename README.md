@@ -16,7 +16,7 @@ AudioSpider/
 ├── storage.py          # SQLite 存储（URL 去重、状态追踪、指纹去重）
 ├── downloader.py       # 异步下载引擎（并发、断点续传、元信息生成）
 ├── anti_crawler.py     # 反爬工具（UA 轮换、延时、代理、限速）
-├── convert_audio.py    # 批量音频格式转换（→ Opus 24kHz mono 32kbps）
+├── convert_audio.py    # 批量音频格式转换（→ 单声道 Opus 32kbps）
 ├── db_viewer.py        # 数据库交互式查看器
 ├── spiders/            # 各来源爬虫
 │   ├── base.py         # 爬虫基类
@@ -91,6 +91,15 @@ python discover.py --source apple          # 或只用 Apple 源（无需注册�
 # 5. 下载音频（默认转 Opus；FORMAT=original 可跳过转码、降低 CPU）
 python main.py --limit 100
 python main.py --limit 100 --format original
+```
+
+也可以直接使用仓库内的 Conda 定义和精确依赖锁：
+
+```bash
+conda env create -f environment.yml
+conda activate audiospider
+python -m pip check
+python -m unittest discover -s tests -v
 ```
 
 ## 用法
@@ -224,9 +233,9 @@ export PODCAST_INDEX_SECRET="你的secret"
 | 配置 | 含义 | 默认（偏最大化） |
 |------|------|------------------|
 | `search_keywords` | 搜索关键词列表 | 有声书/评书/相声/演讲/脱口秀/广播剧/朗读/人文等 |
-| `max_search_pages` | 每个关键词最多翻多少页搜索（每页约 20 个视频） | `50` |
-| `max_videos_per_keyword` | 每个关键词最多解析多少个视频 | `1000` |
-| `max_pages_per_video` | 每个视频最多取多少分 P（大合集可上千 P） | `9999` |
+| `max_search_pages` | 每个关键词最多翻多少页搜索（每页约 20 个视频） | `5` |
+| `max_videos_per_keyword` | 每个关键词最多解析多少个视频 | `100` |
+| `max_pages_per_video` | 每个视频最多取多少分 P | `200` |
 
 > 想加更多搜索词？修改 `config.py` 中 `bilibili` → `search_keywords` 即可。关键词越多覆盖越大。
 
@@ -292,8 +301,8 @@ python main.py --per-category --limit 10
 python main.py --source bilibili --category 有声书 --limit 50
 python main.py --language zh --source podcast_rss --limit 200
 
-# 20 并发下载（默认 20）
-python main.py --workers 20
+# 默认 4 并发；可按机器负载调整，最大 32
+python main.py --workers 4
 
 # 保存格式：opus=ffmpeg 转 opus（默认）；original=保留原始格式，不跑 ffmpeg
 python main.py --format opus
@@ -302,8 +311,8 @@ python main.py --format original
 # 持续消费下载（每 60 秒检查一次，每轮下载 --limit 条）
 python main.py --loop
 
-# 全量下载数据库中所有待下载 URL
-python main.py --limit 999999999
+# 持续按安全批次消费全部待下载 URL
+python main.py --loop --limit 1000 --interval 60
 
 # 中断后重启会自动恢复：downloading 状态自动重置为 pending，不会丢失进度
 
@@ -502,22 +511,24 @@ FORMAT=original bash download_zh_podcast.sh    # 保留原始格式，降低 CPU
 |------|-----|
 | **编码** | Opus (libopus) |
 | **容器** | `.opus` |
-| **采样率** | 24kHz |
+| **编码输入采样率** | 24kHz（Opus 解码器通常报告/输出 48kHz） |
 | **通道** | 单声道 (mono) |
 | **码率** | 32kbps |
 
 选型依据：
 
 - **Opus 32kbps** — 同码率下音质优于 MP3/AAC，是 WenetSpeech 等大规模语音数据集的标准选择
-- **24kHz** — 现代 TTS 模型（VALL-E、ChatTTS 等）的主流训练采样率，完整覆盖人声频率范围
+- **24kHz 编码输入** — 转码前向 libopus 提供 24kHz PCM；标准 Opus 解码通常以 48kHz 输出，训练代码若严格要求 24kHz 应显式重采样
 - **单声道** — 语音合成只需单通道
 - **存储效率** — 1 万小时约 140GB，相比 WAV (1.6TB) 节省约 91%
 
-训练时用 `torchaudio.load()` 直接加载，自动解码为 24kHz PCM：
+训练时应检查解码后的实际采样率，并按模型要求显式重采样：
 
 ```python
 import torchaudio
-wav, sr = torchaudio.load("audio.opus")  # sr=24000, wav.shape=[1, N]
+wav, sr = torchaudio.load("audio.opus")  # Opus 通常返回 sr=48000
+if sr != 24000:
+    wav = torchaudio.functional.resample(wav, sr, 24000)
 ```
 
 `--format opus` 时下载流程会自动转码（需要系统安装 `ffmpeg`）。已用 `--format original` 保存的文件，之后也可用 `convert_audio.py` 批量补转。
@@ -528,7 +539,7 @@ wav, sr = torchaudio.load("audio.opus")  # sr=24000, wav.shape=[1, N]
 
 1. **URL 去重** — 数据库 UNIQUE 约束
 2. **source_id 去重** — 用源站唯一 ID 做增量爬取判断
-3. **内容指纹去重** — 下载后计算 MD5，跨源去重
+3. **内容指纹去重** — 对最终保存文件计算 SHA-256，并在事务中跨源去重
 
 ## 下载目录结构
 
@@ -558,10 +569,12 @@ downloads/
 
 - 随机 User-Agent 轮换
 - 请求间随机延时
-- 指数退避重试
+- 下载失败指数退避重试
 - 令牌桶限速
 - Referer 头伪装
-- 代理支持（在 `config.py` 中配置 `PROXY_LIST`）
+- 下载代理支持（在 `config.py` 中配置 `PROXY_LIST`）
+
+下载器默认还会拒绝环回、私网、link-local 和非 HTTP(S) 地址，对每次重定向重新校验目标；同时限制单文件大小、预留磁盘安全水位，并在完成前使用 ffprobe 验证音频。任务通过 SQLite lease 原子领取，多进程不会同时消费同一条 pending 记录。
 
 ## 统计
 

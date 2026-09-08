@@ -12,10 +12,33 @@ TMP_DIR = os.path.join(BASE_DIR, "tmp")
 os.makedirs(TMP_DIR, exist_ok=True)
 os.environ.setdefault("TMPDIR", TMP_DIR)
 
-MAX_CONCURRENT_DOWNLOADS = 20
+def _positive_env_int(name: str, default: int) -> int:
+    value = int(os.environ.get(name, str(default)))
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return value
+
+
+MAX_CONCURRENT_DOWNLOADS = 4
 MAX_CONCURRENT_SPIDERS = 3
 DOWNLOAD_TIMEOUT = 600
 REQUEST_TIMEOUT = 30
+
+# 单批和资源保护。均可通过环境变量按部署规模覆盖。
+MAX_BATCH_SIZE = _positive_env_int("AUDIOSPIDER_MAX_BATCH_SIZE", 10_000)
+MAX_DOWNLOAD_WORKERS = _positive_env_int("AUDIOSPIDER_MAX_WORKERS", 32)
+MAX_DOWNLOAD_BYTES = _positive_env_int(
+    "AUDIOSPIDER_MAX_DOWNLOAD_BYTES", 4 * 1024 * 1024 * 1024,
+)
+MIN_FREE_DISK_BYTES = _positive_env_int(
+    "AUDIOSPIDER_MIN_DISK_FREE_BYTES", 20 * 1024 * 1024 * 1024,
+)
+DOWNLOAD_LEASE_SECONDS = _positive_env_int(
+    "AUDIOSPIDER_DOWNLOAD_LEASE_SECONDS", 2 * 60 * 60,
+)
+MAX_RSS_SIZE = _positive_env_int(
+    "AUDIOSPIDER_MAX_RSS_SIZE", 20 * 1024 * 1024,
+)
 
 MIN_DELAY = 1.0
 MAX_DELAY = 3.0
@@ -134,11 +157,11 @@ SPIDER_CONFIGS = {
             "读书 解读", "历史 故事 合集", "百家讲坛", "人文 讲座",
         ],
         # 搜索翻页：每页约 20 个视频；结果耗尽时会提前停止
-        "max_search_pages": 50,
+        "max_search_pages": 5,
         # 每个关键词最多解析的视频数（建议 >= max_search_pages * 20）
-        "max_videos_per_keyword": 1000,
+        "max_videos_per_keyword": 100,
         # 每个视频最多取多少分P（设很大 ≈ 不限）
-        "max_pages_per_video": 9999,
+        "max_pages_per_video": 200,
     },
 }
 

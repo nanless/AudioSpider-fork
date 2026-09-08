@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Hao Yin. All rights reserved.
 
-"""批量音频格式转换：统一为 Opus 24kHz 单声道 32kbps
+"""批量音频格式转换：24kHz PCM 输入编码为单声道 Opus 32kbps
 
 用法:
   python convert_audio.py                   转换 downloads/ 下所有音频
@@ -15,9 +15,12 @@ import logging
 import os
 import subprocess
 import sys
+import uuid
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from config import DOWNLOAD_DIR
+from config import DB_PATH, DOWNLOAD_DIR
+from storage import Storage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s", datefmt="%H:%M:%S")
 logger = logging.getLogger(__name__)
@@ -55,20 +58,21 @@ def get_audio_info(filepath: str) -> dict:
 
 
 def is_already_target_format(filepath: str) -> bool:
-    """检查文件是否已经是目标格式（Opus + 24kHz + mono）"""
+    """检查文件是否已经是 Opus 单声道（解码采样率通常报告 48kHz）。"""
     if not filepath.lower().endswith(TARGET_EXT):
         return False
     info = get_audio_info(filepath)
     for stream in info.get("streams", []):
         if stream.get("codec_type") == "audio":
-            sr = int(stream.get("sample_rate", 0))
             ch = int(stream.get("channels", 0))
-            if sr == 24000 and ch == 1:
+            if stream.get("codec_name") == "opus" and ch == 1:
                 return True
     return False
 
 
-def convert_file(filepath: str, dry_run: bool = False) -> dict:
+def convert_file(filepath: str, dry_run: bool = False,
+                 target_path: str | None = None,
+                 storage: Storage | None = None) -> dict:
     """转换单个音频文件，返回结果信息"""
     ext = os.path.splitext(filepath)[1].lower()
     result = {"path": filepath, "status": "skipped", "detail": ""}
@@ -82,13 +86,19 @@ def convert_file(filepath: str, dry_run: bool = False) -> dict:
         return result
 
     base = os.path.splitext(filepath)[0]
-    tmp_output = base + ".tmp_convert" + TARGET_EXT
-    final_output = base + TARGET_EXT
+    final_output = target_path or base + TARGET_EXT
+    tmp_output = f"{base}.tmp_convert.{uuid.uuid4().hex}{TARGET_EXT}"
 
     if dry_run:
         old_size = os.path.getsize(filepath) / 1024 / 1024
         result["status"] = "will_convert"
         result["detail"] = f"{ext} → {TARGET_EXT} ({old_size:.1f}MB)"
+        return result
+
+    if (os.path.exists(final_output)
+            and os.path.realpath(final_output) != os.path.realpath(filepath)):
+        result["status"] = "failed"
+        result["detail"] = f"目标文件已存在，拒绝覆盖: {final_output}"
         return result
 
     try:
@@ -102,7 +112,8 @@ def convert_file(filepath: str, dry_run: bool = False) -> dict:
             result["detail"] = proc.stderr[-200:] if proc.stderr else "ffmpeg 返回非零"
             return result
 
-        if not os.path.exists(tmp_output) or os.path.getsize(tmp_output) == 0:
+        if (not os.path.exists(tmp_output) or os.path.getsize(tmp_output) == 0
+                or not get_audio_info(tmp_output).get("streams")):
             if os.path.exists(tmp_output):
                 os.remove(tmp_output)
             result["status"] = "failed"
@@ -114,15 +125,17 @@ def convert_file(filepath: str, dry_run: bool = False) -> dict:
 
         # 原文件不是 .opus → 删原文件，重命名临时文件
         # 原文件就是 .opus → 用临时文件覆盖
-        if filepath.lower() != final_output.lower():
-            os.remove(filepath)
-
-        if os.path.exists(final_output) and final_output != filepath:
-            os.remove(final_output)
-        os.rename(tmp_output, final_output)
+        os.replace(tmp_output, final_output)
 
         # 更新配套的 .json 元信息
-        _update_meta_json(filepath, final_output)
+        content_hash = Storage.compute_file_hash(final_output)
+        _update_meta_json(filepath, final_output, content_hash)
+        if storage is not None:
+            storage.update_converted_file(
+                filepath, final_output, new_size, content_hash,
+            )
+        if filepath.lower() != final_output.lower() and os.path.exists(filepath):
+            os.remove(filepath)
 
         result["status"] = "converted"
         result["detail"] = (
@@ -146,7 +159,7 @@ def convert_file(filepath: str, dry_run: bool = False) -> dict:
         return result
 
 
-def _update_meta_json(old_path: str, new_path: str):
+def _update_meta_json(old_path: str, new_path: str, content_hash: str):
     """更新配套 .json 元信息文件（路径和格式字段）"""
     old_json = os.path.splitext(old_path)[0] + ".json"
     new_json = os.path.splitext(new_path)[0] + ".json"
@@ -157,6 +170,8 @@ def _update_meta_json(old_path: str, new_path: str):
                 meta = json.load(f)
             meta["file_format"] = "opus"
             meta["file_size"] = os.path.getsize(new_path) if os.path.exists(new_path) else 0
+            meta["content_hash"] = content_hash
+            meta["content_hash_algorithm"] = "sha256"
             if old_json != new_json:
                 os.remove(old_json)
             with open(new_json, "w", encoding="utf-8") as f:
@@ -194,11 +209,34 @@ def scan_audio_files(directory: str) -> list[str]:
     return files
 
 
+def _positive_int(value: str) -> int:
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("必须是正整数")
+    return number
+
+
+def plan_targets(files: list[str]) -> dict[str, str]:
+    """Choose deterministic, collision-free output names before concurrency."""
+    base_counts = Counter(os.path.splitext(path)[0] for path in files)
+    targets = {}
+    for path in files:
+        base, ext = os.path.splitext(path)
+        if base_counts[base] > 1:
+            targets[path] = f"{base}_{ext.lstrip('.').lower() or 'audio'}{TARGET_EXT}"
+        else:
+            targets[path] = base + TARGET_EXT
+    return targets
+
+
 def main():
-    parser = argparse.ArgumentParser(description="批量音频格式转换 → Opus 24kHz mono 32kbps")
+    parser = argparse.ArgumentParser(
+        description="批量音频格式转换 → 单声道 Opus 32kbps（24kHz PCM 输入）"
+    )
     parser.add_argument("--dir", default=DOWNLOAD_DIR, help="音频目录 (默认 downloads/)")
     parser.add_argument("--dry-run", action="store_true", help="预览模式，不实际转换")
-    parser.add_argument("--workers", type=int, default=4, help="并发数 (默认 4)")
+    parser.add_argument("--workers", type=_positive_int, default=4,
+                        help="并发数 (默认 4)")
     args = parser.parse_args()
 
     if not check_ffmpeg():
@@ -219,9 +257,14 @@ def main():
         print("[ 预览模式 ]\n")
 
     stats = {"converted": 0, "skipped": 0, "failed": 0, "will_convert": 0}
+    targets = plan_targets(files)
+    storage = Storage() if os.path.exists(DB_PATH) else None
 
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        futures = {pool.submit(convert_file, f, args.dry_run): f for f in files}
+        futures = {
+            pool.submit(convert_file, f, args.dry_run, targets[f], storage): f
+            for f in files
+        }
         for i, future in enumerate(as_completed(futures), 1):
             result = future.result()
             stats[result["status"]] = stats.get(result["status"], 0) + 1

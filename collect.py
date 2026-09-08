@@ -14,8 +14,9 @@ import asyncio
 import logging
 import sys
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 
-from config import LOG_DIR
+from config import LOG_DIR, SPIDER_CONFIGS
 from storage import Storage
 
 from spiders.xiaoyuzhou import XiaoyuzhouSpider
@@ -40,7 +41,10 @@ def setup_logging():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler(log_file, encoding="utf-8"),
+            RotatingFileHandler(
+                log_file, maxBytes=50 * 1024 * 1024, backupCount=5,
+                encoding="utf-8",
+            ),
         ],
     )
 
@@ -57,12 +61,12 @@ def _flush_records(storage: Storage, records: list, logger: logging.Logger) -> t
             continue
         new_records.append(r)
 
+    added = 0
     if new_records:
-        return storage.add_urls_batch(new_records)
-
-    # 已存在的也可能缺 published_at，再跑一遍回填
-    _, backfilled = storage.add_urls_batch(records)
-    return 0, backfilled
+        added, _ = storage.add_urls_batch(new_records)
+    # Always backfill existing rows too, even when the same batch has new URLs.
+    backfilled = storage.backfill_published(records)
+    return added, backfilled
 
 
 async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
@@ -73,6 +77,10 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
 
     total_new = 0
     for SpiderClass in ALL_SPIDERS:
+        spider_name = getattr(SpiderClass, "name", "")
+        if not SPIDER_CONFIGS.get(spider_name, {}).get("enabled", True):
+            logger.info(f"跳过已禁用爬虫: {spider_name}")
+            continue
         spider = SpiderClass()
         if spider_names and spider.name not in spider_names:
             continue
@@ -98,8 +106,7 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
             if incremental["used"]:
                 total_new += incremental["added"]
                 logger.info(
-                    f"<<< {spider.name}: 发现 {len(records)} 个, "
-                    f"增量新增 {incremental['added']} 个"
+                    f"<<< {spider.name}: 增量新增 {incremental['added']} 个"
                     + (
                         f", 回填 published_at {incremental['backfilled']}"
                         if incremental["backfilled"] else ""
@@ -130,12 +137,19 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
     return total_new
 
 
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("必须是正整数")
+    return parsed
+
+
 def main():
     parser = argparse.ArgumentParser(description="AudioSpider URL 搜集器")
     parser.add_argument("--spiders", nargs="*", default=None,
                         help="指定爬虫: xiaoyuzhou ximalaya librivox podcast_rss")
     parser.add_argument("--loop", action="store_true", help="持续循环搜集")
-    parser.add_argument("--interval", type=int, default=3600, help="循环间隔(秒)")
+    parser.add_argument("--interval", type=_positive_int, default=3600, help="循环间隔(秒)")
 
     args = parser.parse_args()
     setup_logging()

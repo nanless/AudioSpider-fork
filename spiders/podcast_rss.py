@@ -7,12 +7,14 @@ RSS 是最干净的播客分发协议，<enclosure> 直接包含音频直链。
 """
 
 from email.utils import parsedate_to_datetime
+from urllib.parse import urljoin, urlsplit
 
 import aiohttp
 from bs4 import BeautifulSoup
 
 from anti_crawler import build_headers, random_delay, RateLimiter
-from config import SPIDER_CONFIGS
+from config import MAX_RSS_SIZE, SPIDER_CONFIGS
+from network_safety import safe_get
 from spiders.base import BaseSpider
 from storage import AudioRecord
 
@@ -35,6 +37,8 @@ class PodcastRSSSpider(BaseSpider):
                 await self.limiter.acquire()
                 feed_records = await self._parse_feed(session, feed_url)
                 records.extend(feed_records)
+                if feed_records and on_batch is not None:
+                    on_batch(feed_records)
                 await random_delay(1.0, 2.0)
         self.logger.info(f"Podcast RSS 共发现 {len(records)} 个语音文件")
         return records
@@ -43,13 +47,25 @@ class PodcastRSSSpider(BaseSpider):
                            feed_url: str) -> list[AudioRecord]:
         records = []
         try:
-            async with session.get(feed_url,
-                                   headers=build_headers(),
-                                   timeout=aiohttp.ClientTimeout(total=20)) as resp:
+            async with safe_get(
+                session, feed_url, headers=build_headers(),
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as resp:
                 if resp.status != 200:
                     self.logger.warning(f"RSS {feed_url} 返回 {resp.status}")
                     return []
-                text = await resp.text()
+                if (resp.content_length or 0) > MAX_RSS_SIZE:
+                    self.logger.warning(f"RSS {feed_url} 超过大小上限")
+                    return []
+                chunks = []
+                total = 0
+                async for chunk in resp.content.iter_chunked(65536):
+                    total += len(chunk)
+                    if total > MAX_RSS_SIZE:
+                        self.logger.warning(f"RSS {feed_url} 读取超过大小上限")
+                        return []
+                    chunks.append(chunk)
+                text = b"".join(chunks).decode(resp.charset or "utf-8", errors="replace")
                 soup = BeautifulSoup(text, "lxml-xml")
 
                 podcast_title = ""
@@ -74,10 +90,11 @@ class PodcastRSSSpider(BaseSpider):
                     enclosure = item.find("enclosure")
                     if not enclosure:
                         continue
-                    audio_url = enclosure.get("url", "")
-                    mime = enclosure.get("type", "")
+                    audio_url = urljoin(feed_url, enclosure.get("url", ""))
+                    mime = enclosure.get("type", "").lower()
                     if not audio_url or "audio" not in mime:
-                        if audio_url and audio_url.rsplit(".", 1)[-1].lower() in ("mp3", "m4a", "ogg", "aac"):
+                        ext_hint = urlsplit(audio_url).path.rsplit(".", 1)[-1].lower()
+                        if audio_url and ext_hint in ("mp3", "m4a", "ogg", "aac", "wav", "opus"):
                             pass
                         else:
                             continue
@@ -99,7 +116,8 @@ class PodcastRSSSpider(BaseSpider):
                     if ext in ("m4a", "ogg", "aac", "wav", "opus"):
                         fmt = ext
 
-                    size = int(enclosure.get("length", 0) or 0)
+                    length = enclosure.get("length", "")
+                    size = int(length) if str(length).isdigit() else 0
 
                     published_at = ""
                     pub_tag = item.find("pubDate")

@@ -21,6 +21,7 @@
 import argparse
 import asyncio
 import hashlib
+import html
 import logging
 import sqlite3
 import sys
@@ -28,14 +29,26 @@ import time
 from datetime import datetime
 
 import re
+from logging.handlers import RotatingFileHandler
 
 import aiohttp
 
 from anti_crawler import build_headers, random_delay
-from config import LOG_DIR, DB_PATH, PODCAST_INDEX_KEY, PODCAST_INDEX_SECRET
+from config import (
+    DB_PATH,
+    LOG_DIR,
+    MAX_RSS_SIZE,
+    PODCAST_INDEX_KEY,
+    PODCAST_INDEX_SECRET,
+)
+from network_safety import UnsafeURLError, safe_get
 from storage import Storage, AudioRecord
 
 logger = logging.getLogger("discover")
+
+
+class FeedFetchError(RuntimeError):
+    """A feed could not be fetched or parsed and must remain retryable."""
 
 DEFAULT_KEYWORDS = [
     # ── 曲艺 / 表演 ──
@@ -598,8 +611,6 @@ async def pi_categories(session: aiohttp.ClientSession) -> list[dict]:
         return []
 
 
-MAX_RSS_SIZE = 20 * 1024 * 1024  # 20MB，超过此大小的 RSS 跳过
-
 # 纯正则提取 RSS 内容，不依赖任何 XML 解析器，彻底避免 segfault
 _RE_CHANNEL_TITLE = re.compile(r"<channel[^>]*>.*?<title[^>]*>(.*?)</title>", re.S)
 _RE_LANGUAGE = re.compile(r"<language[^>]*>(.*?)</language>", re.S | re.I)
@@ -621,26 +632,34 @@ def _strip_cdata(text: str) -> str:
 
 async def parse_rss_feed(session: aiohttp.ClientSession,
                           feed_url: str, max_eps: int = 0,
-                          genres: list[str] | None = None) -> list[AudioRecord]:
+                          genres: list[str] | None = None,
+                          allow_private_network: bool = False) -> list[AudioRecord]:
     """解析单个 RSS feed，返回音频记录。使用正则提取，不依赖 XML 解析器。"""
     records = []
     try:
-        async with session.get(feed_url, headers=build_headers(),
-                               timeout=aiohttp.ClientTimeout(total=30)) as resp:
+        async with safe_get(
+            session,
+            feed_url,
+            allow_private=allow_private_network,
+            headers=build_headers(),
+            timeout=aiohttp.ClientTimeout(total=30),
+        ) as resp:
             if resp.status != 200:
-                return []
+                raise FeedFetchError(f"RSS HTTP {resp.status}: {feed_url}")
             content_length = resp.content_length or 0
             if content_length > MAX_RSS_SIZE:
-                logger.debug(f"RSS 过大({content_length // 1024 // 1024}MB), 跳过: {feed_url}")
-                return []
+                raise FeedFetchError(
+                    f"RSS 过大({content_length // 1024 // 1024}MB): {feed_url}"
+                )
             # 限量读取，避免超大响应导致崩溃
             chunks = []
             total_read = 0
             async for chunk in resp.content.iter_chunked(65536):
                 total_read += len(chunk)
                 if total_read > MAX_RSS_SIZE:
-                    logger.debug(f"RSS 读取超限({total_read // 1024 // 1024}MB), 跳过: {feed_url}")
-                    return []
+                    raise FeedFetchError(
+                        f"RSS 读取超限({total_read // 1024 // 1024}MB): {feed_url}"
+                    )
                 chunks.append(chunk)
             raw = b"".join(chunks)
 
@@ -680,8 +699,8 @@ async def parse_rss_feed(session: aiohttp.ClientSession,
                     if ext not in ("mp3", "m4a", "ogg", "aac", "wav", "opus"):
                         continue
 
-                # HTML 实体还原（部分 RSS 会对 URL 中的 & 转义）
-                audio_url = audio_url.replace("&amp;", "&")
+                # HTML 实体还原（部分 RSS 会对 URL 中的参数转义）
+                audio_url = html.unescape(audio_url)
 
                 m_title = _RE_TITLE.search(item_text)
                 title = _strip_cdata(m_title.group(1)) if m_title else ""
@@ -713,8 +732,12 @@ async def parse_rss_feed(session: aiohttp.ClientSession,
                 )
                 records.append(record)
 
+    except FeedFetchError:
+        raise
+    except (UnsafeURLError, aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+        raise FeedFetchError(f"RSS 拉取失败 {feed_url}: {e}") from e
     except Exception as e:
-        logger.debug(f"RSS 解析失败 {feed_url}: {e}")
+        raise FeedFetchError(f"RSS 解析失败 {feed_url}: {e}") from e
     return records
 
 
@@ -794,8 +817,11 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
                 await random_delay(0.3, 0.8)
                 print(f"  >> 回填中 [{i}/{len(feeds)}] {feed_name} | {feed_url}", flush=True)
                 feed_genres = [g.strip() for g in (feed.get("genre") or "").split(",") if g.strip()]
-                records = await parse_rss_feed(session, feed_url, genres=feed_genres)
-                feed_store.mark_crawled(feed_url, len(records))
+                try:
+                    records = await parse_rss_feed(session, feed_url, genres=feed_genres)
+                except FeedFetchError as exc:
+                    logger.warning(f"  [{i}/{len(feeds)}] {feed_name}: {exc}")
+                    continue
                 if records:
                     added, backfilled = storage.add_urls_batch(records)
                     total_added += added
@@ -805,6 +831,7 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
                             f"  [{i}/{len(feeds)}] {feed_name}: "
                             f"+{added} 新URL, 回填 published_at {backfilled} 条"
                         )
+                feed_store.mark_crawled(feed_url, len(records))
                 if i % 20 == 0:
                     logger.info(
                         f"  进度: {i}/{len(feeds)}, "
@@ -903,8 +930,11 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
             print(f"  >> 解析中 [{i}/{len(uncrawled)}] {feed_name} | {feed_url}", flush=True)
 
             feed_genres = [g.strip() for g in (feed.get("genre") or "").split(",") if g.strip()]
-            records = await parse_rss_feed(session, feed_url, genres=feed_genres)
-            feed_store.mark_crawled(feed_url, len(records))
+            try:
+                records = await parse_rss_feed(session, feed_url, genres=feed_genres)
+            except FeedFetchError as exc:
+                logger.warning(f"  [{i}/{len(uncrawled)}] {feed_name}: {exc}")
+                continue
 
             if records:
                 # 全部交给 add_urls_batch：新 URL 插入；已存在且 published_at 空则回填
@@ -918,6 +948,7 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
                     )
                 else:
                     logger.debug(f"  [{i}/{len(uncrawled)}] {feed_name}: 全部已存在且已有日期")
+            feed_store.mark_crawled(feed_url, len(records))
 
             if i % 20 == 0:
                 logger.info(f"  进度: {i}/{len(uncrawled)}, 累计新增 {total_new} 条 URL")
@@ -933,25 +964,45 @@ def setup_logging():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler(log_file, encoding="utf-8"),
+            RotatingFileHandler(
+                log_file, maxBytes=50 * 1024 * 1024, backupCount=5,
+                encoding="utf-8",
+            ),
         ],
     )
+
+
+def _bounded_positive(maximum: int):
+    def parse(value: str) -> int:
+        number = int(value)
+        if not 1 <= number <= maximum:
+            raise argparse.ArgumentTypeError(f"必须在 1..{maximum} 之间")
+        return number
+    return parse
+
+
+def _positive_int(value: str) -> int:
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("必须是正整数")
+    return number
 
 
 def main():
     parser = argparse.ArgumentParser(description="AudioSpider 自动发现新的语音源")
     parser.add_argument("--keywords", nargs="*", default=None,
                         help="自定义搜索关键词（默认使用内置关键词列表）")
-    parser.add_argument("--top", type=int, default=200,
+    parser.add_argument("--top", type=_bounded_positive(200), default=200,
                         help="Apple关键词搜索每词最多发现多少个播客(默认200, 上限200)")
     parser.add_argument("--source", nargs="*", default=None,
                         choices=["apple", "apple_keyword", "apple_genre", "podcastindex", "all"],
                         help="选择数据源: apple(关键词+分类), apple_keyword(仅关键词), "
                              "apple_genre(仅分类), podcastindex, all(全部,默认)")
-    parser.add_argument("--pi-max-pages", type=int, default=20,
+    parser.add_argument("--pi-max-pages", type=_bounded_positive(1000), default=20,
                         help="Podcast Index recent feeds 最大翻页数(默认20, 每页1000条)")
     parser.add_argument("--loop", action="store_true", help="持续循环发现")
-    parser.add_argument("--interval", type=int, default=86400, help="循环间隔秒数(默认1天)")
+    parser.add_argument("--interval", type=_positive_int, default=86400,
+                        help="循环间隔秒数(默认1天)")
     parser.add_argument("--parse-only", action="store_true",
                         help="跳过发现阶段，只解析数据库中未解析的 feeds")
     parser.add_argument("--backfill-published", action="store_true",

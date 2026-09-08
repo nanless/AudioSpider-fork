@@ -5,7 +5,8 @@
 import aiohttp
 
 from anti_crawler import build_headers, random_delay, RateLimiter
-from config import SPIDER_CONFIGS
+from config import MAX_RSS_SIZE, SPIDER_CONFIGS
+from network_safety import safe_get
 from spiders.base import BaseSpider
 from storage import AudioRecord
 
@@ -29,6 +30,8 @@ class LibriVoxSpider(BaseSpider):
                 await self.limiter.acquire()
                 tracks = await self._fetch_book_tracks(session, book)
                 records.extend(tracks)
+                if tracks and on_batch is not None:
+                    on_batch(tracks)
                 await random_delay(0.5, 1.0)
         self.logger.info(f"LibriVox 共发现 {len(records)} 个音频文件")
         return records
@@ -43,6 +46,9 @@ class LibriVoxSpider(BaseSpider):
             async with session.get(self.api_url, params=params,
                                    headers=build_headers("https://librivox.org"),
                                    timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                if resp.status != 200:
+                    self.logger.warning(f"LibriVox API 返回 {resp.status}")
+                    return []
                 data = await resp.json(content_type=None)
                 books = data.get("books", [])
                 self.logger.info(f"LibriVox: 找到 {len(books)} 本有声书")
@@ -59,11 +65,21 @@ class LibriVoxSpider(BaseSpider):
             return records
 
         try:
-            async with session.get(rss_url,
-                                   headers=build_headers("https://librivox.org"),
-                                   timeout=aiohttp.ClientTimeout(total=20)) as resp:
+            async with safe_get(
+                session, rss_url, headers=build_headers("https://librivox.org"),
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as resp:
+                if resp.status != 200:
+                    return records
+                if (resp.content_length or 0) > MAX_RSS_SIZE:
+                    self.logger.warning(f"LibriVox RSS 超过大小上限: {rss_url}")
+                    return records
                 from bs4 import BeautifulSoup
-                text = await resp.text()
+                raw = await resp.content.read(MAX_RSS_SIZE + 1)
+                if len(raw) > MAX_RSS_SIZE:
+                    self.logger.warning(f"LibriVox RSS 读取超过大小上限: {rss_url}")
+                    return records
+                text = raw.decode(resp.charset or "utf-8", errors="replace")
                 soup = BeautifulSoup(text, "lxml-xml")
                 for item in soup.find_all("item"):
                     enclosure = item.find("enclosure")
@@ -78,6 +94,11 @@ class LibriVoxSpider(BaseSpider):
                         )
                         size = enclosure.get("length", "0")
                         record.file_size = int(size) if size.isdigit() else 0
+                        record.category = "有声书"
+                        language = book.get("language") or ""
+                        if isinstance(language, str):
+                            record.language = language.lower()[:2]
+                        record.source_id = audio_url
                         records.append(record)
         except Exception as e:
             self.logger.error(f"解析 LibriVox RSS 失败 {rss_url}: {e}")

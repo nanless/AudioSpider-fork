@@ -25,8 +25,14 @@ import asyncio
 import logging
 import sys
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 
-from config import LOG_DIR
+from config import (
+    DOWNLOAD_LEASE_SECONDS,
+    LOG_DIR,
+    MAX_BATCH_SIZE,
+    MAX_DOWNLOAD_WORKERS,
+)
 from storage import Storage
 from downloader import Downloader
 
@@ -38,9 +44,28 @@ def setup_logging():
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler(log_file, encoding="utf-8"),
+            RotatingFileHandler(
+                log_file, maxBytes=50 * 1024 * 1024, backupCount=5,
+                encoding="utf-8",
+            ),
         ],
     )
+
+
+def _bounded_positive(maximum: int):
+    def parse(value: str) -> int:
+        number = int(value)
+        if not 1 <= number <= maximum:
+            raise argparse.ArgumentTypeError(f"必须在 1..{maximum} 之间")
+        return number
+    return parse
+
+
+def _positive_int(value: str) -> int:
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("必须是正整数")
+    return number
 
 
 def main():
@@ -51,16 +76,19 @@ def main():
     parser.add_argument("--source", default=None, help="仅下载指定来源 (如 podcast_rss, bilibili)")
     parser.add_argument("--category", default=None, help="仅下载指定分类 (如 播客, 有声书)")
     parser.add_argument("--language", default=None, help="仅下载指定语种 (如 zh, en)")
-    parser.add_argument("--per-source", action="store_true", help="每个来源各下载 --limit 条")
-    parser.add_argument("--per-category", action="store_true", help="每个分类各下载 --limit 条")
-    parser.add_argument("--limit", type=int, default=50, help="单批下载数量(默认50)")
-    parser.add_argument("--workers", type=int, default=None, help="并发下载数(默认5)")
+    grouping = parser.add_mutually_exclusive_group()
+    grouping.add_argument("--per-source", action="store_true", help="每个来源各下载 --limit 条")
+    grouping.add_argument("--per-category", action="store_true", help="每个分类各下载 --limit 条")
+    parser.add_argument("--limit", type=_bounded_positive(MAX_BATCH_SIZE), default=50,
+                        help=f"单批下载数量(默认50, 最大{MAX_BATCH_SIZE})")
+    parser.add_argument("--workers", type=_bounded_positive(MAX_DOWNLOAD_WORKERS), default=None,
+                        help=f"并发下载数(默认4, 最大{MAX_DOWNLOAD_WORKERS})")
     parser.add_argument("--format", choices=["opus", "original"], default="opus",
                         help="保存格式: opus=ffmpeg转opus(默认), original=保留原始格式(省CPU)")
     parser.add_argument("--retry-failed", action="store_true",
                         help="将所有 failed 状态重置为 pending 并重新下载")
     parser.add_argument("--loop", action="store_true", help="持续循环消费下载")
-    parser.add_argument("--interval", type=int, default=60, help="循环间隔秒数(默认60)")
+    parser.add_argument("--interval", type=_positive_int, default=60, help="循环间隔秒数(默认60)")
     parser.add_argument("--since", default=None,
                         help="仅下载发布时间 >= 此日期的 (如 2024-01-01)")
     parser.add_argument("--before", default=None,
@@ -80,8 +108,15 @@ def main():
         return
 
     if args.retry_failed:
-        failed_items = storage.get_failed(limit=args.limit, source=args.source)
         logger = logging.getLogger("download")
+        dl = Downloader(storage, max_workers=args.workers,
+                        convert=args.format == "opus")
+        failed_items = storage.claim_failed(
+            limit=args.limit,
+            source=args.source,
+            worker_id=dl.worker_id,
+            lease_seconds=DOWNLOAD_LEASE_SECONDS,
+        )
         if not failed_items:
             scope = f"来源={args.source}" if args.source else "全部来源"
             logger.info(f"没有失败的 URL 需要重试（{scope}）")
@@ -90,8 +125,6 @@ def main():
         logger.info(f"准备重试 {len(failed_items)} 条失败的 URL（{scope}）")
 
         async def retry():
-            dl = Downloader(storage, max_workers=args.workers,
-                            convert=args.format == "opus")
             return await dl.download_all(items=failed_items)
         asyncio.run(retry())
         storage.show_stats()

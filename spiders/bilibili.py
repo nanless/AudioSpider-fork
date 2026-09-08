@@ -61,12 +61,20 @@ class BilibiliSpider(BaseSpider):
             f"（最多翻 {self.max_search_pages} 页/词，解析前 {self.max_videos_per_keyword} 个/词）"
         )
         records: list[AudioRecord] = []
+        total_records = 0
         seen_urls: set[str] = set()
         seen_bvids: set[str] = set()
 
         async with aiohttp.ClientSession(headers=BILIBILI_HEADERS) as session:
             # 先访问首页获取 cookie
-            await session.get("https://www.bilibili.com", timeout=aiohttp.ClientTimeout(total=10))
+            try:
+                async with session.get(
+                    "https://www.bilibili.com",
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
+                    await response.read()
+            except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+                self.logger.warning(f"B站 cookie 预热失败，将继续搜索: {exc}")
 
             for keyword in self.keywords:
                 parsed_for_keyword = 0
@@ -130,24 +138,20 @@ class BilibiliSpider(BaseSpider):
                             for r in page_records:
                                 if r.url not in seen_urls:
                                     seen_urls.add(r.url)
-                                    records.append(r)
                                     video_batch.append(r)
                                     keyword_records += 1
+                                    total_records += 1
+                                    if on_batch is None:
+                                        records.append(r)
                             parsed_for_keyword += 1
 
                             # 每个视频解析完立刻入库（合集分P多，不能等搜完整页）
                             if video_batch and on_batch is not None:
-                                try:
-                                    on_batch(video_batch)
-                                    self.logger.info(
-                                        f"视频 {bvid} 已入库 {len(video_batch)} 条 "
-                                        f"（累计发现 {len(records)}）"
-                                    )
-                                except Exception as e:
-                                    self.logger.error(
-                                        f"增量入库失败 {bvid}: {e}",
-                                        exc_info=True,
-                                    )
+                                on_batch(video_batch)
+                                self.logger.info(
+                                    f"视频 {bvid} 已入库 {len(video_batch)} 条 "
+                                    f"（累计发现 {total_records}）"
+                                )
                             else:
                                 self.logger.info(
                                     f"视频 {bvid} 解析完成: {len(page_records)} 条"
@@ -170,7 +174,7 @@ class BilibiliSpider(BaseSpider):
                 )
                 await random_delay(2.0, 4.0)
 
-        self.logger.info(f"B站 共发现 {len(records)} 个音频")
+        self.logger.info(f"B站 共发现 {total_records} 个音频")
         return records
 
     async def _search_page(self, session: aiohttp.ClientSession,

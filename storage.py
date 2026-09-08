@@ -4,10 +4,11 @@
 
 import hashlib
 import os
+import re
 import sqlite3
 import threading
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from config import DB_PATH, DOWNLOAD_DIR
 
@@ -33,10 +34,11 @@ class AudioRecord:
 
 
 class Storage:
-    _local = threading.local()
-
     def __init__(self, db_path: str = DB_PATH):
         self.db_path = db_path
+        # Connection caches must belong to the Storage instance.  A class-level
+        # thread local silently reused the first database for later instances.
+        self._local = threading.local()
         self._init_db()
 
     def _get_conn(self) -> sqlite3.Connection:
@@ -67,13 +69,19 @@ class Storage:
                 source_id TEXT DEFAULT '',
                 published_at TEXT DEFAULT '',
                 discovered_at TEXT NOT NULL,
-                downloaded_at TEXT DEFAULT ''
+                downloaded_at TEXT DEFAULT '',
+                claimed_by TEXT DEFAULT '',
+                claimed_at TEXT DEFAULT '',
+                lease_expires_at TEXT DEFAULT ''
             );
 
             CREATE INDEX IF NOT EXISTS idx_status ON audio_urls(status);
             CREATE INDEX IF NOT EXISTS idx_source ON audio_urls(source);
             CREATE INDEX IF NOT EXISTS idx_source_id ON audio_urls(source, source_id);
             CREATE INDEX IF NOT EXISTS idx_content_hash ON audio_urls(content_hash);
+            CREATE INDEX IF NOT EXISTS idx_category_status ON audio_urls(category, status);
+            CREATE INDEX IF NOT EXISTS idx_language_status ON audio_urls(language, status);
+            CREATE INDEX IF NOT EXISTS idx_published_status ON audio_urls(published_at, status);
 
             CREATE TABLE IF NOT EXISTS crawl_checkpoints (
                 source TEXT NOT NULL,
@@ -83,14 +91,29 @@ class Storage:
                 PRIMARY KEY (source, checkpoint_key)
             );
         """)
-        # 迁移：添加 published_at 字段（v2.0+）
-        try:
-            conn.execute("ALTER TABLE audio_urls ADD COLUMN published_at TEXT DEFAULT ''")
-        except sqlite3.OperationalError:
-            pass  # 字段已存在
-        # 启动时把中断的 downloading 状态恢复为 pending，确保重启后能重新下载
-        conn.execute("UPDATE audio_urls SET status='pending' WHERE status='downloading'")
+        # Additive migrations for databases created by earlier releases.
+        self._add_column_if_missing(conn, "audio_urls", "published_at", "TEXT DEFAULT ''")
+        self._add_column_if_missing(conn, "audio_urls", "claimed_by", "TEXT DEFAULT ''")
+        self._add_column_if_missing(conn, "audio_urls", "claimed_at", "TEXT DEFAULT ''")
+        self._add_column_if_missing(conn, "audio_urls", "lease_expires_at", "TEXT DEFAULT ''")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_lease_expires_at "
+            "ON audio_urls(status, lease_expires_at)"
+        )
+        # Recover only legacy rows that predate leases. Active leased work is
+        # recovered by claim methods after the lease expires.
+        conn.execute(
+            "UPDATE audio_urls SET status='pending' "
+            "WHERE status='downloading' AND COALESCE(lease_expires_at, '')=''"
+        )
         conn.commit()
+
+    @staticmethod
+    def _add_column_if_missing(conn: sqlite3.Connection, table: str,
+                               column: str, definition: str):
+        columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     # ── 增量爬取标记 ──
 
@@ -117,7 +140,7 @@ class Storage:
         conn = self._get_conn()
         try:
             record.discovered_at = record.discovered_at or datetime.now().isoformat()
-            conn.execute(
+            cursor = conn.execute(
                 "INSERT OR IGNORE INTO audio_urls "
                 "(url, source, title, file_format, file_size, duration, language, "
                 "category, speaker, status, source_id, discovered_at) "
@@ -128,7 +151,7 @@ class Storage:
                  record.source_id, record.discovered_at),
             )
             conn.commit()
-            return conn.total_changes > 0
+            return cursor.rowcount == 1
         except sqlite3.Error:
             return False
 
@@ -169,6 +192,22 @@ class Storage:
         conn.commit()
         return added, backfilled
 
+    def backfill_published(self, records: list[AudioRecord]) -> int:
+        values = [(record.published_at, record.url)
+                  for record in records if record.published_at]
+        if not values:
+            return 0
+        conn = self._get_conn()
+        before = conn.total_changes
+        conn.executemany(
+            "UPDATE audio_urls SET published_at=? "
+            "WHERE url=? AND (published_at='' OR published_at IS NULL)",
+            values,
+        )
+        changed = conn.total_changes - before
+        conn.commit()
+        return changed
+
     def get_pending(
         self,
         limit: int = 50,
@@ -180,15 +219,22 @@ class Storage:
         published_since: str | None = None,
         published_before: str | None = None,
     ) -> list[dict]:
-        conn = self._get_conn()
+        if limit <= 0:
+            raise ValueError("limit must be positive")
+        if per_source and per_category:
+            raise ValueError("per_source and per_category are mutually exclusive")
+        group_col = "source" if per_source else "category" if per_category else None
+        return self._select_records(
+            self._get_conn(), "pending", limit, source, category, language,
+            group_col, published_since, published_before,
+        )
 
-        if per_source:
-            return self._get_pending_per_group("source", limit, published_since, published_before)
-        if per_category:
-            return self._get_pending_per_group("category", limit, published_since, published_before)
-
-        conditions = ["status='pending'"]
-        params: list = []
+    @staticmethod
+    def _filters(status: str, source: str | None, category: str | None,
+                 language: str | None, published_since: str | None,
+                 published_before: str | None) -> tuple[list[str], list]:
+        conditions = ["status=?"]
+        params: list = [status]
         if source:
             conditions.append("source=?")
             params.append(source)
@@ -202,54 +248,165 @@ class Storage:
             conditions.append("published_at >= ?")
             params.append(published_since)
         if published_before:
-            conditions.append("published_at <= ?")
-            params.append(published_before)
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", published_before):
+                next_day = datetime.fromisoformat(published_before) + timedelta(days=1)
+                conditions.append("published_at < ?")
+                params.append(next_day.date().isoformat())
+            else:
+                conditions.append("published_at <= ?")
+                params.append(published_before)
+        return conditions, params
 
+    def _select_records(self, conn: sqlite3.Connection, status: str, limit: int,
+                        source: str | None = None, category: str | None = None,
+                        language: str | None = None, group_col: str | None = None,
+                        published_since: str | None = None,
+                        published_before: str | None = None) -> list[dict]:
+        conditions, params = self._filters(
+            status, source, category, language, published_since, published_before,
+        )
         where = " AND ".join(conditions)
-        params.append(limit)
-        rows = conn.execute(
-            f"SELECT * FROM audio_urls WHERE {where} ORDER BY id LIMIT ?", params
-        ).fetchall()
-        return [dict(r) for r in rows]
-
-    def _get_pending_per_group(self, group_col: str, limit_per_group: int,
-                               published_since: str | None = None,
-                               published_before: str | None = None) -> list[dict]:
-        """每个分组取 limit 条，合并返回"""
-        conn = self._get_conn()
-        date_cond = ""
-        date_params: list = []
-        if published_since:
-            date_cond += " AND published_at >= ?"
-            date_params.append(published_since)
-        if published_before:
-            date_cond += " AND published_at <= ?"
-            date_params.append(published_before)
-        groups = conn.execute(
-            f"SELECT DISTINCT {group_col} FROM audio_urls WHERE status='pending' AND {group_col}!=''{date_cond}",
-            date_params,
-        ).fetchall()
-
-        results = []
-        for row in groups:
-            group_val = row[0]
+        if group_col:
+            if group_col not in {"source", "category"}:
+                raise ValueError("unsupported grouping column")
             rows = conn.execute(
-                f"SELECT * FROM audio_urls WHERE status='pending' AND {group_col}=?{date_cond} ORDER BY id LIMIT ?",
-                (group_val, *date_params, limit_per_group),
+                f"SELECT * FROM ("
+                f"SELECT audio_urls.*, ROW_NUMBER() OVER "
+                f"(PARTITION BY {group_col} ORDER BY id) AS _group_row "
+                f"FROM audio_urls WHERE {where} AND {group_col}!=''"
+                f") WHERE _group_row<=? ORDER BY id",
+                (*params, limit),
             ).fetchall()
-            results.extend(dict(r) for r in rows)
-        return results
+            results = []
+            for row in rows:
+                item = dict(row)
+                item.pop("_group_row", None)
+                results.append(item)
+            return results
+        rows = conn.execute(
+            f"SELECT * FROM audio_urls WHERE {where} ORDER BY id LIMIT ?",
+            (*params, limit),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def _utc_now() -> datetime:
+        return datetime.now(timezone.utc)
+
+    def _claim(self, status: str, limit: int, worker_id: str,
+               lease_seconds: int, source: str | None = None,
+               category: str | None = None, language: str | None = None,
+               group_col: str | None = None,
+               published_since: str | None = None,
+               published_before: str | None = None) -> list[dict]:
+        if limit <= 0 or lease_seconds <= 0:
+            raise ValueError("limit and lease_seconds must be positive")
+        conn = self._get_conn()
+        now = self._utc_now()
+        now_text = now.isoformat()
+        lease_text = (now + timedelta(seconds=lease_seconds)).isoformat()
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute(
+                "UPDATE audio_urls SET status='pending', claimed_by='', claimed_at='', "
+                "lease_expires_at='' WHERE status='downloading' "
+                "AND lease_expires_at!='' AND lease_expires_at<=?",
+                (now_text,),
+            )
+            records = self._select_records(
+                conn, status, limit, source, category, language, group_col,
+                published_since, published_before,
+            )
+            ids = [record["id"] for record in records]
+            if ids:
+                placeholders = ",".join("?" for _ in ids)
+                conn.execute(
+                    f"UPDATE audio_urls SET status='downloading', claimed_by=?, "
+                    f"claimed_at=?, lease_expires_at=? WHERE status=? "
+                    f"AND id IN ({placeholders})",
+                    (worker_id, now_text, lease_text, status, *ids),
+                )
+                for record in records:
+                    record.update(
+                        status="downloading", claimed_by=worker_id,
+                        claimed_at=now_text, lease_expires_at=lease_text,
+                    )
+            conn.commit()
+            return records
+        except Exception:
+            conn.rollback()
+            raise
+
+    def claim_pending(self, limit: int, worker_id: str, lease_seconds: int,
+                      source: str | None = None, category: str | None = None,
+                      language: str | None = None, per_source: bool = False,
+                      per_category: bool = False,
+                      published_since: str | None = None,
+                      published_before: str | None = None) -> list[dict]:
+        if per_source and per_category:
+            raise ValueError("per_source and per_category are mutually exclusive")
+        group_col = "source" if per_source else "category" if per_category else None
+        return self._claim(
+            "pending", limit, worker_id, lease_seconds, source, category,
+            language, group_col, published_since, published_before,
+        )
+
+    def claim_failed(self, limit: int, worker_id: str, lease_seconds: int,
+                     source: str | None = None) -> list[dict]:
+        return self._claim(
+            "failed", limit, worker_id, lease_seconds, source=source,
+        )
 
     def update_status(self, url: str, status: str, local_path: str = ""):
         conn = self._get_conn()
         if status == "done":
             conn.execute(
-                "UPDATE audio_urls SET status=?, local_path=?, downloaded_at=? WHERE url=?",
+                "UPDATE audio_urls SET status=?, local_path=?, downloaded_at=?, "
+                "claimed_by='', claimed_at='', lease_expires_at='' WHERE url=?",
                 (status, local_path, datetime.now().isoformat(), url),
             )
         else:
-            conn.execute("UPDATE audio_urls SET status=? WHERE url=?", (status, url))
+            conn.execute(
+                "UPDATE audio_urls SET status=?, claimed_by='', claimed_at='', "
+                "lease_expires_at='' WHERE url=?", (status, url),
+            )
         conn.commit()
+
+    def finalize_download(self, url: str, local_path: str, file_format: str,
+                          file_size: int, content_hash: str) -> bool:
+        """Atomically finalize a download. Return True when it is a duplicate."""
+        conn = self._get_conn()
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            duplicate = conn.execute(
+                "SELECT 1 FROM audio_urls WHERE content_hash=? AND status='done' "
+                "AND url!=? LIMIT 1",
+                (content_hash, url),
+            ).fetchone()
+            stored_path = f"dup:{content_hash}" if duplicate else local_path
+            conn.execute(
+                "UPDATE audio_urls SET status='done', local_path=?, file_format=?, "
+                "file_size=?, content_hash=?, downloaded_at=?, claimed_by='', "
+                "claimed_at='', lease_expires_at='' WHERE url=?",
+                (stored_path, file_format, file_size, content_hash,
+                 datetime.now().isoformat(), url),
+            )
+            conn.commit()
+            return duplicate is not None
+        except Exception:
+            conn.rollback()
+            raise
+
+    def update_converted_file(self, old_path: str, new_path: str,
+                              file_size: int, content_hash: str) -> int:
+        conn = self._get_conn()
+        cursor = conn.execute(
+            "UPDATE audio_urls SET local_path=?, file_format='opus', file_size=?, "
+            "content_hash=? WHERE local_path=?",
+            (new_path, file_size, content_hash, old_path),
+        )
+        conn.commit()
+        return cursor.rowcount
 
     def get_failed(self, limit: int = 50, source: str | None = None) -> list[dict]:
         """获取 failed 状态的 URL，可按来源过滤"""
@@ -378,8 +535,8 @@ class Storage:
 
     @staticmethod
     def compute_file_hash(filepath: str) -> str:
-        h = hashlib.md5()
+        h = hashlib.sha256()
         with open(filepath, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
                 h.update(chunk)
         return h.hexdigest()

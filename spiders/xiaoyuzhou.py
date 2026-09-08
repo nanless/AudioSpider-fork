@@ -41,13 +41,15 @@ class XiaoyuzhouSpider(BaseSpider):
             discovered = await self._discover_podcasts(session)
             podcast_paths.extend(discovered)
 
-            for path in podcast_paths:
+            for path in dict.fromkeys(podcast_paths):
                 await self.limiter.acquire()
                 eps = await self._parse_podcast_page(session, path)
                 for r in eps:
                     if r.url not in seen_urls:
                         seen_urls.add(r.url)
                         records.append(r)
+                if eps and on_batch is not None:
+                    on_batch(eps)
                 await random_delay(1.5, 3.0)
 
         self.logger.info(f"小宇宙 共发现 {len(records)} 个语音文件")
@@ -112,7 +114,10 @@ class XiaoyuzhouSpider(BaseSpider):
                     return records
 
                 for eid, title, m4a_url in entries[:self.max_eps]:
-                    title = title.encode().decode("unicode_escape", errors="ignore")
+                    try:
+                        title = json.loads(f'"{title}"')
+                    except (json.JSONDecodeError, UnicodeDecodeError):
+                        pass
                     record = self._make_record(url=m4a_url, title=title, file_format="m4a")
                     record.category = "播客"
                     record.language = "zh"

@@ -15,6 +15,7 @@ import argparse
 import os
 import subprocess
 import sys
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -26,8 +27,9 @@ def check_ffmpeg():
         return False
 
 
-def convert_one(src: str, output_dir: str | None, dry_run: bool) -> dict:
-    """转换单个 .opus 文件为 .wav，保持采样率和通道数不变"""
+def convert_one(src: str, output_dir: str | None, dry_run: bool,
+                relative_root: str | None = None) -> dict:
+    """转换单个 .opus 文件为 24kHz 单声道 PCM16 WAV。"""
     result = {"path": src, "status": "skipped", "detail": ""}
 
     if not src.lower().endswith(".opus"):
@@ -35,8 +37,9 @@ def convert_one(src: str, output_dir: str | None, dry_run: bool) -> dict:
         return result
 
     if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
-        dst = os.path.join(output_dir, os.path.splitext(os.path.basename(src))[0] + ".wav")
+        relative = os.path.relpath(src, relative_root) if relative_root else os.path.basename(src)
+        dst = os.path.join(output_dir, os.path.splitext(relative)[0] + ".wav")
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
     else:
         dst = os.path.splitext(src)[0] + ".wav"
 
@@ -50,7 +53,7 @@ def convert_one(src: str, output_dir: str | None, dry_run: bool) -> dict:
         result["detail"] = f"→ {dst} ({size_mb:.2f}MB)"
         return result
 
-    tmp = dst + ".tmp.wav"
+    tmp = f"{dst}.tmp.{uuid.uuid4().hex}.wav"
     try:
         cmd = ["ffmpeg", "-y", "-i", src, "-ar", "24000", "-ac", "1", "-c:a", "pcm_s16le", tmp]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
@@ -69,7 +72,7 @@ def convert_one(src: str, output_dir: str | None, dry_run: bool) -> dict:
             result["detail"] = "输出文件为空"
             return result
 
-        os.rename(tmp, dst)
+        os.replace(tmp, dst)
         src_size = os.path.getsize(src) / 1024 / 1024
         dst_size = os.path.getsize(dst) / 1024 / 1024
         result["status"] = "converted"
@@ -109,12 +112,20 @@ def collect_files(path: str, recursive: bool) -> list[str]:
     return files
 
 
+def _positive_int(value: str) -> int:
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("必须是正整数")
+    return number
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Opus → WAV 转换（保持原始采样率和通道数）")
+    parser = argparse.ArgumentParser(description="Opus → 24kHz 单声道 PCM16 WAV")
     parser.add_argument("input", help="输入文件或目录")
     parser.add_argument("--output-dir", help="输出目录（默认与源文件同目录）")
     parser.add_argument("--recursive", "-r", action="store_true", help="递归子目录")
-    parser.add_argument("--workers", type=int, default=4, help="并发数（默认 4）")
+    parser.add_argument("--workers", type=_positive_int, default=4,
+                        help="并发数（默认 4）")
     parser.add_argument("--dry-run", action="store_true", help="预览模式，不实际转换")
     args = parser.parse_args()
 
@@ -136,9 +147,14 @@ def main():
         print("[ 预览模式 ]\n")
 
     stats = {"converted": 0, "skipped": 0, "failed": 0, "will_convert": 0}
+    relative_root = args.input if os.path.isdir(args.input) else None
 
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        futures = {pool.submit(convert_one, f, args.output_dir, args.dry_run): f for f in files}
+        futures = {
+            pool.submit(convert_one, f, args.output_dir, args.dry_run,
+                        relative_root): f
+            for f in files
+        }
         for i, future in enumerate(as_completed(futures), 1):
             r = future.result()
             stats[r["status"]] = stats.get(r["status"], 0) + 1
