@@ -23,6 +23,19 @@ def positive_int(value: str) -> int:
     return number
 
 
+def database_snapshot(storage, source: str):
+    """返回（全库记录数，当前来源记录）。
+
+    当 --db 指向正式库时，不能用其他来源的旧记录把本次空结果误报为成功。
+    """
+    connection = storage._get_conn()
+    total = connection.execute("SELECT COUNT(*) FROM audio_urls").fetchone()[0]
+    rows = connection.execute(
+        "SELECT * FROM audio_urls WHERE source=? ORDER BY id", (source,),
+    ).fetchall()
+    return total, rows
+
+
 def configure_spider(args):
     if args.source == "podcast_rss":
         from spiders.podcast_rss import PodcastRSSSpider
@@ -105,9 +118,7 @@ async def run_probe(args) -> dict:
         error = f"{type(exc).__name__}: {exc}"
     elapsed = time.monotonic() - started
 
-    rows = storage._get_conn().execute(
-        "SELECT * FROM audio_urls ORDER BY id",
-    ).fetchall()
+    database_records, rows = database_snapshot(storage, args.source)
     samples = []
     for row in rows[:args.samples]:
         parsed = urlsplit(row["url"])
@@ -134,7 +145,8 @@ async def run_probe(args) -> dict:
         "returned_records": len(returned),
         "callback_batches": batches,
         "inserted_records": inserted,
-        "database_records": len(rows),
+        "database_records": database_records,
+        "source_records": len(rows),
         "backfilled_records": backfilled,
         "invalid_media_urls": invalid_urls,
         "error": error,

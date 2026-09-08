@@ -6,7 +6,7 @@ import unittest
 
 import doctor
 import probe
-from storage import Storage
+from storage import AudioRecord, Storage
 
 
 class DoctorTests(unittest.TestCase):
@@ -56,6 +56,17 @@ class ProbeTests(unittest.TestCase):
     def test_positive_int_rejects_zero(self):
         with self.assertRaises(argparse.ArgumentTypeError):
             probe.positive_int("0")
+
+    def test_database_snapshot_filters_current_source(self):
+        with tempfile.TemporaryDirectory() as root:
+            storage = Storage(str(Path(root) / "probe.db"))
+            storage.add_url(AudioRecord(url="https://a.example/1.mp3", source="a"))
+            storage.add_url(AudioRecord(url="https://b.example/1.mp3", source="b"))
+            storage.add_url(AudioRecord(url="https://b.example/2.mp3", source="b"))
+            total, rows = probe.database_snapshot(storage, "b")
+        self.assertEqual(total, 3)
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(row["source"] == "b" for row in rows))
 
     def test_rss_probe_applies_safe_limits(self):
         args = probe.build_parser().parse_args([

@@ -55,6 +55,8 @@ python probe.py --source podcast_rss --feeds 1 --episodes 5
 
 退出码：0=有记录，1=异常，2=无记录。
 
+JSON 中 `database_records` 是整个目标数据库的总数，`source_records` 是当前来源在库内的总数；样例、非法 URL 计数和空结果判定只针对当前来源。
+
 ## `collect.py`
 
 运行固定来源 Spider，将 URL 写入正式数据库，不下载文件。

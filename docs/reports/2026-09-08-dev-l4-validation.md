@@ -2,7 +2,7 @@
 
 ## 结论
 
-AudioSpider 在 `dev_L4_1gpus` 的 `/root/code/github_repos/AudioSpider-fork` 上通过环境、离线回归、五来源真实采集探针和已有真实下载文件检查。探针使用 `/tmp` 独立数据库，没有向正式下载队列新增记录。
+AudioSpider 在 `dev_L4_1gpus` 的 `/root/code/github_repos/AudioSpider-fork` 上通过环境、离线回归、五来源真实采集探针和已有真实下载文件检查。首轮探针使用 `/tmp` 独立数据库；后续在用户授权下按受控上限向正式库新增 104 条媒体 URL。
 
 ## 环境
 
@@ -14,7 +14,7 @@ AudioSpider 在 `dev_L4_1gpus` 的 `/root/code/github_repos/AudioSpider-fork` �
 | libopus | 可用 |
 | Python 依赖 | `pip check` 通过 |
 | 可用磁盘 | 约 34.6 TiB |
-| Git 基线 | `f9fa1f6 fix: harden crawling and download pipeline` |
+| 文档/工具提交 | `6b81c7e feat: add operator tooling and layered documentation` |
 
 `scripts/bootstrap_conda.sh` 在已有环境上成功执行更新，锁定依赖均已满足。
 
@@ -28,15 +28,15 @@ bash scripts/test.sh
 
 结果：
 
-- 26 项 unittest 全部通过。
+- 27 项 unittest 全部通过。
 - `ResourceWarning` 按错误处理，未发现泄漏。
 - Python 编译通过。
 - `pip check` 无损坏依赖。
 - doctor 全部检查通过。
-- 21 个 Markdown 文件的相对链接检查通过。
+- 22 个 Markdown 文件的相对链接检查通过。
 - Shell 脚本语法检查通过。
 
-测试覆盖存储领取与 lease、日期/分组过滤、内容去重、URL 与路径安全、私网拦截、响应大小限制、HTML 错误响应拒绝、真实 ffmpeg Opus 转码、离线转换、RSS 成功和失败响应、doctor 和 probe 参数上限。
+测试覆盖存储领取与 lease、日期/分组过滤、内容去重、URL 与路径安全、私网拦截、响应大小限制、HTML 错误响应拒绝、真实 ffmpeg Opus 转码、离线转换、RSS 成功和失败响应、doctor、probe 参数上限和正式库按来源统计。
 
 ## 五来源真实探针
 
@@ -69,17 +69,32 @@ Podcast RSS 样例识别出中文、播客分类、发布时间、时长和 HTTP
 | 文件大小 | 12,758,558 字节 |
 | JSON sidecar | 可解析 |
 
+## 受控正式采集
+
+五个来源按顺序写入 `audiospider.db`，没有并发 SQLite 写入，没有开启 loop：
+
+| 来源 | 受控范围 | 新增 |
+|---|---|---:|
+| Podcast RSS | 4 feeds × 50 集 | 6 |
+| 小宇宙 | 3 feeds × 20 集 | 10 |
+| 喜马拉雅 | 3 种子、24 次总探测 | 21 |
+| LibriVox | 2 本书 × 20 章 | 40 |
+| B站 | 2 词 × 1 页 × 5 视频 × 3 分P | 27 |
+| **合计** | | **104** |
+
+入库过程中发现 `probe.py --db audiospider.db` 的旧实现会从整库选择样例，进而把其他来源误当成当前来源的成功证据。已改为按 `source` 判定空结果、计算非法 URL 和输出样例，并分开报告 `database_records` 与 `source_records`。
+
 正式数据库最终状态：
 
 | 状态 | 数量 |
 |---|---:|
-| pending | 139 |
+| pending | 243 |
 | downloading | 0 |
 | done | 1 |
 | failed | 0 |
-| 合计 | 140 |
+| 合计 | 244 |
 
-`doctor.py` 的 SQLite quick check 为 `ok`。真实探针前后正式库记录总数保持 140，证明探针没有污染正式队列。
+`doctor.py` 的 SQLite quick check 为 `ok`。最终来源分布为 Podcast RSS 146、LibriVox 40、B站 27、喜马拉雅 21、小宇宙 10；非法媒体 URL 计数为 0。本次只新增任务元数据，未下载新音频。
 
 ## 未覆盖范围
 
