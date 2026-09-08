@@ -20,8 +20,11 @@ class DiscoverTests(unittest.IsolatedAsyncioTestCase):
         await self.runner.cleanup()
 
     async def feed(self, _request):
-        xml = """<rss><channel><title>Local</title><language>zh-CN</language>
+        xml = """<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+        <channel><title>Local</title><language>zh-CN</language>
+        <itunes:author>Author</itunes:author><itunes:image href="https://media.example.test/show.jpg"/>
         <item><title>Episode</title><guid>episode-1</guid>
+        <link>https://media.example.test/episode</link><description>Show notes</description>
         <pubDate>Tue, 08 Sep 2026 00:00:00 +0000</pubDate>
         <enclosure url="https://media.example.test/e.mp3" length="12" type="audio/mpeg" />
         </item></channel></rss>"""
@@ -39,6 +42,10 @@ class DiscoverTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].source_id, "episode-1")
         self.assertEqual(rows[0].language, "zh")
+        self.assertEqual(rows[0].description, "Show notes")
+        self.assertEqual(rows[0].author, "Author")
+        self.assertEqual(rows[0].webpage_url, "https://media.example.test/episode")
+        self.assertTrue(rows[0].metadata_json)
 
     async def test_fetch_failure_is_not_an_empty_success(self):
         async with ClientSession() as session:

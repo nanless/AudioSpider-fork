@@ -31,6 +31,7 @@
 - [配置与环境变量](reference/configuration.md)
 - [数据库结构](reference/database.md)
 - [来源适配器](reference/spiders.md)
+- [背景信息与文本资产](reference/background-metadata.md)
 
 ## 第 4 层：设计与开发
 
@@ -40,6 +41,7 @@
 - [安全边界](design/security.md)
 - [数据流与状态机](design/data-flow.md)
 - [开发与测试](design/development.md)
+- [ADR-001：背景信息混合存储](design/adr-001-background-metadata.md)
 - [安全问题报告](../SECURITY.md)
 - [变更记录](../CHANGELOG.md)
 
@@ -48,6 +50,10 @@
 目标是“看到具体机器、日期、命令范围和实际结果”。
 
 - [2026-09-08 dev_L4_1gpus 服务器验收报告](reports/2026-09-08-dev-l4-validation.md)
+
+## 深度研究
+
+- [2026-09-09 音频背景信息与文本采集研究](research/2026-09-09-background-metadata-research.md)
 
 ## 推荐阅读路线
 

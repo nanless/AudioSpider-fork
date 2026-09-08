@@ -5,6 +5,7 @@
 import aiohttp
 
 from anti_crawler import build_headers, random_delay, RateLimiter
+from background import encode_metadata, metadata_envelope, plain_text, sanitize_html
 from config import MAX_RSS_SIZE, SPIDER_CONFIGS
 from network_safety import safe_get
 from spiders.base import BaseSpider
@@ -42,6 +43,8 @@ class LibriVoxSpider(BaseSpider):
             "format": "json",
             "limit": str(self.max_items),
             "offset": "0",
+            "extended": "1",
+            "coverart": "1",
         }
         try:
             async with session.get(self.api_url, params=params,
@@ -82,7 +85,10 @@ class LibriVoxSpider(BaseSpider):
                     return records
                 text = raw.decode(resp.charset or "utf-8", errors="replace")
                 soup = BeautifulSoup(text, "lxml-xml")
-                for item in soup.find_all("item")[:self.max_tracks_per_book]:
+                sections = book.get("sections", []) or []
+                for index, item in enumerate(
+                    soup.find_all("item")[:self.max_tracks_per_book]
+                ):
                     enclosure = item.find("enclosure")
                     if enclosure and enclosure.get("url"):
                         audio_url = enclosure["url"]
@@ -100,6 +106,45 @@ class LibriVoxSpider(BaseSpider):
                         if isinstance(language, str):
                             record.language = language.lower()[:2]
                         record.source_id = audio_url
+                        authors = [
+                            " ".join(filter(None, (person.get("first_name"), person.get("last_name"))))
+                            for person in book.get("authors", [])
+                        ]
+                        section = sections[index] if index < len(sections) else {}
+                        record.webpage_url = book.get("url_librivox", "")
+                        record.description = plain_text(book.get("description", ""))
+                        record.author = ", ".join(filter(None, authors))
+                        record.cover_url = book.get("coverart_jpg", "")
+                        source_texts = []
+                        if book.get("url_text_source"):
+                            source_texts.append({
+                                "url": book["url_text_source"],
+                                "type": "text/html",
+                                "text_source": "public_domain_source",
+                            })
+                        record.metadata_json = encode_metadata(metadata_envelope(
+                            "librivox",
+                            common={
+                                "description": record.description,
+                                "description_html": sanitize_html(book.get("description", "")),
+                                "webpage_url": record.webpage_url,
+                                "author": record.author,
+                                "cover_url": record.cover_url,
+                                "podcast_title": book.get("title", ""),
+                                "categories": [genre.get("name", "") for genre in book.get("genres", [])],
+                            },
+                            source_data={
+                                "book_id": book.get("id", ""),
+                                "copyright_year": book.get("copyright_year", ""),
+                                "authors": book.get("authors", []),
+                                "translators": book.get("translators", []),
+                                "section": section,
+                                "total_time": book.get("totaltime", ""),
+                                "project_url": book.get("url_project", ""),
+                                "archive_url": book.get("url_iarchive", ""),
+                            },
+                            assets={"source_texts": source_texts},
+                        ))
                         records.append(record)
         except Exception as e:
             self.logger.error(f"解析 LibriVox RSS 失败 {rss_url}: {e}")

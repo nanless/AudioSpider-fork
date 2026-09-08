@@ -36,13 +36,15 @@ def connect():
     conn = sqlite3.connect(DB_PATH, timeout=60)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA temp_store = MEMORY")
-    # 与 Storage 保持一致：补齐 published_at 列
-    try:
-        conn.execute("ALTER TABLE audio_urls ADD COLUMN published_at TEXT DEFAULT ''")
-        conn.commit()
-    except sqlite3.OperationalError as e:
-        if "duplicate column" not in str(e).lower():
-            raise
+    # 与 Storage 保持一致：补齐可加法迁移的元数据列。
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(audio_urls)")}
+    for column in (
+        "published_at", "webpage_url", "description", "author",
+        "cover_url", "metadata_json",
+    ):
+        if column not in columns:
+            conn.execute(f"ALTER TABLE audio_urls ADD COLUMN {column} TEXT DEFAULT ''")
+    conn.commit()
     return conn
 
 
@@ -87,6 +89,16 @@ def show_overview(conn: sqlite3.Connection):
             print(f"    {r['language']:12s}  {r['cnt']}")
 
     show_published_stats(conn)
+
+    row = conn.execute(
+        "SELECT SUM(description!=''), SUM(author!=''), SUM(cover_url!=''), "
+        "SUM(metadata_json!='') FROM audio_urls"
+    ).fetchone()
+    print("\n  背景信息覆盖:")
+    print(f"    描述            {row[0] or 0}")
+    print(f"    作者/主播       {row[1] or 0}")
+    print(f"    封面地址        {row[2] or 0}")
+    print(f"    版本化元数据    {row[3] or 0}")
     show_duration_stats(conn)
 
     cp = conn.execute("SELECT COUNT(*) FROM crawl_checkpoints").fetchone()[0]
@@ -285,6 +297,11 @@ def _print_record(r: sqlite3.Row, index: int | None = None):
     print(f"  语言:       {r['language'] or '-'}")
     print(f"  分类:       {r['category'] or '-'}")
     print(f"  说话人:     {r['speaker'] or '-'}")
+    print(f"  作者:       {r['author'] or '-'}")
+    print(f"  网页:       {r['webpage_url'] or '-'}")
+    print(f"  封面:       {r['cover_url'] or '-'}")
+    description = (r["description"] or "").replace("\n", " ")
+    print(f"  描述:       {description[:160] or '-'}")
     print(f"  本地路径:   {r['local_path'] or '-'}")
     print(f"  内容哈希:   {r['content_hash'] or '-'}")
     print(f"  源站 ID:    {r['source_id'] or '-'}")

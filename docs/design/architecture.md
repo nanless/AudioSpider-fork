@@ -20,6 +20,10 @@ probe.py -> 临时 DB + JSON           v
                          +------------+-------------+
                          v                          v
                     downloads/音频             同名 JSON sidecar
+                                                   |
+                                  description / cover / transcript / chapters
+                                                   |
+                                  description / cover / transcript / chapters
 ```
 
 ## 入口层
@@ -75,6 +79,14 @@ SQLite 使用 WAL。当前设计适合一台机器上的少量采集/下载进�
 - `anti_crawler.py`：User-Agent、请求头、延时与代理辅助。
 - `scripts/check_docs.py`：保证文档相对链接可达。
 - `scripts/test.sh`：统一验证入口。
+- `background.py`：背景信息规范化、URL 脱敏和受限辅助资产保存。
+- `rss_metadata.py`：RSS/iTunes/Media RSS/Podcasting 2.0 字段提取。
+
+背景信息的存储决策见 [ADR-001](adr-001-background-metadata.md)，来源能力证据见[深度研究报告](../research/2026-09-09-background-metadata-research.md)。
+- `background.py`：背景信息规范化、URL 脱敏和受限辅助资产保存。
+- `rss_metadata.py`：RSS/iTunes/Media RSS/Podcasting 2.0 字段提取。
+
+背景信息的存储决策见 [ADR-001](adr-001-background-metadata.md)，来源能力证据见[深度研究报告](../research/2026-09-09-background-metadata-research.md)。
 
 ## 设计原则
 

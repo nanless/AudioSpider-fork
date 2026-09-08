@@ -16,6 +16,14 @@ python db_viewer.py status pending -n 10
 python main.py --limit 5 --workers 1 --format original
 ```
 
+默认 `--background all`：音频成功后 best-effort 保存描述、封面、公开 transcript、章节和公版原文。背景资产失败只写入 sidecar 状态，不会把已验证音频改为 failed。
+
+| 模式 | 行为 |
+|---|---|
+| `none` | 不写新的背景文件 |
+| `metadata` | 写扩展 JSON 与 description 文本/HTML，不请求辅助 URL |
+| `all` | 在 metadata 基础上下载受限的公开辅助资产，默认 |
+
 常用过滤：
 
 ```bash
@@ -122,3 +130,13 @@ ffprobe -v error -show_streams /path/to/audio
 ```
 
 正常完成后不应遗留 `.part`。如果存在，说明下载被中断或失败；先看日志，再决定重试。
+
+## 为已下载文件补背景信息
+
+来源适配器更新元数据后，不需要重下音频：
+
+```bash
+python main.py background --limit 10000 --workers 4 --background all
+```
+
+可用 `--source podcast_rss` 等筛选来源。详细文件、来源差异和真实性标记见[背景信息与文本资产](../reference/background-metadata.md)。

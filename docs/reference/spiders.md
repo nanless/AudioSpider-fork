@@ -29,6 +29,7 @@ python collect.py --spiders podcast_rss
 - RSS 响应默认不超过 20 MiB。
 - 按每个 feed 节目上限截断。
 - 保存 `published_at`，支持日期过滤。
+- 保存 RSS/iTunes/Media RSS/Podcasting 2.0 的描述、作者、人物、封面、许可、transcript 和 chapters。
 
 局限：主要面向 RSS 2.0 播客。非标准 XML、Atom 扩展或需要登录的 feed 可能无法解析。
 
@@ -43,6 +44,8 @@ python collect.py --spiders librivox
 
 优点是内容边界较清楚；缺点是一本书通常分成多章，而且强依赖 Archive.org 的网络可达性。正式采集的 `max_tracks_per_book` 在 `config.py` 中配置；探针用 `--episodes` 单独限制每书章数。
 
+采集时请求官方 extended/coverart 字段，可保存书籍简介、作者/译者、章节/朗读者、题材、封面、版权年份和公版原文链接。
+
 ## `xiaoyuzhou`
 
 从配置的播客页获取节目，也可从站点发现页扩充播客 URL。
@@ -53,6 +56,8 @@ python probe.py --source xiaoyuzhou --feeds 1 --episodes 5 --include-discovery
 ```
 
 默认探针不启用发现页，以减少访问范围。正式 Spider 依赖页面中的嵌入数据或 HTML，页面改版后应先运行探针。
+
+公开 `__NEXT_DATA__` 可提供单集描述/时间轴、主播、标签、赞助、节目与单集封面。`transcript` 只有 mediaId 时仅保存引用，不推断文本 URL。
 
 ## `ximalaya`
 
@@ -68,6 +73,8 @@ python collect.py --spiders ximalaya
 - 种子的选择会显著影响样本。
 - 语言、分类和标题可能是启发式推断。
 - 站点内部 API 或签名规则可能变化。
+
+`baseInfo` 中的专辑、分类、作者、简介、封面、创建时间和免费/付费/授权标记会进入来源元数据。不探测隐藏 transcript 接口。
 
 ## `bilibili`
 
@@ -85,6 +92,8 @@ python probe.py --source bilibili --keywords "有声书 合集" --search-pages 1
 - 视频可访问不等于已经获得下载或训练授权。
 
 默认有每词页数、每词视频数和每视频分P数上限。先用探针小规模确认，再考虑正式采集。
+
+视频简介、UP主、封面、发布时间、分P、权限与统计会保存；player API 公开返回字幕时声明为 transcript 资产。无字幕时保持空列表。
 
 ## 配置与正式注册
 

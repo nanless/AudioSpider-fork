@@ -15,6 +15,7 @@ import asyncio
 import aiohttp
 
 from anti_crawler import build_headers, random_delay, RateLimiter
+from background import encode_metadata, metadata_envelope, plain_text
 from config import SPIDER_CONFIGS
 from spiders.base import BaseSpider
 from storage import AudioRecord
@@ -150,7 +151,8 @@ class XimalayaSpider(BaseSpider):
 
                 title = data.get("title", "")
                 duration = data.get("duration", 0)
-                nickname = data.get("nickname", "")
+                user_info = data.get("userInfo") or {}
+                nickname = data.get("nickname", "") or user_info.get("nickname", "")
                 category_name = data.get("categoryName", "") or data.get("albumTitle", "")
 
                 fmt = "mp3"
@@ -165,6 +167,34 @@ class XimalayaSpider(BaseSpider):
                 record.category = self._map_category(category_name)
                 record.speaker = nickname
                 record.source_id = track_id
+                record.webpage_url = f"https://www.ximalaya.com/sound/{track_id}"
+                record.description = plain_text(data.get("intro", "") or "")
+                record.author = nickname
+                images = data.get("images") or {}
+                image_cover = images.get("coverLarge", "") if isinstance(images, dict) else ""
+                record.cover_url = data.get("coverLarge") or data.get("albumImage") or image_cover
+                record.metadata_json = encode_metadata(metadata_envelope(
+                    "ximalaya",
+                    common={
+                        "description": record.description,
+                        "webpage_url": record.webpage_url,
+                        "author": record.author,
+                        "cover_url": record.cover_url,
+                        "podcast_title": data.get("albumTitle", ""),
+                        "categories": [data.get("categoryName", "")],
+                    },
+                    source_data={
+                        "track_id": track_id,
+                        "album_id": data.get("albumId"),
+                        "album_title": data.get("albumTitle", ""),
+                        "created_at": data.get("createdAt"),
+                        "is_free": data.get("isFree"),
+                        "is_paid": data.get("isPaid"),
+                        "is_authorized": data.get("isAuthorized"),
+                        "play_count": data.get("playtimes"),
+                        "like_count": data.get("likes"),
+                    },
+                ))
                 return record
 
         except Exception as e:

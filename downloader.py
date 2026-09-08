@@ -12,13 +12,13 @@ import shutil
 import socket
 import subprocess
 import uuid
-from datetime import datetime, timezone
 from urllib.parse import urlparse, unquote
 
 import aiohttp
 import aiofiles
 
 from anti_crawler import build_headers, random_delay, get_aio_proxy
+from background import persist_background, save_sidecar
 from config import (
     CHUNK_SIZE,
     DOWNLOAD_DIR,
@@ -183,7 +183,8 @@ class Downloader:
     def __init__(self, storage: Storage, max_workers: int | None = None,
                  convert: bool = True, *, allow_private_network: bool = False,
                  max_download_bytes: int = MAX_DOWNLOAD_BYTES,
-                 min_disk_free_bytes: int = MIN_FREE_DISK_BYTES):
+                 min_disk_free_bytes: int = MIN_FREE_DISK_BYTES,
+                 background_mode: str = "all"):
         self.storage = storage
         self.max_workers = max_workers or MAX_CONCURRENT_DOWNLOADS
         if self.max_workers <= 0:
@@ -192,6 +193,9 @@ class Downloader:
         self.allow_private_network = allow_private_network
         self.max_download_bytes = max_download_bytes
         self.min_disk_free_bytes = min_disk_free_bytes
+        if background_mode not in {"none", "metadata", "all"}:
+            raise ValueError("background_mode must be none, metadata, or all")
+        self.background_mode = background_mode
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:12]}"
         self.semaphore = asyncio.Semaphore(self.max_workers)
         self.stats = {"success": 0, "failed": 0, "skipped": 0, "dup": 0}
@@ -299,7 +303,7 @@ class Downloader:
                         os.remove(filepath)
                         self.stats["dup"] += 1
                     else:
-                        _save_meta(filepath, item, content_hash)
+                        await self._save_background(session, filepath, item, content_hash)
                         self.stats["skipped"] += 1
                     logger.info(f"{progress} - 复用已验证文件: {filepath}")
                     return
@@ -335,7 +339,7 @@ class Downloader:
                     return
                 self.stats["success"] += 1
                 size_mb = os.path.getsize(filepath) / 1024 / 1024
-                _save_meta(filepath, item, content_hash)
+                await self._save_background(session, filepath, item, content_hash)
                 logger.info(f"{progress} ✓ {filename} ({size_mb:.1f}MB) → {filepath}")
             except Exception as e:
                 if (part_path and isinstance(e, (UnsafeURLError, DownloadValidationError))
@@ -346,6 +350,49 @@ class Downloader:
                 parsed = urlparse(url)
                 safe_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path[:80]}"
                 logger.error(f"{progress} ✗ {filename} | {safe_url} | {e}")
+
+    async def _save_background(self, session: aiohttp.ClientSession,
+                               filepath: str, item: dict,
+                               content_hash: str) -> bool:
+        try:
+            result = await persist_background(
+                session, filepath, item, mode=self.background_mode,
+                allow_private_network=self.allow_private_network,
+            )
+            save_sidecar(filepath, item, content_hash, result)
+            failures = sum(asset.get("status") == "failed"
+                           for asset in result.get("assets", []))
+            if failures:
+                logger.warning(f"背景资产部分失败 {filepath}: {failures} 个")
+            return True
+        except Exception as exc:
+            logger.warning(f"背景信息保存失败 {filepath}: {exc}")
+            return False
+
+    async def refresh_background(self, limit: int = 10_000,
+                                 source: str | None = None) -> dict:
+        rows = self.storage.get_done_records(limit, source)
+        stats = {"processed": 0, "missing_audio": 0, "failed": 0}
+        connector = aiohttp.TCPConnector(limit=self.max_workers, limit_per_host=3)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async def refresh(item):
+                async with self.semaphore:
+                    filepath = item["local_path"]
+                    if not os.path.isfile(filepath):
+                        stats["missing_audio"] += 1
+                        return
+                    ok = await self._save_background(
+                        session, filepath, item, item.get("content_hash", ""),
+                    )
+                    stats["processed"] += 1
+                    if not ok:
+                        stats["failed"] += 1
+            await asyncio.gather(*(refresh(item) for item in rows))
+        logger.info(
+            f"背景信息刷新完成: {stats['processed']} 条, "
+            f"失败 {stats['failed']}, 音频缺失 {stats['missing_audio']}"
+        )
+        return stats
 
     def _build_subdir(self, source: str, category: str) -> str:
         parts = [DOWNLOAD_DIR]
@@ -441,28 +488,10 @@ class Downloader:
 
 def _save_meta(filepath: str, item: dict, content_hash: str = ""):
     """在音频文件旁生成同名 .json 元信息文件"""
-    meta_path = os.path.splitext(filepath)[0] + ".json"
-    meta = {
-        "title": item.get("title", ""),
-        "source": item.get("source", ""),
-        "source_id": item.get("source_id", ""),
-        "original_url": item.get("url", ""),
-        "file_format": os.path.splitext(filepath)[1].lstrip(".").lower(),
-        "file_size": os.path.getsize(filepath) if os.path.exists(filepath) else 0,
-        "duration": item.get("duration", 0),
-        "language": item.get("language", ""),
-        "category": item.get("category", ""),
-        "speaker": item.get("speaker", ""),
-        "published_at": item.get("published_at", ""),
-        "acquired_at": datetime.now(timezone.utc).isoformat(),
-        "content_hash": content_hash or item.get("content_hash", ""),
-        "content_hash_algorithm": "sha256",
-    }
     try:
-        with open(meta_path, "w", encoding="utf-8") as f:
-            json.dump(meta, f, ensure_ascii=False, indent=2)
+        save_sidecar(filepath, item, content_hash)
     except Exception as e:
-        logger.warning(f"元信息写入失败 {meta_path}: {e}")
+        logger.warning(f"元信息写入失败 {filepath}: {e}")
 
 
 def fix_meta(storage: Storage):

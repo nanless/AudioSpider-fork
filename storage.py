@@ -24,6 +24,11 @@ class AudioRecord:
     language: str = ""
     category: str = ""
     speaker: str = ""
+    webpage_url: str = ""
+    description: str = ""
+    author: str = ""
+    cover_url: str = ""
+    metadata_json: str = ""
     status: str = "pending"
     local_path: str = ""
     content_hash: str = ""
@@ -63,6 +68,11 @@ class Storage:
                 language TEXT DEFAULT '',
                 category TEXT DEFAULT '',
                 speaker TEXT DEFAULT '',
+                webpage_url TEXT DEFAULT '',
+                description TEXT DEFAULT '',
+                author TEXT DEFAULT '',
+                cover_url TEXT DEFAULT '',
+                metadata_json TEXT DEFAULT '',
                 status TEXT DEFAULT 'pending',
                 local_path TEXT DEFAULT '',
                 content_hash TEXT DEFAULT '',
@@ -96,6 +106,11 @@ class Storage:
         self._add_column_if_missing(conn, "audio_urls", "claimed_by", "TEXT DEFAULT ''")
         self._add_column_if_missing(conn, "audio_urls", "claimed_at", "TEXT DEFAULT ''")
         self._add_column_if_missing(conn, "audio_urls", "lease_expires_at", "TEXT DEFAULT ''")
+        self._add_column_if_missing(conn, "audio_urls", "webpage_url", "TEXT DEFAULT ''")
+        self._add_column_if_missing(conn, "audio_urls", "description", "TEXT DEFAULT ''")
+        self._add_column_if_missing(conn, "audio_urls", "author", "TEXT DEFAULT ''")
+        self._add_column_if_missing(conn, "audio_urls", "cover_url", "TEXT DEFAULT ''")
+        self._add_column_if_missing(conn, "audio_urls", "metadata_json", "TEXT DEFAULT ''")
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_lease_expires_at "
             "ON audio_urls(status, lease_expires_at)"
@@ -143,12 +158,15 @@ class Storage:
             cursor = conn.execute(
                 "INSERT OR IGNORE INTO audio_urls "
                 "(url, source, title, file_format, file_size, duration, language, "
-                "category, speaker, status, source_id, discovered_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "category, speaker, webpage_url, description, author, cover_url, "
+                "metadata_json, status, source_id, published_at, discovered_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (record.url, record.source, record.title, record.file_format,
                  record.file_size, record.duration, record.language,
-                 record.category, record.speaker, record.status,
-                 record.source_id, record.discovered_at),
+                 record.category, record.speaker, record.webpage_url,
+                 record.description, record.author, record.cover_url,
+                 record.metadata_json, record.status, record.source_id,
+                 record.published_at, record.discovered_at),
             )
             conn.commit()
             return cursor.rowcount == 1
@@ -156,41 +174,111 @@ class Storage:
             return False
 
     def add_urls_batch(self, records: list[AudioRecord]) -> tuple[int, int]:
-        """批量入库。返回 (新增条数, 回填 published_at 条数)。"""
+        """批量入库。返回 (新增条数, 更新旧记录数)。"""
         conn = self._get_conn()
         now = datetime.now().isoformat()
+        existing_urls = set()
+        urls = [record.url for record in records]
+        for offset in range(0, len(urls), 500):
+            chunk = urls[offset:offset + 500]
+            if not chunk:
+                continue
+            placeholders = ",".join("?" for _ in chunk)
+            existing_urls.update(
+                row["url"] for row in conn.execute(
+                    f"SELECT url FROM audio_urls WHERE url IN ({placeholders})", chunk,
+                )
+            )
+        existing_source_ids = set()
+        for record in records:
+            if not record.source_id:
+                continue
+            row = conn.execute(
+                "SELECT source, source_id FROM audio_urls "
+                "WHERE source=? AND source_id=? LIMIT 1",
+                (record.source, record.source_id),
+            ).fetchone()
+            if row:
+                existing_source_ids.add((row["source"], row["source_id"]))
+        existing_records = [
+            record for record in records
+            if record.url in existing_urls
+            or (record.source, record.source_id) in existing_source_ids
+        ]
+        new_records = [record for record in records if record not in existing_records]
         rows = [
             (r.url, r.source, r.title, r.file_format, r.file_size,
              r.duration, r.language, r.category, r.speaker,
+             r.webpage_url, r.description, r.author, r.cover_url, r.metadata_json,
              r.status, r.source_id, r.published_at or "", r.discovered_at or now)
-            for r in records
+            for r in new_records
         ]
         before = conn.total_changes
         conn.executemany(
             "INSERT OR IGNORE INTO audio_urls "
             "(url, source, title, file_format, file_size, duration, language, "
-            "category, speaker, status, source_id, published_at, discovered_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "category, speaker, webpage_url, description, author, cover_url, "
+            "metadata_json, status, source_id, published_at, discovered_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
         added = conn.total_changes - before
-        # 回填历史空 published_at（INSERT OR IGNORE 不会更新已有行）
-        backfill = [
-            (r.published_at, r.url)
-            for r in records
-            if r.published_at
-        ]
-        backfilled = 0
-        if backfill:
-            before_bf = conn.total_changes
-            conn.executemany(
-                "UPDATE audio_urls SET published_at=? "
-                "WHERE url=? AND (published_at='' OR published_at IS NULL)",
-                backfill,
-            )
-            backfilled = conn.total_changes - before_bf
+        updated = self._enrich_records(
+            conn, existing_records,
+        )
         conn.commit()
-        return added, backfilled
+        return added, updated
+
+    @staticmethod
+    def _enrich_records(conn: sqlite3.Connection,
+                        records: list[AudioRecord]) -> int:
+        updated = 0
+        for record in records:
+            values = (
+                record.title, record.title,
+                record.file_size, record.file_size,
+                record.duration, record.duration,
+                record.language, record.language,
+                record.category, record.category,
+                record.speaker, record.speaker,
+                record.webpage_url, record.webpage_url,
+                record.description, record.description,
+                record.author, record.author,
+                record.cover_url, record.cover_url,
+                record.metadata_json, record.metadata_json,
+                record.source_id, record.source_id,
+                record.published_at, record.published_at,
+                record.url, record.source_id, record.source,
+                record.source_id,
+            )
+            cursor = conn.execute(
+                "UPDATE audio_urls SET "
+                "title=CASE WHEN ?!='' THEN ? ELSE title END, "
+                "file_size=CASE WHEN ?>0 THEN ? ELSE file_size END, "
+                "duration=CASE WHEN ?>0 THEN ? ELSE duration END, "
+                "language=CASE WHEN ?!='' THEN ? ELSE language END, "
+                "category=CASE WHEN ?!='' THEN ? ELSE category END, "
+                "speaker=CASE WHEN ?!='' THEN ? ELSE speaker END, "
+                "webpage_url=CASE WHEN ?!='' THEN ? ELSE webpage_url END, "
+                "description=CASE WHEN ?!='' THEN ? ELSE description END, "
+                "author=CASE WHEN ?!='' THEN ? ELSE author END, "
+                "cover_url=CASE WHEN ?!='' THEN ? ELSE cover_url END, "
+                "metadata_json=CASE WHEN ?!='' THEN ? ELSE metadata_json END, "
+                "source_id=CASE WHEN ?!='' THEN ? ELSE source_id END, "
+                "published_at=CASE WHEN ?!='' THEN ? ELSE published_at END "
+                "WHERE url=? OR (?!='' AND source=? AND source_id=?)",
+                values,
+            )
+            updated += cursor.rowcount
+        return updated
+
+    def enrich_records(self, records: list[AudioRecord]) -> int:
+        if not records:
+            return 0
+        conn = self._get_conn()
+        updated = self._enrich_records(conn, records)
+        conn.commit()
+        return updated
 
     def backfill_published(self, records: list[AudioRecord]) -> int:
         values = [(record.published_at, record.url)
@@ -480,6 +568,19 @@ class Storage:
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def get_done_records(self, limit: int = 10_000,
+                         source: str | None = None) -> list[dict]:
+        where = "status='done' AND local_path!='' AND local_path NOT LIKE 'dup:%'"
+        params: list = []
+        if source:
+            where += " AND source=?"
+            params.append(source)
+        rows = self._get_conn().execute(
+            f"SELECT * FROM audio_urls WHERE {where} ORDER BY id LIMIT ?",
+            (*params, limit),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
     def show_stats(self):
         stats = self.get_stats()

@@ -71,8 +71,9 @@ def _positive_int(value: str) -> int:
 def main():
     parser = argparse.ArgumentParser(description="AudioSpider 音频下载器")
     parser.add_argument("action", nargs="?", default="download",
-                        choices=["download", "stats", "fix-meta"],
-                        help="download=下载(默认), stats=统计, fix-meta=补生成元信息JSON")
+                        choices=["download", "stats", "fix-meta", "background"],
+                        help="download=下载(默认), stats=统计, "
+                             "fix-meta=补生成JSON, background=补背景信息/资产")
     parser.add_argument("--source", default=None, help="仅下载指定来源 (如 podcast_rss, bilibili)")
     parser.add_argument("--category", default=None, help="仅下载指定分类 (如 播客, 有声书)")
     parser.add_argument("--language", default=None, help="仅下载指定语种 (如 zh, en)")
@@ -85,6 +86,11 @@ def main():
                         help=f"并发下载数(默认4, 最大{MAX_DOWNLOAD_WORKERS})")
     parser.add_argument("--format", choices=["opus", "original"], default="opus",
                         help="保存格式: opus=ffmpeg转opus(默认), original=保留原始格式(省CPU)")
+    parser.add_argument(
+        "--background", choices=["none", "metadata", "all"], default="all",
+        help="背景信息: none=不保存, metadata=仅JSON/描述, "
+             "all=再下载公开封面/字幕/章节/原文(默认)",
+    )
     parser.add_argument("--retry-failed", action="store_true",
                         help="将所有 failed 状态重置为 pending 并重新下载")
     parser.add_argument("--loop", action="store_true", help="持续循环消费下载")
@@ -107,10 +113,19 @@ def main():
         fix_meta(storage)
         return
 
+    if args.action == "background":
+        downloader = Downloader(
+            storage, max_workers=args.workers, convert=False,
+            background_mode=args.background,
+        )
+        asyncio.run(downloader.refresh_background(args.limit, args.source))
+        return
+
     if args.retry_failed:
         logger = logging.getLogger("download")
         dl = Downloader(storage, max_workers=args.workers,
-                        convert=args.format == "opus")
+                        convert=args.format == "opus",
+                        background_mode=args.background)
         failed_items = storage.claim_failed(
             limit=args.limit,
             source=args.source,
@@ -144,7 +159,10 @@ def main():
     convert = args.format == "opus"
 
     async def download_once():
-        dl = Downloader(storage, max_workers=args.workers, convert=convert)
+        dl = Downloader(
+            storage, max_workers=args.workers, convert=convert,
+            background_mode=args.background,
+        )
         return await dl.download_all(**dl_kwargs)
 
     async def download_loop():
@@ -153,7 +171,10 @@ def main():
         while True:
             round_num += 1
             logger.info(f"\n=== 下载轮次 {round_num} ===")
-            dl = Downloader(storage, max_workers=args.workers, convert=convert)
+            dl = Downloader(
+                storage, max_workers=args.workers, convert=convert,
+                background_mode=args.background,
+            )
             stats = await dl.download_all(**dl_kwargs)
             storage.show_stats()
             if stats["success"] == 0 and stats["failed"] == 0:

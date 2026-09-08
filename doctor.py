@@ -148,6 +148,7 @@ def check_database(db_path: Path) -> dict:
         required = {"audio_urls", "crawl_checkpoints"}
         missing = sorted(required - tables)
         counts = {}
+        metadata_coverage = {}
         if "audio_urls" in tables:
             counts = {
                 row["status"]: row["count"]
@@ -155,6 +156,21 @@ def check_database(db_path: Path) -> dict:
                     "SELECT status, COUNT(*) AS count FROM audio_urls GROUP BY status"
                 )
             }
+            columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(audio_urls)")
+            }
+            rich_columns = {"description", "author", "cover_url", "metadata_json"}
+            if rich_columns.issubset(columns):
+                coverage = connection.execute(
+                    "SELECT SUM(description!=''), SUM(author!=''), "
+                    "SUM(cover_url!=''), SUM(metadata_json!='') FROM audio_urls"
+                ).fetchone()
+                metadata_coverage = {
+                    "description": coverage[0] or 0,
+                    "author": coverage[1] or 0,
+                    "cover_url": coverage[2] or 0,
+                    "metadata_json": coverage[3] or 0,
+                }
         connection.close()
         if integrity != "ok" or missing:
             return make_result(
@@ -165,6 +181,7 @@ def check_database(db_path: Path) -> dict:
         return make_result(
             "database", "ok", f"SQLite 完整，记录数 {sum(counts.values())}",
             exists=True, integrity=integrity, status_counts=counts,
+            metadata_coverage=metadata_coverage,
         )
     except sqlite3.Error as exc:
         return make_result(

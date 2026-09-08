@@ -12,6 +12,8 @@ import tempfile
 import time
 from urllib.parse import urlsplit
 
+from background import decode_metadata
+
 
 SOURCES = ("podcast_rss", "librivox", "xiaoyuzhou", "ximalaya", "bilibili")
 
@@ -122,6 +124,8 @@ async def run_probe(args) -> dict:
     samples = []
     for row in rows[:args.samples]:
         parsed = urlsplit(row["url"])
+        metadata = decode_metadata(row["metadata_json"])
+        assets = metadata.get("assets", {})
         samples.append({
             "title": row["title"][:100],
             "media_host": parsed.hostname or "",
@@ -132,6 +136,13 @@ async def run_probe(args) -> dict:
             "category": row["category"],
             "source_id": row["source_id"][:100],
             "published_at": row["published_at"],
+            "author": row["author"],
+            "description_chars": len(row["description"]),
+            "webpage_host": urlsplit(row["webpage_url"]).hostname or "",
+            "cover_host": urlsplit(row["cover_url"]).hostname or "",
+            "transcript_assets": len(assets.get("transcripts", []) or []),
+            "chapter_assets": len(assets.get("chapters", []) or []),
+            "source_text_assets": len(assets.get("source_texts", []) or []),
         })
     invalid_urls = sum(
         1 for row in rows
@@ -147,6 +158,7 @@ async def run_probe(args) -> dict:
         "inserted_records": inserted,
         "database_records": database_records,
         "source_records": len(rows),
+        "rich_metadata_records": sum(bool(row["metadata_json"]) for row in rows),
         "backfilled_records": backfilled,
         "invalid_media_urls": invalid_urls,
         "error": error,

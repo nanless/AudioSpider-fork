@@ -50,23 +50,10 @@ def setup_logging():
 
 
 def _flush_records(storage: Storage, records: list, logger: logging.Logger) -> tuple[int, int]:
-    """去重后批量入库，返回 (新增条数, 回填 published_at 条数)。"""
+    """去重后批量入库，返回 (新增条数, 更新元数据条数)。"""
     if not records:
         return 0, 0
-    new_records = []
-    for r in records:
-        if r.source_id and storage.source_id_exists(r.source, r.source_id):
-            continue
-        if storage.url_exists(r.url):
-            continue
-        new_records.append(r)
-
-    added = 0
-    if new_records:
-        added, _ = storage.add_urls_batch(new_records)
-    # Always backfill existing rows too, even when the same batch has new URLs.
-    backfilled = storage.backfill_published(records)
-    return added, backfilled
+    return storage.add_urls_batch(records)
 
 
 async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
@@ -98,7 +85,7 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
                 if added or backfilled:
                     logger.info(
                         f"    [{spider.name}] 增量入库 +{added}"
-                        + (f", 回填 published_at {backfilled}" if backfilled else "")
+                        + (f", 更新元数据 {backfilled}" if backfilled else "")
                     )
 
             records = await spider.crawl(on_batch=on_batch)
@@ -108,7 +95,7 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
                 logger.info(
                     f"<<< {spider.name}: 增量新增 {incremental['added']} 个"
                     + (
-                        f", 回填 published_at {incremental['backfilled']}"
+                        f", 更新元数据 {incremental['backfilled']}"
                         if incremental["backfilled"] else ""
                     )
                 )
@@ -118,12 +105,12 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
                 if added:
                     logger.info(
                         f"<<< {spider.name}: 发现 {len(records)} 个, 新增 {added} 个"
-                        + (f", 回填 published_at {backfilled}" if backfilled else "")
+                        + (f", 更新元数据 {backfilled}" if backfilled else "")
                     )
                 elif backfilled:
                     logger.info(
                         f"<<< {spider.name}: 发现 {len(records)} 个, "
-                        f"全部已存在, 回填 published_at {backfilled}"
+                        f"全部已存在, 更新元数据 {backfilled}"
                     )
                 else:
                     logger.info(f"<<< {spider.name}: 发现 {len(records)} 个, 全部已存在")

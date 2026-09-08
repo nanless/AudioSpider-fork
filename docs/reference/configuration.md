@@ -33,6 +33,9 @@ python discover.py --source podcastindex --keywords news --pi-max-pages 1
 | `AUDIOSPIDER_MIN_DISK_FREE_BYTES` | `21474836480` | 下载期间最小空闲 20 GiB |
 | `AUDIOSPIDER_DOWNLOAD_LEASE_SECONDS` | `7200` | 已领取下载任务的 lease |
 | `AUDIOSPIDER_MAX_RSS_SIZE` | `20971520` | 单个 RSS 响应最大 20 MiB |
+| `AUDIOSPIDER_MAX_BACKGROUND_ASSET_BYTES` | `20971520` | 单个背景资产最大 20 MiB |
+| `AUDIOSPIDER_MAX_BACKGROUND_TOTAL_BYTES` | `52428800` | 每条音频背景资产合计最大 50 MiB |
+| `AUDIOSPIDER_MAX_BACKGROUND_ASSETS` | `12` | 每条音频最多请求的辅助资产数 |
 
 所有值必须是正整数字节或秒数。例如：
 

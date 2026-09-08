@@ -14,10 +14,12 @@
 import asyncio
 import re
 from collections.abc import Callable
+from datetime import datetime, timezone
 
 import aiohttp
 
 from anti_crawler import random_delay, RateLimiter
+from background import encode_metadata, metadata_envelope, plain_text
 from config import SPIDER_CONFIGS
 from spiders.base import BaseSpider
 from storage import AudioRecord
@@ -39,6 +41,8 @@ BILIBILI_HEADERS = {
 SEARCH_URL = "https://api.bilibili.com/x/web-interface/search/all/v2"
 PAGELIST_URL = "https://api.bilibili.com/x/player/pagelist"
 PLAYURL_URL = "https://api.bilibili.com/x/player/playurl"
+VIEW_URL = "https://api.bilibili.com/x/web-interface/view"
+PLAYER_URL = "https://api.bilibili.com/x/player/v2"
 
 
 class BilibiliSpider(BaseSpider):
@@ -211,12 +215,15 @@ class BilibiliSpider(BaseSpider):
         """从视频的每个分P提取音频流"""
         records = []
         try:
-            async with session.get(PAGELIST_URL, params={"bvid": bvid},
-                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status != 200:
-                    return []
-                data = await resp.json(content_type=None)
-                pages = data.get("data", [])
+            video_info = await self._get_video_info(session, bvid)
+            pages = video_info.get("pages", [])
+            if not pages:
+                async with session.get(PAGELIST_URL, params={"bvid": bvid},
+                                       timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status != 200:
+                        return []
+                    data = await resp.json(content_type=None)
+                    pages = data.get("data", [])
 
             total_parts = min(len(pages), self.max_pages_per_video)
             if total_parts >= 50:
@@ -238,6 +245,7 @@ class BilibiliSpider(BaseSpider):
                 audio_url = await self._get_audio_url(session, bvid, cid)
                 if not audio_url:
                     continue
+                subtitles = await self._get_subtitles(session, bvid, cid)
 
                 title = f"{video_title} P{page_num}" if not part_title else part_title
                 category = self._guess_category(keyword)
@@ -248,6 +256,43 @@ class BilibiliSpider(BaseSpider):
                 record.language = "zh"
                 record.speaker = video_title[:30]
                 record.source_id = f"{bvid}_p{page_num}"
+                owner = video_info.get("owner") or {}
+                record.webpage_url = f"https://www.bilibili.com/video/{bvid}?p={page_num}"
+                record.description = plain_text(video_info.get("desc", ""))
+                record.author = owner.get("name", "")
+                record.cover_url = video_info.get("pic", "") or page.get("first_frame", "")
+                published = video_info.get("pubdate")
+                if published:
+                    record.published_at = datetime.fromtimestamp(
+                        int(published), tz=timezone.utc,
+                    ).isoformat()
+                record.metadata_json = encode_metadata(metadata_envelope(
+                    "bilibili",
+                    common={
+                        "description": record.description,
+                        "webpage_url": record.webpage_url,
+                        "author": record.author,
+                        "cover_url": record.cover_url,
+                        "podcast_title": video_info.get("title", video_title),
+                        "categories": [video_info.get("tname", ""), keyword],
+                    },
+                    source_data={
+                        "bvid": bvid,
+                        "aid": video_info.get("aid"),
+                        "cid": cid,
+                        "page": page_num,
+                        "part": part_title,
+                        "owner": {
+                            "mid": owner.get("mid"),
+                            "name": owner.get("name", ""),
+                            "image": owner.get("face", ""),
+                        },
+                        "copyright": video_info.get("copyright"),
+                        "rights": video_info.get("rights", {}),
+                        "stats": video_info.get("stat", {}),
+                    },
+                    assets={"transcripts": subtitles},
+                ))
                 records.append(record)
 
                 # 大合集每隔 20P 打一次进度，避免看起来像卡住
@@ -261,6 +306,50 @@ class BilibiliSpider(BaseSpider):
         except Exception as e:
             self.logger.warning(f"B站视频解析失败 {bvid}: {e}")
         return records
+
+    async def _get_video_info(self, session: aiohttp.ClientSession,
+                              bvid: str) -> dict:
+        try:
+            async with session.get(
+                VIEW_URL, params={"bvid": bvid},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                if response.status != 200:
+                    return {}
+                payload = await response.json(content_type=None)
+                return payload.get("data", {}) if payload.get("code") == 0 else {}
+        except Exception as exc:
+            self.logger.debug(f"获取视频背景信息失败 {bvid}: {exc}")
+            return {}
+
+    async def _get_subtitles(self, session: aiohttp.ClientSession,
+                             bvid: str, cid: int) -> list[dict]:
+        try:
+            async with session.get(
+                PLAYER_URL, params={"bvid": bvid, "cid": cid},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                if response.status != 200:
+                    return []
+                payload = await response.json(content_type=None)
+                subtitles = payload.get("data", {}).get("subtitle", {}).get("subtitles", [])
+                results = []
+                for subtitle in subtitles:
+                    url = subtitle.get("subtitle_url", "")
+                    if url.startswith("//"):
+                        url = "https:" + url
+                    if url:
+                        results.append({
+                            "url": url,
+                            "type": "application/json",
+                            "language": subtitle.get("lan", ""),
+                            "label": subtitle.get("lan_doc", ""),
+                            "text_source": "platform",
+                        })
+                return results
+        except Exception as exc:
+            self.logger.debug(f"获取公开视频字幕失败 {bvid} cid={cid}: {exc}")
+            return []
 
     async def _get_audio_url(self, session: aiohttp.ClientSession,
                               bvid: str, cid: int) -> str:

@@ -14,6 +14,7 @@ import aiohttp
 from bs4 import BeautifulSoup
 
 from anti_crawler import build_headers, random_delay, RateLimiter
+from background import encode_metadata, metadata_envelope, plain_text, sanitize_html
 from config import SPIDER_CONFIGS
 from spiders.base import BaseSpider
 from storage import AudioRecord
@@ -92,6 +93,17 @@ class XiaoyuzhouSpider(BaseSpider):
                 if h1:
                     podcast_title = h1.get_text(strip=True)
 
+                next_script = soup.find("script", id="__NEXT_DATA__")
+                if next_script and next_script.string:
+                    try:
+                        next_data = json.loads(next_script.string)
+                        podcast = next_data["props"]["pageProps"]["podcast"]
+                        rich_records = self._records_from_podcast_data(podcast)
+                        if rich_records:
+                            return rich_records[:self.max_eps]
+                    except (KeyError, TypeError, json.JSONDecodeError) as exc:
+                        self.logger.debug(f"小宇宙 __NEXT_DATA__ 解析回退: {exc}")
+
                 entries = re.findall(
                     r'\{"eid":"([^"]+)".*?"title":"((?:[^"\\]|\\.)*)".*?'
                     r'"enclosure":\{[^}]*"url":"(https://media\.xyzcdn\.net/[^"]+\.m4a)"',
@@ -127,4 +139,71 @@ class XiaoyuzhouSpider(BaseSpider):
 
         except Exception as e:
             self.logger.error(f"小宇宙播客解析失败 {path}: {e}")
+        return records
+
+    def _records_from_podcast_data(self, podcast: dict) -> list[AudioRecord]:
+        records = []
+        podcast_title = podcast.get("title", "")
+        author = podcast.get("author", "")
+        podcast_description = podcast.get("description", "")
+        podcast_cover = (podcast.get("image") or {}).get("picUrl", "")
+        podcasters = [
+            {
+                "uid": person.get("uid", ""),
+                "name": person.get("nickname", ""),
+                "bio": person.get("bio", ""),
+                "image": ((person.get("avatar") or {}).get("picture") or {}).get("picUrl", ""),
+            }
+            for person in podcast.get("podcasters", [])
+        ]
+        for episode in podcast.get("episodes", []):
+            media_url = (episode.get("enclosure") or {}).get("url", "")
+            if not media_url:
+                media_url = (((episode.get("media") or {}).get("source") or {}).get("url", ""))
+            if not media_url:
+                continue
+            description = episode.get("description", "") or episode.get("shownotes", "") or ""
+            cover = (episode.get("image") or {}).get("picUrl", "") or podcast_cover
+            eid = episode.get("eid", "")
+            record = self._make_record(
+                url=media_url, title=episode.get("title", ""), file_format="m4a",
+            )
+            record.duration = int(episode.get("duration") or 0)
+            record.category = "播客"
+            record.language = "zh"
+            record.speaker = podcast_title
+            record.source_id = eid or media_url.rsplit("/", 1)[-1].split(".")[0]
+            record.published_at = str(episode.get("pubDate") or "")
+            record.webpage_url = f"{self.base_url}/episode/{eid}" if eid else ""
+            record.description = plain_text(description)
+            record.author = author
+            record.cover_url = cover
+            record.metadata_json = encode_metadata(metadata_envelope(
+                "xiaoyuzhou",
+                common={
+                    "description": record.description,
+                    "description_html": sanitize_html(description),
+                    "webpage_url": record.webpage_url,
+                    "author": author,
+                    "cover_url": cover,
+                    "podcast_title": podcast_title,
+                    "podcast_description": plain_text(podcast_description),
+                    "people": podcasters,
+                    "categories": episode.get("labels", []) or podcast.get("topicLabels", []),
+                },
+                source_data={
+                    "podcast_id": podcast.get("pid", ""),
+                    "episode_id": eid,
+                    "pay_type": episode.get("payType"),
+                    "sponsors": episode.get("sponsors", []),
+                    "transcript_reference": episode.get("transcript", {}),
+                    "play_count": episode.get("playCount"),
+                    "comment_count": episode.get("commentCount"),
+                    "favorite_count": episode.get("favoriteCount"),
+                },
+                transcript_status=(
+                    "reference_only" if episode.get("transcript") else None
+                ),
+            ))
+            records.append(record)
         return records

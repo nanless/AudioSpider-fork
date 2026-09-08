@@ -29,7 +29,7 @@ Apple / Podcast Index   +    固定 RSS / 各平台 Spider  →   downloads/
 
 ### 下载：`main.py`
 
-从数据库领取 `pending` 任务，下载媒体文件，可选择保留原格式或转成 Opus。每个音频旁边会生成一个同名 JSON 文件。
+从数据库领取 `pending` 任务，下载媒体文件，可选择保留原格式或转成 Opus。默认还会保存来源公开提供的简介、作者、网页、封面、章节、字幕/transcript 和公版原文。
 
 最重要的规则是：
 
@@ -261,6 +261,11 @@ JSON 元信息包含：
 - 语言、分类、说话人/节目名
 - 发布时间、采集时间
 - 最终文件 SHA-256
+- 简介、作者、原网页和封面
+- 来源特有的版本化背景信息
+- 已保存 transcript、章节和公版原文的路径与哈希
+
+来源实际提供时还会出现 `.description.txt`、`.cover.jpg`、`.transcript.*`、`.chapters.*` 和 `.source-text.*`。平台原文和未来 ASR 必须通过 `text_source` 区分。
 
 ## 5. 下载任务状态
 
@@ -286,6 +291,9 @@ JSON 元信息包含：
 | 磁盘最小保留空间 | 20 GiB |
 | 下载 lease | 7,200 秒 |
 | RSS 最大响应 | 20 MiB |
+| 单个背景资产 | 20 MiB |
+| 每条音频背景资产总量 | 50 MiB |
+| 每条音频背景资产数量 | 12 |
 | B站每关键词搜索页 | 5 |
 | B站每关键词视频数 | 100 |
 | B站每视频分P数 | 200 |
@@ -378,6 +386,14 @@ curl -I --max-time 15 https://archive.org/
 
 Opus 标准解码通常工作在 48 kHz。代码的 `-ar 24000` 表示编码器输入采样率，不保证播放器或训练库报告 24 kHz。
 
+### 已经下载的音频怎么补背景信息
+
+先重新运行对应来源的受控采集，然后：
+
+```bash
+python main.py background --limit 10000 --workers 4 --background all
+```
+
 更多问题见[故障排查指南](docs/guides/troubleshooting.md)。
 
 ## 10. 文档导航
@@ -402,6 +418,8 @@ Opus 标准解码通常工作在 48 kHz。代码的 `-ar 24000` 表示编码器�
 - [配置与环境变量](docs/reference/configuration.md)
 - [数据库结构](docs/reference/database.md)
 - [来源适配器](docs/reference/spiders.md)
+- [背景信息与文本资产](docs/reference/background-metadata.md)
+- [背景信息深度研究](docs/research/2026-09-09-background-metadata-research.md)
 
 ### 设计与开发
 
@@ -409,6 +427,7 @@ Opus 标准解码通常工作在 48 kHz。代码的 `-ar 24000` 表示编码器�
 - [安全边界](docs/design/security.md)
 - [数据流与状态机](docs/design/data-flow.md)
 - [开发与测试](docs/design/development.md)
+- [ADR-001：背景信息混合存储](docs/design/adr-001-background-metadata.md)
 - [安全问题报告](SECURITY.md)
 - [变更记录](CHANGELOG.md)
 - [dev_L4_1gpus 服务器验收报告](docs/reports/2026-09-08-dev-l4-validation.md)

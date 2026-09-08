@@ -32,6 +32,7 @@ import re
 from logging.handlers import RotatingFileHandler
 
 import aiohttp
+from bs4 import BeautifulSoup
 
 from anti_crawler import build_headers, random_delay
 from config import (
@@ -42,6 +43,7 @@ from config import (
     PODCAST_INDEX_SECRET,
 )
 from network_safety import UnsafeURLError, safe_get
+from rss_metadata import apply_rss_metadata
 from storage import Storage, AudioRecord
 
 logger = logging.getLogger("discover")
@@ -682,8 +684,11 @@ async def parse_rss_feed(session: aiohttp.ClientSession,
             items = _RE_ITEM.findall(text)
             if max_eps > 0:
                 items = items[:max_eps]
+            feed_soup = BeautifulSoup(text, "lxml-xml")
+            channel_node = feed_soup.find("channel")
+            item_nodes = feed_soup.find_all("item")
 
-            for item_text in items:
+            for item_index, item_text in enumerate(items):
                 m_enc = _RE_ENCLOSURE.search(item_text)
                 if not m_enc:
                     continue
@@ -730,6 +735,9 @@ async def parse_rss_feed(session: aiohttp.ClientSession,
                     speaker=podcast_title, source_id=guid,
                     published_at=published_at,
                 )
+                item_node = item_nodes[item_index] if item_index < len(item_nodes) else None
+                if item_node and channel_node:
+                    apply_rss_metadata(record, channel_node, item_node, feed_url)
                 records.append(record)
 
     except FeedFetchError:

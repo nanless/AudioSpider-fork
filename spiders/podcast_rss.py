@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 from anti_crawler import build_headers, random_delay, RateLimiter
 from config import MAX_RSS_SIZE, SPIDER_CONFIGS
 from network_safety import safe_get
+from rss_metadata import apply_rss_metadata
 from spiders.base import BaseSpider
 from storage import AudioRecord
 
@@ -132,6 +133,8 @@ class PodcastRSSSpider(BaseSpider):
                     record.speaker = podcast_title
                     record.source_id = guid
                     record.published_at = published_at
+                    if channel:
+                        apply_rss_metadata(record, channel, item, feed_url)
                     records.append(record)
 
         except Exception as e:

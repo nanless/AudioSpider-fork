@@ -26,6 +26,78 @@ class StorageTests(unittest.TestCase):
         self.assertTrue(storage.add_url(record))
         self.assertFalse(storage.add_url(record))
 
+    def test_old_database_migrates_rich_metadata_columns(self):
+        import sqlite3
+
+        connection = sqlite3.connect(self.db_path)
+        connection.executescript("""
+            CREATE TABLE audio_urls (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT UNIQUE NOT NULL,
+                source TEXT NOT NULL, title TEXT DEFAULT '', file_format TEXT DEFAULT '',
+                file_size INTEGER DEFAULT 0, duration INTEGER DEFAULT 0,
+                language TEXT DEFAULT '', category TEXT DEFAULT '', speaker TEXT DEFAULT '',
+                status TEXT DEFAULT 'pending', local_path TEXT DEFAULT '',
+                content_hash TEXT DEFAULT '', source_id TEXT DEFAULT '',
+                published_at TEXT DEFAULT '', discovered_at TEXT NOT NULL,
+                downloaded_at TEXT DEFAULT '', claimed_by TEXT DEFAULT '',
+                claimed_at TEXT DEFAULT '', lease_expires_at TEXT DEFAULT ''
+            );
+            CREATE TABLE crawl_checkpoints (
+                source TEXT NOT NULL, checkpoint_key TEXT NOT NULL,
+                checkpoint_value TEXT NOT NULL, updated_at TEXT NOT NULL,
+                PRIMARY KEY (source, checkpoint_key)
+            );
+        """)
+        connection.commit()
+        connection.close()
+
+        storage = Storage(self.db_path)
+        columns = {
+            row[1] for row in storage._get_conn().execute("PRAGMA table_info(audio_urls)")
+        }
+        self.assertTrue({
+            "webpage_url", "description", "author", "cover_url", "metadata_json",
+        }.issubset(columns))
+
+    def test_existing_url_is_enriched_without_erasing_existing_values(self):
+        storage = Storage(self.db_path)
+        url = "https://example.test/a.mp3"
+        storage.add_url(AudioRecord(
+            url=url, source="test", title="Original", author="First",
+        ))
+        added, updated = storage.add_urls_batch([AudioRecord(
+            url=url, source="test", description="Show notes",
+            webpage_url="https://example.test/episode",
+            cover_url="https://example.test/cover.jpg",
+            metadata_json='{"schema_version":1}',
+        )])
+        row = storage._get_conn().execute(
+            "SELECT * FROM audio_urls WHERE url=?", (url,),
+        ).fetchone()
+        self.assertEqual(added, 0)
+        self.assertEqual(updated, 1)
+        self.assertEqual(row["title"], "Original")
+        self.assertEqual(row["author"], "First")
+        self.assertEqual(row["description"], "Show notes")
+        self.assertEqual(row["webpage_url"], "https://example.test/episode")
+
+    def test_changed_signed_url_enriches_by_source_id_without_duplicate(self):
+        storage = Storage(self.db_path)
+        storage.add_url(AudioRecord(
+            url="https://cdn.example/audio?sig=old", source="video",
+            source_id="stable-1",
+        ))
+        added, updated = storage.add_urls_batch([AudioRecord(
+            url="https://cdn.example/audio?sig=new", source="video",
+            source_id="stable-1", description="New metadata",
+        )])
+        rows = storage._get_conn().execute(
+            "SELECT url, description FROM audio_urls",
+        ).fetchall()
+        self.assertEqual((added, updated), (0, 1))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["description"], "New metadata")
+
     def test_per_source_keeps_other_filters_and_before_includes_day(self):
         storage = Storage(self.db_path)
         storage.add_urls_batch([

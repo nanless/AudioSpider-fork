@@ -16,6 +16,11 @@ AudioSpider 使用仓库根目录下的 `audiospider.db` SQLite 数据库。数�
 | `language` | TEXT | 语言标识，可为空 |
 | `category` | TEXT | 内容分类 |
 | `speaker` | TEXT | 主播、节目或朗读者等 |
+| `webpage_url` | TEXT | 音频对应的公开网页 |
+| `description` | TEXT | 清理后的简介/show notes |
+| `author` | TEXT | 作者、UP主、主播或书籍作者 |
+| `cover_url` | TEXT | 首选封面 URL |
+| `metadata_json` | TEXT | 版本化来源背景信息与资产声明 |
 | `status` | TEXT | `pending`/`downloading`/`done`/`failed` |
 | `local_path` | TEXT | 完成文件路径或 `dup:<sha256>` |
 | `content_hash` | TEXT | 最终物理内容 SHA-256 |
@@ -97,7 +102,7 @@ sqlite3 -readonly audiospider.db \
 
 ## 自动迁移
 
-`Storage` 初始化会创建缺失表和索引，并对旧表添加 `published_at`、`claimed_by`、`claimed_at` 和 `lease_expires_at`。迁移是增量的，不删除用户数据。
+`Storage` 初始化会创建缺失表和索引，并对旧表添加发布时间、领取/lease 和背景信息列。迁移是增量的，不删除用户数据。
 
 即使如此，升级前仍应停止写入并使用 SQLite backup API 备份。
 

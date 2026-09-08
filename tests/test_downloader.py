@@ -11,6 +11,7 @@ import wave
 from aiohttp import web
 
 import downloader
+import background
 from downloader import Downloader
 from storage import AudioRecord, Storage
 
@@ -37,6 +38,7 @@ class DownloaderTests(unittest.IsolatedAsyncioTestCase):
         app = web.Application()
         app.router.add_get("/tone.wav", self.audio)
         app.router.add_get("/not-audio", self.html)
+        app.router.add_get("/bad-asset", self.bad_asset)
         self.runner = web.AppRunner(app)
         await self.runner.setup()
         self.site = web.TCPSite(self.runner, "127.0.0.1", 0)
@@ -55,6 +57,9 @@ class DownloaderTests(unittest.IsolatedAsyncioTestCase):
 
     async def html(self, _request):
         return web.Response(text="not audio", content_type="text/html")
+
+    async def bad_asset(self, _request):
+        return web.Response(body=b"binary", content_type="application/x-executable")
 
     def storage(self):
         return Storage(os.path.join(self.temp.name, f"{id(self)}.db"))
@@ -128,6 +133,33 @@ class DownloaderTests(unittest.IsolatedAsyncioTestCase):
             for _, _, files in os.walk(downloader.DOWNLOAD_DIR)
             for name in files
         ))
+
+    async def test_background_asset_failure_does_not_fail_audio(self):
+        storage = self.storage()
+        url = f"http://127.0.0.1:{self.port}/tone.wav"
+        metadata = background.metadata_envelope(
+            "test", assets={"transcripts": [{
+                "url": f"http://127.0.0.1:{self.port}/bad-asset",
+                "type": "text/vtt",
+            }]},
+        )
+        storage.add_url(AudioRecord(
+            url=url, source="test", title="Tone", file_format="wav",
+            metadata_json=background.encode_metadata(metadata),
+        ))
+        stats = await Downloader(
+            storage, max_workers=1, convert=False,
+            allow_private_network=True, min_disk_free_bytes=0,
+        ).download_all(limit=1)
+        row = storage._get_conn().execute(
+            "SELECT status, local_path FROM audio_urls WHERE url=?", (url,),
+        ).fetchone()
+        self.assertEqual(stats["success"], 1)
+        self.assertEqual(row["status"], "done")
+        meta_path = os.path.splitext(row["local_path"])[0] + ".json"
+        with open(meta_path, encoding="utf-8") as source:
+            sidecar = json.load(source)
+        self.assertEqual(sidecar["background_files"]["assets"][0]["status"], "failed")
 
 
 if __name__ == "__main__":

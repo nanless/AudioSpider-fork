@@ -106,7 +106,7 @@ python discover.py --stats
 从数据库领取任务并下载。
 
 ```bash
-python main.py [download|stats|fix-meta] [参数]
+python main.py [download|stats|fix-meta|background] [参数]
 ```
 
 动作：
@@ -116,6 +116,7 @@ python main.py [download|stats|fix-meta] [参数]
 | `download` | 默认，下载任务 |
 | `stats` | 显示总体与分来源状态 |
 | `fix-meta` | 为已完成的本地文件补建 JSON |
+| `background` | 为已有物理音频重建扩展 sidecar 并补背景资产 |
 
 下载参数：
 
@@ -134,8 +135,16 @@ python main.py [download|stats|fix-meta] [参数]
 | `--interval` | 60 | 循环秒数 |
 | `--since DATE` | 不限 | 发布时间下界 |
 | `--before DATE` | 不限 | 发布时间上界，包含该日 |
+| `--background` | `all` | `none`、`metadata` 或 `all` |
 
 `--per-source` 与 `--per-category` 互斥。
+
+已有音频补齐示例：
+
+```bash
+python main.py background --limit 10000 --workers 4 --background all
+python main.py background --source podcast_rss --limit 10000 --background metadata
+```
 
 ## `db_viewer.py`
 
