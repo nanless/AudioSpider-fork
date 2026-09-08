@@ -113,6 +113,7 @@ SPIDER_CONFIGS = {
         "base_url": "https://librivox.org",
         "api_url": "https://librivox.org/api/feed/audiobooks",
         "max_items": 50,
+        "max_tracks_per_book": 200,
         "languages": ["Chinese", "English"],
     },
     "podcast_rss": {

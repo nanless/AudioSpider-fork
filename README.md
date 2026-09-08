@@ -1,617 +1,437 @@
-# AudioSpider
+# AudioSpider：面向语音数据采集的音频爬虫
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+AudioSpider 是一个使用 Python 编写的命令行工具。它可以发现播客 RSS、从多个公开来源收集音频地址、批量下载音频，并按统一目录保存音频和元信息。
 
-面向语音大模型训练的全网语音音频搜集和批量下载系统。自动从播客、有声书、B站等来源发现语音 URL，支持增量爬取、内容去重、并发下载。
+如果你第一次接触 Python、Conda、SQLite 或爬虫，不用先读源码。按照本页的“十分钟上手”操作即可。
 
-## 架构
+> 使用前请确认你有权访问、下载和使用目标内容。代码采用 MIT License，并不代表爬取到的音频自动获得训练或商业使用授权。
 
-```
-AudioSpider/
-├── discover.py         # 自动发现新源（Apple Podcasts + Podcast Index，两源全覆盖）
-├── collect.py          # URL 搜集器（从已有固定源抓取最新音频链接）
-├── main.py             # 音频下载器（从数据库取 URL 并下载）
-├── config.py           # 全局配置（目录、超时、爬虫参数、Podcast Index API Key）
-├── storage.py          # SQLite 存储（URL 去重、状态追踪、指纹去重）
-├── downloader.py       # 异步下载引擎（并发、断点续传、元信息生成）
-├── anti_crawler.py     # 反爬工具（UA 轮换、延时、代理、限速）
-├── convert_audio.py    # 批量音频格式转换（→ 单声道 Opus 32kbps）
-├── db_viewer.py        # 数据库交互式查看器
-├── spiders/            # 各来源爬虫
-│   ├── base.py         # 爬虫基类
-│   ├── xiaoyuzhou.py   # 小宇宙播客（CDN 直链）
-│   ├── ximalaya.py     # 喜马拉雅（移动端 API）
-│   ├── podcast_rss.py  # 通用播客 RSS
-│   ├── librivox.py     # LibriVox 有声书
-│   └── bilibili.py     # B站（DASH 音频流）
-└── requirements.txt    # Python 依赖
+## 1. 先理解三个动作
+
+AudioSpider 把工作拆成三个独立步骤：
+
+```text
+发现播客源                    收集音频地址                    下载文件
+discover.py                  collect.py                    main.py
+Apple / Podcast Index   +    固定 RSS / 各平台 Spider  →   downloads/
+          \___________________________  _____________________/
+                                      \/
+                               audiospider.db
 ```
 
-运行后自动生成：
+### 发现：`discover.py`
 
-```
-├── downloads/          # 下载的音频文件（按 来源/分类 分目录）
-├── logs/               # 运行日志
-└── audiospider.db      # SQLite 数据库
-```
+从 Apple Podcasts 或 Podcast Index 搜索播客，得到 RSS 地址，再把 RSS 中的节目写入数据库。它适合扩充新的播客来源。
 
-## 工作流
+### 收集：`collect.py`
 
-**三个独立程序，按需运行：**
+运行仓库内置的五种适配器：固定 RSS、LibriVox、小宇宙、喜马拉雅和 B站。它只收集媒体 URL，不会自动下载音频。
 
-1. **`discover.py`** — 自动发现新源。通过两个数据源（Apple Podcasts、Podcast Index）全网发现播客 RSS；默认只解析**尚未爬过**的 feed 并入库。另可用 `--backfill-published` 重扫**已爬过**的 feed（补 `published_at`、顺带捞新剧集）。仅采集中英文播客。相当于"开拓新领地"。
-2. **`collect.py`** — 从已有固定源抓取。只跑 `config.py` 里配置好的来源（小宇宙、喜马拉雅等），抓取最新音频。相当于"巡逻老地盘"。
-3. **`main.py`** — 消费下载。从数据库取待下载 URL，批量下载到本地。
+### 下载：`main.py`
 
-```
-discover.py --loop              → 搜新 feed → 只解析未爬过的 feed ─┐
-discover.py --backfill-published → 重解析已爬 feed（补日期/捞新集）─┼→ audiospider.db → main.py → downloads/
-collect.py                      → 抓 config 里固定来源            ─┘
-```
+从数据库领取 `pending` 任务，下载媒体文件，可选择保留原格式或转成 Opus。每个音频旁边会生成一个同名 JSON 文件。
 
-## 快速开始
+最重要的规则是：
 
-### 安装系统依赖
+- `discover.py` 和 `collect.py` 负责往数据库放任务。
+- `main.py` 才会产生大文件和消耗大量磁盘。
+- 第一次运行不要直接执行默认全量发现或持续下载。
+- 先运行 `doctor.py`，再运行 `probe.py`。
 
-默认下载后会用 ffmpeg 转为 Opus。若使用 `--format original` 保留原始格式，则不需要 ffmpeg：
+## 2. 十分钟上手
+
+### 第一步：进入仓库
+
+服务器上的仓库路径是：
 
 ```bash
-# Ubuntu / Debian
-sudo apt update && sudo apt install -y ffmpeg
-
-# CentOS / RHEL
-sudo yum install -y epel-release && sudo yum install -y ffmpeg
-
-# Arch Linux
-sudo pacman -S ffmpeg
-
-# 验证安装
-ffmpeg -version
+cd /root/code/github_repos/AudioSpider-fork
 ```
 
-### 安装项目
+### 第二步：激活 Conda 环境
+
+这台服务器已经创建了 `audiospider` 环境：
 
 ```bash
-# 1. 克隆项目
-git clone https://github.com/your-username/AudioSpider.git
-cd AudioSpider
-
-# 2. 创建虚拟环境
-python3 -m venv venv
-source venv/bin/activate
-
-# 3. 安装 Python 依赖
-pip install -r requirements.txt
-
-# 4. 自动发现播客源（首次运行，大量扩充 URL 池）
-python discover.py                         # 两个源全开（需配置 Podcast Index API Key，否则自动跳过）
-python discover.py --source apple          # 或只用 Apple 源（无需注册）
-
-# 5. 下载音频（默认转 Opus；FORMAT=original 可跳过转码、降低 CPU）
-python main.py --limit 100
-python main.py --limit 100 --format original
-```
-
-也可以直接使用仓库内的 Conda 定义和精确依赖锁：
-
-```bash
-conda env create -f environment.yml
+source /root/miniforge3/etc/profile.d/conda.sh
 conda activate audiospider
-python -m pip check
-python -m unittest discover -s tests -v
+python --version
 ```
 
-## 用法
+应看到 Python 3.11.x。
 
-### 自动发现新源（discover.py）
-
-通过两个数据源全网发现播客 RSS，自动解析音频 URL 入库。仅采集中英文播客。
-
-**两种互不替代的运行模式：**
-
-| 模式 | 命令 | 做什么 | 不做什么 |
-|---|---|---|---|
-| **发现新源** | `python discover.py --loop` | 每轮搜索新的 RSS feed；只解析**尚未爬过**的 feed，新剧集 URL 入库 | **不会**回头检查历史已解析 feed 有没有出新剧集 |
-| **回填 / 扫旧源** | `python discover.py --backfill-published` | 重新拉取并解析**已经爬过**的 feed：① 给历史空的 `published_at` 补日期；② 即便日期都补齐了，也能捞到旧 feed 里新上的剧集 | **不会**去 Apple / Podcast Index 搜新 feed |
-
-> 两者可分开跑（甚至并行）。`--backfill-published` 走独立分支，加了该参数后本轮**不会**再执行「搜新 feed」。要两件事都做，开两个进程即可。
-
-**两个数据源：**
-
-| 源 | 说明 | 覆盖量 |
-|---|---|---|
-| **Apple Podcasts**（`--source apple`） | 关键词搜索（80+ 中英文关键词）+ 分类排行榜遍历（102 个分类 × 2 地区，Top Charts API），中国区+美国区 | 去重后预计数万个播客 |
-| **Podcast Index**（`--source podcastindex`） | 开源播客目录，400 万+ 播客。关键词搜索 + 热门 + 分页遍历最近更新 | 理论上无上限 |
+如果是在一台新机器上，可以运行：
 
 ```bash
-# 两个源全部启用（默认，最大覆盖）
-python discover.py
-
-# 只用 Apple（无需注册，立刻能跑）
-python discover.py --source apple
-
-# 只用 Apple 关键词搜索
-python discover.py --source apple_keyword
-
-# 只用 Apple 分类排行榜遍历（Top Charts API，不依赖搜索词，覆盖面更广）
-python discover.py --source apple_genre
-
-# 只用 Podcast Index（需配置 API Key）
-python discover.py --source podcastindex
-
-# 组合使用（如：Apple 分类遍历 + Podcast Index）
-python discover.py --source apple_genre podcastindex
-
-# 自定义关键词
-python discover.py --keywords 脱口秀 TED 历史故事
-
-# Apple 关键词搜索每词取前 200 个播客（默认 200，上限 200）
-python discover.py --top 200
-
-# Podcast Index 翻页更深（100 页 × 1000 条 = 最多 10 万条 feeds）
-python discover.py --pi-max-pages 100
-
-# 持续发现新源：每轮搜新 feed，只解析未爬过的（默认间隔 1 天）
-python discover.py --loop --interval 86400
-
-# 回填历史 published_at，并检查已爬 feed 是否有新剧集
-python discover.py --backfill-published
-
-# 只解析库里还未解析的 feeds（跳过搜索阶段）
-python discover.py --parse-only
-
-# 查看已发现的所有播客源
-python discover.py --list-feeds
-
-# 查看统计（总数、已解析/未解析、按来源分布）
-python discover.py --stats
+bash scripts/bootstrap_conda.sh
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate audiospider
 ```
 
-**使用 Podcast Index 前的准备：**
+环境定义在 `environment.yml`，精确 Python 包版本记录在 `requirements-lock.txt`。
 
-Podcast Index 是免费开源的播客目录。使用前需注册获取 API Key：
-
-1. 访问 https://api.podcastindex.org/ 免费注册
-2. 获取 API Key 和 Secret
-3. 设置环境变量：
+### 第三步：检查环境
 
 ```bash
-export PODCAST_INDEX_KEY="你的key"
-export PODCAST_INDEX_SECRET="你的secret"
+python doctor.py
 ```
 
-或在 `config.py` 中直接配置。未配置时程序会自动跳过该源，不影响 Apple 源的正常运行。
+正常情况下会显示：
 
-### 从固定源搜集 URL（collect.py）
-
-`collect.py` 从 `config.py` 中配置好的**固定来源**抓取音频链接，包含以下 5 个爬虫：
-
-这些源是**有限的**，跑几次就会全部入库。它的主要价值是**定期抓增量更新**（比如播客出了新一期）。
-
-#### 1. 小宇宙播客（xiaoyuzhou）
-
-解析播客页面 HTML，提取 M4A CDN 直链。配置在 `config.py` → `discover_urls`，当前包含 6 个播客，每个最多抓 30 集：
-
-- 大内密谈、日谈公园、忽左忽右、故事FM、无人知晓、不合时宜
-
-> 想加更多小宇宙播客？把播客页面 URL 中的 `/podcast/xxx` 路径添加到 `config.py` 的 `discover_urls` 列表即可。
-
-#### 2. 通用播客 RSS（podcast_rss）
-
-解析 RSS XML 中的 `<enclosure>` 标签获取音频直链。配置在 `config.py` → `feeds`，当前包含 4 个 RSS 地址，每个最多取 50 集。
-
-> 想加更多 RSS？把播客的 RSS 地址添加到 `config.py` 的 `feeds` 列表即可。
-
-#### 3. 喜马拉雅（ximalaya）
-
-通过移动端 API 逐个获取音频直链。种子 track ID 配置在 `spiders/ximalaya.py` 的 `SEED_TRACK_IDS` 列表中。
-
-> 喜马拉雅反爬较强，产量取决于种子列表质量。可在 `spiders/ximalaya.py` 中添加更多 track ID。
-
-#### 4. LibriVox 有声书（librivox）
-
-调用 LibriVox 公开 API 获取公版有声书章节链接。音频托管在 Archive.org 上。
-
-#### 5. B站（bilibili）
-
-通过 B站搜索 API 按关键词翻页搜索语音类长视频，提取每个视频的 DASH 音频流（M4A 格式）。适合有声书、评书、相声、演讲、广播剧等长音频内容。
-
-**爬取流程（边搜边解析边入库）：**
-
-```
-关键词 → 搜索第 N 页 → 立刻解析该页每个视频的分P音频 URL → 每个视频解析完立刻入库
-         └─ 同时预取第 N+1 页搜索结果（asyncio）
+```text
+[通过] python
+[通过] packages
+[通过] ffmpeg
+[通过] directories
+[通过] disk
+[通过] database
 ```
 
-- 不会等全部搜索完成再解析；也不会等整轮爬完再写库
-- 中断后已入库的 URL 会保留；重新执行时按 `source_id`（`{bvid}_p{分P}`）和 `url` 去重，不会重复插入
-- 音频流 URL 有时效性，下载时（`main.py`）会实时刷新
-
-**配置项**（`config.py` → `bilibili`）：
-
-| 配置 | 含义 | 默认（偏最大化） |
-|------|------|------------------|
-| `search_keywords` | 搜索关键词列表 | 有声书/评书/相声/演讲/脱口秀/广播剧/朗读/人文等 |
-| `max_search_pages` | 每个关键词最多翻多少页搜索（每页约 20 个视频） | `5` |
-| `max_videos_per_keyword` | 每个关键词最多解析多少个视频 | `100` |
-| `max_pages_per_video` | 每个视频最多取多少分 P | `200` |
-
-> 想加更多搜索词？修改 `config.py` 中 `bilibili` → `search_keywords` 即可。关键词越多覆盖越大。
+JSON 输出：
 
 ```bash
-# 只跑 B站搜集
-python collect.py --spiders bilibili
-
-# 运行全部爬虫
-python collect.py
-
-# 只运行指定爬虫
-python collect.py --spiders xiaoyuzhou podcast_rss
-
-# 每小时自动搜集一次（适合抓播客更新）
-python collect.py --loop --interval 3600
-
-# 边搜集边下载（开两个终端）
-python collect.py --spiders bilibili          # 终端1：搜+入库
-python main.py --source bilibili --loop      # 终端2：持续下载 pending
-
-# 重试失败的 B站下载
-python main.py --retry-failed --source bilibili --limit 1000
+python doctor.py --json
 ```
 
-### discover.py vs collect.py
-
-| | `discover.py --loop` | `discover.py --backfill-published` | `collect.py` |
-|---|---|---|---|
-| **做什么** | 搜索全网，发现新的播客 feed，只解析未爬过的 | 重解析已爬过的 feed：补 `published_at` + 捞新剧集 | 从已有固定源抓取音频链接 |
-| **数据来源** | Apple Podcasts + Podcast Index | `discovered_feeds` 里已标记爬过的 RSS | `config.py` 中配置的固定爬虫 |
-| **是否扫旧 feed 新剧集** | 否 | 是 | 是（限配置里的源） |
-| **适合场景** | 大量扩充 feed / URL 池 | 历史日期回填；持续检查已发现播客的更新 | 定期检查 config 里固定播客的更新 |
-| **类比** | "去新书店找没进过的店" | "回常去的店看有没有上新 / 补标签" | "去常去的几家店看有没有上新" |
-
-### 下载音频（main.py）
+### 第四步：运行本地测试
 
 ```bash
-# 下载 50 条（默认）
-python main.py
+bash scripts/test.sh
+```
 
-# 下载 200 条
-python main.py --limit 200
+或者：
 
-# 指定来源
-python main.py --source xiaoyuzhou
-python main.py --source podcast_rss --limit 100
+```bash
+make test
+```
 
-# 指定分类
-python main.py --category 播客 --limit 100
-python main.py --category 有声书 --limit 50
+测试使用本机临时 HTTP 服务，不会访问真实网站，也不会污染正式数据库。
 
-# 指定语种
-python main.py --language zh --limit 1000    # 仅下载中文
-python main.py --language en --limit 500     # 仅下载英文
+### 第五步：小规模测试真实爬取
 
-# 每个来源各下载 N 条
-python main.py --per-source --limit 20
+先测试一个固定 RSS，只读取一个 feed 的前五集：
 
-# 每个分类各下载 N 条
-python main.py --per-category --limit 10
+```bash
+python probe.py --source podcast_rss --feeds 1 --episodes 5
+```
 
-# 组合过滤（来源 + 分类 + 语种）
-python main.py --source bilibili --category 有声书 --limit 50
-python main.py --language zh --source podcast_rss --limit 200
+`probe.py` 默认使用 `/tmp` 临时数据库，不会改动正式 `audiospider.db`，也不会下载音频。
 
-# 默认 4 并发；可按机器负载调整，最大 32
-python main.py --workers 4
+其他来源：
 
-# 保存格式：opus=ffmpeg 转 opus（默认）；original=保留原始格式，不跑 ffmpeg
-python main.py --format opus
-python main.py --format original
+```bash
+python probe.py --source librivox --books 1 --episodes 5
+python probe.py --source xiaoyuzhou --feeds 1 --episodes 5
+python probe.py --source ximalaya --seeds 2 --probes 6
+python probe.py --source bilibili --search-pages 1 --videos 2 --parts 3
+```
 
-# 持续消费下载（每 60 秒检查一次，每轮下载 --limit 条）
-python main.py --loop
+看到 `"result": "ok"` 且 `database_records` 大于 0，说明真实页面/API 解析成功。
 
-# 持续按安全批次消费全部待下载 URL
-python main.py --loop --limit 1000 --interval 60
+### 第六步：查看正式数据库
 
-# 中断后重启会自动恢复：downloading 状态自动重置为 pending，不会丢失进度
-
-# 重试之前下载失败的 URL（只下载 failed 状态的，成功改 done，仍失败保持 failed）
-python main.py --retry-failed
-python main.py --retry-failed --limit 1000
-python main.py --retry-failed --source bilibili --limit 1000  # 只重试指定来源
-
-# 查看统计
+```bash
 python main.py stats
-
-# 为已下载文件补生成元信息 JSON
-python main.py fix-meta
-```
-
-### 数据库查看（db_viewer.py）
-
-```bash
-# 交互式查看
-python db_viewer.py
-
-# 数据库概览（含 published_at 填写统计）
+python discover.py --stats
 python db_viewer.py overview
-
-# 发布时间填写统计
-python db_viewer.py published
-
-# 按发布时间筛选
-python db_viewer.py months
-python db_viewer.py months 2024-01-01 --before 2024-12-31
-python db_viewer.py month 2024-06 -n 10
-python db_viewer.py since 2024-01-01
-
-# 按来源/状态筛选
-python db_viewer.py source bilibili -n 10
-python db_viewer.py status done -n 20
-
-# 按语种筛选
-python db_viewer.py language zh -n 10
-python db_viewer.py language en -n 20
-
-# 查看指定记录
-python db_viewer.py id 42
-
-# 查看时长统计
-python db_viewer.py duration
 ```
 
-按发布时间筛选下载（`main.py`）：
+### 第七步：第一次正式采集
+
+推荐先运行标准 RSS：
 
 ```bash
-python main.py --since 2024-01-01
-python main.py --since 2024-01-01 --before 2024-12-31 --limit 100
+python collect.py --spiders podcast_rss
 ```
 
-示例输出（`python db_viewer.py overview`）：
+它会把发现的节目写入数据库，但不会下载音频。
 
-```
-======================================================================
-  AudioSpider 数据库概览
-======================================================================
-
-  总记录数: 2209434
-
-  按状态统计:
-    pending       2175179
-    done          30672
-    failed        3544
-    downloading   39
-
-  按来源统计:
-    podcast_rss       2204192
-    bilibili          3516
-    librivox          1695
-    xiaoyuzhou        17
-    ximalaya          14
-
-  按分类统计:
-    文艺            261867
-    教育            250717
-    新闻            241006
-    脱口秀           234178
-    播客            193640
-    商业            162159
-    访谈            127408
-    音乐            110020
-    影视            103075
-    亲子            100012
-    宗教            78471
-    科技            75885
-    有声书           68204
-    历史            62545
-    休闲            34994
-    体育            24580
-    健康            23818
-    纪实            21520
-    科学            18384
-    情感            11708
-    评书            929
-    时政            831
-    相声            767
-    朗读            366
-    广播剧           350
-    演讲            305
-
-  按语种统计:
-    en            1227810
-    zh            806578
-    es            22516
-    ja            21858
-    ko            12607
-    fr            10976
-    de            9722
-    ...
-
-  时长统计:
-    待下载 (pending)    2175177 条  总时长 1381752:16:26
-    已完成 (done)       30674 条  总时长 14497:12:00
-    本地保留 (去重后)   30660 条  总时长 14490:05:10
-    全部记录             2209434 条  总时长 1398673:14:50
-```
-
-### 格式转换（convert_audio.py）
-
-默认下载后会转为统一 Opus（见下方「音频格式」章节）。若用 `--format original` 跳过了转码，或早期文件尚未转换，可用批量转换脚本补转：
+### 第八步：只下载一条
 
 ```bash
-# 预览哪些文件需要转换
-python convert_audio.py --dry-run
-
-# 正式转换（4 并发，默认）
-python convert_audio.py
-
-# 8 并发加速
-python convert_audio.py --workers 8
-
-# 指定目录
-python convert_audio.py --dir downloads/podcast_rss
+python main.py \
+  --source podcast_rss \
+  --limit 1 \
+  --workers 1 \
+  --format original
 ```
+
+下载后检查：
+
+```bash
+python main.py stats
+find downloads -type f | head
+```
+
+确认无误后再逐步提高 `--limit` 和 `--workers`。
+
+## 3. 安全的常用命令
+
+### 只使用 Apple 发现少量播客
+
+```bash
+python discover.py \
+  --source apple_keyword \
+  --keywords 中文播客 \
+  --top 10
+```
+
+### 从固定 RSS 更新节目
+
+```bash
+python collect.py --spiders podcast_rss
+```
+
+### 下载中文 RSS 节目
+
+```bash
+python main.py \
+  --source podcast_rss \
+  --language zh \
+  --limit 20 \
+  --workers 2 \
+  --format original
+```
+
+### 转成 Opus
+
+```bash
+python main.py --limit 20 --workers 2 --format opus
+```
+
+代码会把输入 PCM 以 24 kHz、单声道、32 kbps 编码并交给 libopus。标准 Opus 解码器通常报告 48 kHz；训练代码如果严格需要 24 kHz，应在加载后显式重采样。
+
+### 持续下载
+
+```bash
+python main.py \
+  --loop \
+  --limit 100 \
+  --workers 4 \
+  --interval 60
+```
+
+也可以使用包装脚本：
+
+```bash
+bash download_zh_podcast.sh
+```
+
+不要把 `--interval` 设置成 0。
+
+### 重试失败任务
+
+```bash
+python main.py --retry-failed --limit 100
+python main.py --retry-failed --source bilibili --limit 100
+```
+
+## 4. 数据保存在哪里
+
+运行后会生成：
+
+```text
+AudioSpider-fork/
+├── audiospider.db         SQLite 数据库
+├── downloads/             音频与 JSON 元信息
+├── logs/                  运行日志
+└── tmp/                   SQLite/程序临时文件
+```
+
+下载目录通常如下：
+
+```text
+downloads/
+├── podcast_rss/
+│   └── 教育/
+│       ├── episode_xxx.mp3
+│       └── episode_xxx.json
+├── bilibili/
+│   └── 有声书/
+├── xiaoyuzhou/
+│   └── 播客/
+└── ximalaya/
+```
+
+JSON 元信息包含：
+
+- 标题、来源、来源 ID
+- 原始 URL
+- 格式、大小、时长
+- 语言、分类、说话人/节目名
+- 发布时间、采集时间
+- 最终文件 SHA-256
+
+## 5. 下载任务状态
+
+`audio_urls.status` 常见值：
+
+| 状态 | 含义 |
+|---|---|
+| `pending` | 已发现，等待下载 |
+| `downloading` | 已被某个 worker 领取，lease 尚未过期 |
+| `done` | 下载完成或被判定为重复内容 |
+| `failed` | 下载、校验或转码失败 |
+
+下载任务通过 SQLite 事务原子领取。进程异常退出后，不会立刻把所有活跃任务重置；只有 lease 过期的任务才会重新变为 `pending`。
+
+## 6. 默认安全限制
+
+| 项目 | 默认值 |
+|---|---:|
+| 下载并发 | 4 |
+| CLI 最大 workers | 32 |
+| 单批最大任务数 | 10,000 |
+| 单文件最大大小 | 4 GiB |
+| 磁盘最小保留空间 | 20 GiB |
+| 下载 lease | 7,200 秒 |
+| RSS 最大响应 | 20 MiB |
+| B站每关键词搜索页 | 5 |
+| B站每关键词视频数 | 100 |
+| B站每视频分P数 | 200 |
+
+下载器还会：
+
+- 拒绝非 HTTP(S) URL。
+- 拒绝 localhost、私网、link-local 和保留地址。
+- 对每次重定向重新校验目标。
+- 使用 `.part` 文件和 Range 断点续传。
+- 校验 Content-Range、响应、响应大小和磁盘水位。
+- 用 ffprobe 确认最终文件确实包含音频流。
+- 对最终文件计算 SHA-256。
+
+## 7. 各来源当前特点
+
+| 来源 | 适合用途 | 当前限制 |
+|---|---|---|
+| Apple Podcasts | 大范围发现 RSS | 目录地区不等于实际语言 |
+| Podcast Index | 扩充大量 RSS | 需要 API Key/Secret |
+| 固定 RSS | 最稳定的日常增量来源 | 只支持 RSS 2.0，不支持全部 Atom 扩展 |
+| LibriVox | 公版有声书 | Archive.org 在部分服务器可能不可达 |
+| 小宇宙 | 中文播客 | 页面结构变化可能导致标题退化 |
+| 喜马拉雅 | 种子附近音频探索 | 不是正式专辑分页，语言/分类是启发式 |
+| B站 | 长音频和分P合集 | 匿名接口、风控、版权和大文件风险 |
+
+外部站点随时可能修改页面、字段、签名或访问规则。探针失败不一定是代码崩溃，也可能是网络、地区、风控或服务条款限制。
+
+## 8. 配置
+
+主要配置在 `config.py`。敏感凭据应通过环境变量设置，不要写进代码：
+
+```bash
+export PODCAST_INDEX_KEY="你的 key"
+export PODCAST_INDEX_SECRET="你的 secret"
+```
+
+安全资源上限可以参考 `.env.example`：
+
+```bash
+export AUDIOSPIDER_MAX_WORKERS=8
+export AUDIOSPIDER_MAX_BATCH_SIZE=1000
+export AUDIOSPIDER_MAX_DOWNLOAD_BYTES=2147483648
+```
+
+项目不会自动加载 `.env` 文件；请在 shell、systemd 或任务平台中注入环境变量。
+
+## 9. 常见问题
+
+### `python` 命令不存在
+
+先激活 Conda：
+
+```bash
+source /root/miniforge3/etc/profile.d/conda.sh
+conda activate audiospider
+```
+
+### `ModuleNotFoundError`
+
+```bash
+python -m pip install -r requirements-lock.txt
+python -m pip check
+```
+
+### `ffmpeg` 不存在
+
+Ubuntu/Debian：
+
+```bash
+sudo apt update
+sudo apt install -y ffmpeg
+```
+
+### Archive.org 超时
+
+先检查：
+
+```bash
+curl -I --max-time 15 https://archive.org/
+```
+
+如果 TCP 连接超时，需要处理服务器出口网络、代理或地区访问问题；反复重跑 LibriVox 不会解决。
+
+### 为什么有 `dup:<hash>`
+
+表示该任务下载到的最终内容与已经保存的文件 SHA-256 相同。数据库保留来源记录，但不会重复保存物理文件。
+
+### 为什么 `--format opus` 最后不是 24 kHz
+
+Opus 标准解码通常工作在 48 kHz。代码的 `-ar 24000` 表示编码器输入采样率，不保证播放器或训练库报告 24 kHz。
+
+更多问题见[故障排查指南](docs/guides/troubleshooting.md)。
+
+## 10. 文档导航
+
+### 新手
+
+- [文档总目录](docs/README.md)
+- [核心概念](docs/getting-started/concepts.md)
+- [从零安装](docs/getting-started/installation.md)
+- [第一次运行](docs/getting-started/first-run.md)
 
 ### 日常使用
 
-```bash
-# 首次：大量发现新源
-python discover.py
+- [发现与采集](docs/guides/discovery-and-collection.md)
+- [下载与转码](docs/guides/download-and-convert.md)
+- [运行与维护](docs/guides/operations.md)
+- [故障排查](docs/guides/troubleshooting.md)
 
-# 日常：从已有源抓增量 + 下载
-python collect.py && python main.py --limit 100
+### 技术参考
 
-# 偶尔：用新关键词扩充源
-python discover.py --keywords 英语学习 科技播客
+- [CLI 命令参考](docs/reference/cli.md)
+- [配置与环境变量](docs/reference/configuration.md)
+- [数据库结构](docs/reference/database.md)
+- [来源适配器](docs/reference/spiders.md)
 
-# 后台持续运行（推荐两路 discover + 下载）
-python discover.py --loop &                  # 终端1: 搜新 feed，只解析未爬过的
-python discover.py --backfill-published &    # 终端2: 扫已爬 feed，补 published_at / 捞新剧集
-python main.py --loop &                      # 终端3: 持续下载
-```
+### 设计与开发
 
-## 数据来源
+- [系统架构](docs/design/architecture.md)
+- [安全边界](docs/design/security.md)
+- [数据流与状态机](docs/design/data-flow.md)
+- [开发与测试](docs/design/development.md)
+- [安全问题报告](SECURITY.md)
+- [变更记录](CHANGELOG.md)
+- [dev_L4_1gpus 服务器验收报告](docs/reports/2026-09-08-dev-l4-validation.md)
 
-| 来源 | 类型 | 下载方式 | 说明 |
-|------|------|----------|------|
-| 小宇宙 | 播客 | CDN 直链 | 最稳定，M4A 格式 |
-| 通用 RSS | 播客 | 直链 | 标准协议，覆盖面广 |
-| 喜马拉雅 | 有声书/播客 | 移动端 API | MP3/AAC/M4A 格式 |
-| LibriVox | 有声书 | Archive.org | 英文公版有声书 |
-| B站 | 有声书/相声/评书/演讲 | DASH 音频流 | M4A 格式，内容量大 |
+## 11. 运行状态与版本管理
 
-### 添加新来源
-
-在 `spiders/` 目录新建爬虫类继承 `BaseSpider`，实现 `crawl()` 方法返回 `AudioRecord` 列表，然后在 `collect.py` 的 `ALL_SPIDERS` 中注册即可。
-
-## 音频格式
-
-下载时可通过 `--format` 控制是否转码（默认 `opus`）：
-
-| `--format` | 行为 | 是否调用 ffmpeg |
-|---|---|---|
-| **opus**（默认） | 下载后转为统一 Opus | 是 |
-| **original** | 保留源站原始格式，不转码 | 否 |
-
-`download_zh_podcast.sh` 用环境变量透传同一选项：
+查看当前版本：
 
 ```bash
-bash download_zh_podcast.sh                    # 默认转 opus
-FORMAT=original bash download_zh_podcast.sh    # 保留原始格式，降低 CPU
+git log -1 --oneline
+git status --short --branch
 ```
 
-原始格式按 URL 后缀识别，常见为 **mp3 / m4a / ogg / aac / wav / opus**（中文播客 RSS 以 m4a、mp3 为主）。无法识别的后缀按 mp3 保存。
+升级代码前请先停止下载进程、备份 `audiospider.db`，升级后运行：
 
-### 默认转码目标（`--format opus`）
-
-面向语音模型训练的统一格式：
-
-| 参数 | 值 |
-|------|-----|
-| **编码** | Opus (libopus) |
-| **容器** | `.opus` |
-| **编码输入采样率** | 24kHz（Opus 解码器通常报告/输出 48kHz） |
-| **通道** | 单声道 (mono) |
-| **码率** | 32kbps |
-
-选型依据：
-
-- **Opus 32kbps** — 同码率下音质优于 MP3/AAC，是 WenetSpeech 等大规模语音数据集的标准选择
-- **24kHz 编码输入** — 转码前向 libopus 提供 24kHz PCM；标准 Opus 解码通常以 48kHz 输出，训练代码若严格要求 24kHz 应显式重采样
-- **单声道** — 语音合成只需单通道
-- **存储效率** — 1 万小时约 140GB，相比 WAV (1.6TB) 节省约 91%
-
-训练时应检查解码后的实际采样率，并按模型要求显式重采样：
-
-```python
-import torchaudio
-wav, sr = torchaudio.load("audio.opus")  # Opus 通常返回 sr=48000
-if sr != 24000:
-    wav = torchaudio.functional.resample(wav, sr, 24000)
+```bash
+bash scripts/bootstrap_conda.sh
+python doctor.py
+bash scripts/test.sh
 ```
 
-`--format opus` 时下载流程会自动转码（需要系统安装 `ffmpeg`）。已用 `--format original` 保存的文件，之后也可用 `convert_audio.py` 批量补转。
+完整升级流程见[运行与维护](docs/guides/operations.md)。
 
-## 去重机制
+## 12. License
 
-三层去重，避免重复下载：
-
-1. **URL 去重** — 数据库 UNIQUE 约束
-2. **source_id 去重** — 用源站唯一 ID 做增量爬取判断
-3. **内容指纹去重** — 对最终保存文件计算 SHA-256，并在事务中跨源去重
-
-## 下载目录结构
-
-```
-downloads/
-├── xiaoyuzhou/
-│   └── 播客/
-│       ├── 不开玩笑 Jokes Aside_xxx.opus
-│       └── 不开玩笑 Jokes Aside_xxx.json   ← 元信息
-├── podcast_rss/
-│   └── 播客/
-│       └── ...
-├── ximalaya/
-│   ├── 有声书/
-│   └── 亲子/
-├── bilibili/
-│   ├── 有声书/
-│   ├── 相声/
-│   └── 评书/
-└── librivox/
-    └── ...
-```
-
-每个音频文件旁生成同名 `.json` 元信息文件，包含 title、source、category、language、duration 等字段。
-
-## 反爬策略
-
-- 随机 User-Agent 轮换
-- 请求间随机延时
-- 下载失败指数退避重试
-- 令牌桶限速
-- Referer 头伪装
-- 下载代理支持（在 `config.py` 中配置 `PROXY_LIST`）
-
-下载器默认还会拒绝环回、私网、link-local 和非 HTTP(S) 地址，对每次重定向重新校验目标；同时限制单文件大小、预留磁盘安全水位，并在完成前使用 ffprobe 验证音频。任务通过 SQLite lease 原子领取，多进程不会同时消费同一条 pending 记录。
-
-## 统计
-
-运行 `python main.py stats` 查看：
-
-- URL 总数、各状态数量
-- 按来源分类的待下载/已完成/失败数
-- 最近下载的文件列表
-- 磁盘总用量
-
-## TODO
-
-### 待接入的发现源
-
-当前 `discover.py` 已集成两个数据源（Apple Podcasts、Podcast Index API），计划接入更多渠道：
-
-- [x] **Podcast Index API** — 最大的开放播客目录（400 万+ 播客），已集成到 `discover.py`，支持关键词搜索/热门播客/分页遍历最近更新的 feeds
-- [x] **Apple Genre 分类遍历** — 遍历 Apple Podcasts 88 个分类 × 2 个地区，已集成到 `discover.py`
-- [ ] **gpodder.net API** — 开源播客目录，提供热门排行和订阅数排序，免费无需认证
-- [ ] **Listen Notes API** — 播客搜索引擎（300 万+ 播客），支持按语言/地区过滤，免费额度 300 次/月
-- [ ] **荔枝FM** — 国内 UGC 音频平台，大量中文有声内容
-- [ ] **蜻蜓FM** — 国内音频平台，评书/有声书资源丰富
-
-## 免责声明
-
-本项目仅供学习和研究使用。使用者应遵守相关网站的服务条款和版权法律。请勿将爬取的数据用于未经授权的商业用途。对因使用本工具产生的任何法律问题，项目作者不承担任何责任。
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=yinhao0214%2FAudioSpider&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=yinhao0214/AudioSpider&type=date&theme=dark&legend=top-left&sealed_token=D5R_Z6d7UsoI9QVm3JJRGwpWQ5r4j-yiYZ8qVuG8RmGzPwV4mBJ7Byne0d1MlMvZ7QklAQDUvIZYhB2rftHj1b1Tn5C00hkKkcvb_2ATrVkmWrrXK9FRwI5t79cpfCPBPBlsynaR5ezAaIAmwX7VVcrN7FiZo1XygK1HQGqGvutFODzftmImZ4w_Du9_" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=yinhao0214/AudioSpider&type=date&legend=top-left&sealed_token=D5R_Z6d7UsoI9QVm3JJRGwpWQ5r4j-yiYZ8qVuG8RmGzPwV4mBJ7Byne0d1MlMvZ7QklAQDUvIZYhB2rftHj1b1Tn5C00hkKkcvb_2ATrVkmWrrXK9FRwI5t79cpfCPBPBlsynaR5ezAaIAmwX7VVcrN7FiZo1XygK1HQGqGvutFODzftmImZ4w_Du9_" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=yinhao0214/AudioSpider&type=date&legend=top-left&sealed_token=D5R_Z6d7UsoI9QVm3JJRGwpWQ5r4j-yiYZ8qVuG8RmGzPwV4mBJ7Byne0d1MlMvZ7QklAQDUvIZYhB2rftHj1b1Tn5C00hkKkcvb_2ATrVkmWrrXK9FRwI5t79cpfCPBPBlsynaR5ezAaIAmwX7VVcrN7FiZo1XygK1HQGqGvutFODzftmImZ4w_Du9_" />
- </picture>
-</a>
-
-## License
-
-本项目基于 [MIT License](LICENSE) 开源。
+项目代码使用 [MIT License](LICENSE)。目标音频的版权、隐私、平台条款和训练授权由使用者自行确认。

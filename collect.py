@@ -147,7 +147,10 @@ def _positive_int(value: str) -> int:
 def main():
     parser = argparse.ArgumentParser(description="AudioSpider URL 搜集器")
     parser.add_argument("--spiders", nargs="*", default=None,
-                        help="指定爬虫: xiaoyuzhou ximalaya librivox podcast_rss")
+                        choices=["xiaoyuzhou", "ximalaya", "librivox",
+                                 "podcast_rss", "bilibili"],
+                        help="指定爬虫：xiaoyuzhou ximalaya librivox "
+                             "podcast_rss bilibili")
     parser.add_argument("--loop", action="store_true", help="持续循环搜集")
     parser.add_argument("--interval", type=_positive_int, default=3600, help="循环间隔(秒)")
 

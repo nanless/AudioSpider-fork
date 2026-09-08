@@ -27,9 +27,6 @@ venv/
 *.swp
 *.swo
 
-# 文档
-docs/
-
 # OS
 .DS_Store
 ._*

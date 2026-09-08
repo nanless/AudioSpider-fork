@@ -19,6 +19,7 @@ class LibriVoxSpider(BaseSpider):
         cfg = SPIDER_CONFIGS[self.name]
         self.api_url = cfg["api_url"]
         self.max_items = cfg["max_items"]
+        self.max_tracks_per_book = cfg.get("max_tracks_per_book", 200)
         self.limiter = RateLimiter(rate=1.0, burst=3)
 
     async def crawl(self, on_batch=None) -> list[AudioRecord]:
@@ -81,7 +82,7 @@ class LibriVoxSpider(BaseSpider):
                     return records
                 text = raw.decode(resp.charset or "utf-8", errors="replace")
                 soup = BeautifulSoup(text, "lxml-xml")
-                for item in soup.find_all("item"):
+                for item in soup.find_all("item")[:self.max_tracks_per_book]:
                     enclosure = item.find("enclosure")
                     if enclosure and enclosure.get("url"):
                         audio_url = enclosure["url"]
