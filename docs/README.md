@@ -54,6 +54,7 @@
 ## 深度研究
 
 - [2026-09-09 音频背景信息与文本采集研究](research/2026-09-09-background-metadata-research.md)
+- [2026-09-09 全量详细信息回填与 5,000 条扩量启动报告](reports/2026-09-09-complete-metadata-and-scale-launch.md)
 - [全量详细信息回填设计](plans/2026-09-09-complete-metadata-backfill-design.md)
 - [全量详细信息回填实施计划](plans/2026-09-09-complete-metadata-backfill.md)
 
