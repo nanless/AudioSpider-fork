@@ -3,6 +3,7 @@
 
 import hashlib
 import html
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,7 @@ from config import (
     MAX_BACKGROUND_ASSET_BYTES,
     MAX_BACKGROUND_ASSETS,
     MAX_BACKGROUND_TOTAL_BYTES,
+    BACKGROUND_ASSET_TIMEOUT,
 )
 from network_safety import safe_get
 
@@ -364,11 +366,26 @@ async def persist_background(session: aiohttp.ClientSession, audio_path: str,
         for spec in _asset_specs(item):
             kind = spec["kind"]
             counters[kind] = counters.get(kind, 0) + 1
-            result = await _download_one(
-                session, audio_path, spec, counters[kind],
-                allow_private_network=allow_private_network,
-                remaining_bytes=remaining,
-            )
+            try:
+                result = await asyncio.wait_for(
+                    _download_one(
+                        session, audio_path, spec, counters[kind],
+                        allow_private_network=allow_private_network,
+                        remaining_bytes=remaining,
+                    ),
+                    timeout=BACKGROUND_ASSET_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                result = {
+                    "kind": kind,
+                    "source_url": redact_url(spec.get("url", "")),
+                    "type": spec.get("type", ""),
+                    "language": spec.get("language", ""),
+                    "rel": spec.get("rel", ""),
+                    "text_source": spec.get("text_source", "platform"),
+                    "status": "failed",
+                    "error": f"background asset timeout ({BACKGROUND_ASSET_TIMEOUT}s)",
+                }
             results.append(result)
             remaining -= result.get("bytes", 0)
     return {"mode": mode, "description_files": description_files, "assets": results}

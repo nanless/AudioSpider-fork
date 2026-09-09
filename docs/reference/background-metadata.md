@@ -84,6 +84,7 @@ python main.py background --limit 10000 --workers 4 --background all
 - 单背景资产默认 20 MiB。
 - 每条音频所有背景资产默认 50 MiB。
 - 每条音频最多 12 个资产。
+- 每个辅助资产有独立硬超时（默认 75 秒），超时只记录该资产失败，不会卡住整批音频。
 - 只接受文本、字幕、JSON/XML 和图片类型。
 - 所有初始 URL 与重定向均拒绝私网、localhost、link-local 和保留地址。
 - sidecar 中 URL 去掉 query 与 fragment；数据库保留下载所需声明。

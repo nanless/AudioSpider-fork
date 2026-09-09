@@ -36,6 +36,7 @@ python discover.py --source podcastindex --keywords news --pi-max-pages 1
 | `AUDIOSPIDER_MAX_BACKGROUND_ASSET_BYTES` | `20971520` | 单个背景资产最大 20 MiB |
 | `AUDIOSPIDER_MAX_BACKGROUND_TOTAL_BYTES` | `52428800` | 每条音频背景资产合计最大 50 MiB |
 | `AUDIOSPIDER_MAX_BACKGROUND_ASSETS` | `12` | 每条音频最多请求的辅助资产数 |
+| `AUDIOSPIDER_BACKGROUND_ASSET_TIMEOUT` | `75` | 单个辅助资产硬超时秒数 |
 
 所有值必须是正整数字节或秒数。例如：
 
