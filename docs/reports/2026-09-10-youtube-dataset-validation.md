@@ -266,6 +266,15 @@ bash scripts/test.sh
 
 隔离 worktree 位于约 17.4 GiB 可用的系统分区，因此测试时只把 doctor 的最小磁盘阈值临时设为 1 byte；真实下载始终写入约 130 TB 的正式数据盘路径，没有降低生产下载安全水位。
 
+fast-forward 部署到正式仓库后再次执行未降低阈值的 `scripts/test.sh`：80 个测试仍全部通过。正式 doctor 实测：
+
+- 下载目录 `/root/code/github_repos/AudioSpider-fork/downloads` 可写；
+- 可用空间 29,413.3 GiB，高于 20 GiB 安全水位；
+- 正式 SQLite `quick_check` 完整，原音频队列记录数保持 5,634；
+- Python、依赖、ffmpeg、文档和 Shell 检查均通过，无提醒。
+
+最后使用正式 main 上的 `youtube_dataset.py` 重跑数据 audit，仍为 110 个 bundle、`failure_count=0`、`incomplete_staging_count=0`。
+
 ## 11. 仍需人工完成的标注
 
 当前 110 个 bundle 全部：
