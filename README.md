@@ -241,6 +241,8 @@ python main.py --retry-failed --source bilibili --limit 100
 
 ## 4. 数据保存在哪里
 
+如果你只想查看已经下载的文件、理解数据库数量与物理文件数量的区别，先看[查看已下载音频和详细背景信息](docs/getting-started/using-downloaded-data.md)。
+
 运行后会生成：
 
 ```text
@@ -277,6 +279,8 @@ JSON 元信息包含：
 - 简介、作者、原网页和封面
 - 来源特有的版本化背景信息
 - 已保存 transcript、章节和公版原文的路径与哈希
+
+本项目在 `dev_L4_1gpus` 上已经完成一次 5,000 条数据的实测扩量：5,000 条记录全部有版本化元数据，4,775 条音频完成下载，4,713 个物理音频通过全量 ffprobe，62 条因内容哈希重复而只保留一份文件。完整数字、失败来源和验收命令见[2026-09-09 终态验收报告](docs/reports/2026-09-09-complete-metadata-and-scale-validation.md)。
 
 来源实际提供时还会出现 `.description.txt`、`.cover.jpg`、`.transcript.*`、`.chapters.*` 和 `.source-text.*`。平台原文和未来 ASR 必须通过 `text_source` 区分。
 

@@ -46,3 +46,14 @@
 - 增加单元和集成回归测试。
 
 升级旧数据库时会自动添加缺失列和索引。升级前仍应停止写入进程并使用 SQLite backup API 备份。
+
+## 2026-09-09
+
+### 实测验收
+
+- 在 `dev_L4_1gpus` 完成 5,000 条记录的详细元数据回填与受限扩量。
+- 5,000 条记录全部具备 `metadata_json`，其中 4,949 条 rich、51 条 truthful partial、0 条 unresolved。
+- 4,775 条音频完成下载，4,713 个物理音频通过全量 ffprobe；62 条内容哈希重复记录只保留一份文件。
+- 全部物理音频均有 schema v2 JSON sidecar；无 JSON 解析错误、缺失 sidecar 或签名 URL 泄露。
+- 新增面向小白的[已下载数据使用指南](docs/getting-started/using-downloaded-data.md)和[完整终态验收报告](docs/reports/2026-09-09-complete-metadata-and-scale-validation.md)。
+- 失败记录按来源保留并脱敏记录原因，没有执行无边界的全库重试。

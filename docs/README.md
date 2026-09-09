@@ -13,6 +13,7 @@
 - [核心概念](getting-started/concepts.md)
 - [从零安装](getting-started/installation.md)
 - [第一次运行](getting-started/first-run.md)
+- [查看已下载音频和详细背景信息](getting-started/using-downloaded-data.md)
 
 ## 第 2 层：任务指南
 
@@ -50,6 +51,7 @@
 目标是“看到具体机器、日期、命令范围和实际结果”。
 
 - [2026-09-08 dev_L4_1gpus 服务器验收报告](reports/2026-09-08-dev-l4-validation.md)
+- [2026-09-09 5,000 条详细元数据与音频下载终态验收](reports/2026-09-09-complete-metadata-and-scale-validation.md)
 
 ## 深度研究
 
