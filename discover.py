@@ -791,7 +791,10 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
                                 sources: list[str] | None = None,
                                 pi_max_pages: int = 20,
                                 parse_only: bool = False,
-                                backfill_published: bool = False):
+                                backfill_published: bool = False,
+                                max_feeds: int = 0,
+                                episodes_per_feed: int = 0,
+                                max_new_records: int = 0):
     """主流程：搜索 → 发现 feeds → 解析 → 入库
 
     Args:
@@ -922,6 +925,8 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
 
     # ── 解析未爬取过的 feeds ──
     uncrawled = feed_store.get_uncrawled()
+    if max_feeds > 0:
+        uncrawled = uncrawled[:max_feeds]
     if not uncrawled:
         logger.info("没有新的 feed 需要解析")
         storage.show_stats()
@@ -931,6 +936,10 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
     total_new = 0
     async with aiohttp.ClientSession() as session:
         for i, feed in enumerate(uncrawled, 1):
+            remaining = max_new_records - total_new if max_new_records > 0 else 0
+            if max_new_records > 0 and remaining <= 0:
+                logger.info(f"达到本轮新增上限 {max_new_records}，停止解析")
+                break
             feed_url = feed["feed_url"]
             feed_name = feed["podcast_name"] or feed_url[:60]
             await random_delay(0.3, 0.8)
@@ -939,7 +948,12 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
 
             feed_genres = [g.strip() for g in (feed.get("genre") or "").split(",") if g.strip()]
             try:
-                records = await parse_rss_feed(session, feed_url, genres=feed_genres)
+                feed_limit = episodes_per_feed
+                if remaining > 0:
+                    feed_limit = min(feed_limit, remaining) if feed_limit > 0 else remaining
+                records = await parse_rss_feed(
+                    session, feed_url, max_eps=feed_limit, genres=feed_genres,
+                )
             except FeedFetchError as exc:
                 logger.warning(f"  [{i}/{len(uncrawled)}] {feed_name}: {exc}")
                 continue
@@ -1008,6 +1022,12 @@ def main():
                              "apple_genre(仅分类), podcastindex, all(全部,默认)")
     parser.add_argument("--pi-max-pages", type=_bounded_positive(1000), default=20,
                         help="Podcast Index recent feeds 最大翻页数(默认20, 每页1000条)")
+    parser.add_argument("--max-feeds", type=_positive_int, default=0,
+                        help="本轮最多解析多少个未解析 feed；默认0=不额外限制")
+    parser.add_argument("--episodes-per-feed", type=_positive_int, default=0,
+                        help="每个新 feed 最多解析多少集；默认0=feed内全部")
+    parser.add_argument("--max-new-records", type=_positive_int, default=0,
+                        help="本轮最多新增多少条音频记录；默认0=不额外限制")
     parser.add_argument("--loop", action="store_true", help="持续循环发现")
     parser.add_argument("--interval", type=_positive_int, default=86400,
                         help="循环间隔秒数(默认1天)")
@@ -1071,7 +1091,10 @@ def main():
                                             sources=sources,
                                             pi_max_pages=args.pi_max_pages,
                                             parse_only=args.parse_only,
-                                            backfill_published=args.backfill_published)
+                                            backfill_published=args.backfill_published,
+                                            max_feeds=args.max_feeds,
+                                            episodes_per_feed=args.episodes_per_feed,
+                                            max_new_records=args.max_new_records)
                 logger.info(f"等待 {args.interval} 秒...")
                 await asyncio.sleep(args.interval)
         asyncio.run(loop())
@@ -1080,7 +1103,10 @@ def main():
                                           sources=sources,
                                           pi_max_pages=args.pi_max_pages,
                                           parse_only=args.parse_only,
-                                          backfill_published=args.backfill_published))
+                                          backfill_published=args.backfill_published,
+                                          max_feeds=args.max_feeds,
+                                          episodes_per_feed=args.episodes_per_feed,
+                                          max_new_records=args.max_new_records))
 
 
 if __name__ == "__main__":

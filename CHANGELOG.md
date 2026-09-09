@@ -17,6 +17,7 @@
 - 音频背景信息：可查询公共列、版本化来源 JSON、description、封面、公开 transcript、章节和公版原文。
 - `main.py background` 为既有物理音频补齐背景文件，无需重复下载音频。
 - RSS/Podcasting 2.0、小宇宙、喜马拉雅、LibriVox 和 B站的来源级元数据提取。
+- 在大规模采集前，按稳定来源 ID 审计并定向回填全部历史详细信息。
 
 ### 安全
 

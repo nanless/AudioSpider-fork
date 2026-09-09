@@ -569,6 +569,24 @@ class Storage:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def get_metadata_records(self, limit: int = 10_000,
+                             source: str | None = None,
+                             missing_only: bool = False) -> list[dict]:
+        """Return formal rows for a metadata audit/backfill without changing state."""
+        where = ["1=1"]
+        params: list = []
+        if source:
+            where.append("source=?")
+            params.append(source)
+        if missing_only:
+            where.append("COALESCE(metadata_json, '')=''")
+        rows = self._get_conn().execute(
+            f"SELECT * FROM audio_urls WHERE {' AND '.join(where)} "
+            "ORDER BY id LIMIT ?",
+            (*params, limit),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
     def get_done_records(self, limit: int = 10_000,
                          source: str | None = None) -> list[dict]:
         where = "status='done' AND local_path!='' AND local_path NOT LIKE 'dup:%'"

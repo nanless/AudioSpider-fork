@@ -133,9 +133,11 @@ ffprobe -v error -show_streams /path/to/audio
 
 ## 为已下载文件补背景信息
 
-来源适配器更新元数据后，不需要重下音频：
+先对全部历史记录做可量化审计和定向回填，再生成相邻文件；不需要重下已有音频：
 
 ```bash
+python metadata_backfill.py --audit-only --limit 10000
+python metadata_backfill.py --limit 10000 --report logs/metadata-backfill.json
 python main.py background --limit 10000 --workers 4 --background all
 ```
 

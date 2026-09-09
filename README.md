@@ -38,6 +38,18 @@ Apple / Podcast Index   +    固定 RSS / 各平台 Spider  →   downloads/
 - 第一次运行不要直接执行默认全量发现或持续下载。
 - 先运行 `doctor.py`，再运行 `probe.py`。
 
+大规模扩量应同时设置 feed、单 feed 单集和本轮新增三层上限。例如第一阶段目标约 5,000 条：
+
+```bash
+python discover.py --source apple_keyword \
+  --keywords 中文播客 科技访谈 人文历史 有声书 \
+  --top 50 --max-feeds 100 --episodes-per-feed 50 --max-new-records 5000
+python metadata_backfill.py --audit-only --limit 10000
+python main.py --limit 5000 --workers 4 --format original --background all
+```
+
+每批结束后先审计覆盖率和失败原因，再增加下一批，避免来源临时异常时持续放大错误。
+
 ## 2. 十分钟上手
 
 ### 第一步：进入仓库
@@ -393,6 +405,16 @@ Opus 标准解码通常工作在 48 kHz。代码的 `-ar 24000` 表示编码器�
 ```bash
 python main.py background --limit 10000 --workers 4 --background all
 ```
+
+如果数据库里已经有旧记录，先按稳定来源 ID 回填详细信息；这比重新搜索更能覆盖历史 B站分P和喜马拉雅 track：
+
+```bash
+python metadata_backfill.py --audit-only --limit 10000
+python metadata_backfill.py --limit 10000 --report logs/metadata-backfill.json
+python main.py background --limit 10000 --workers 4 --background all
+```
+
+报告把记录分为 `rich`（常用字段充分）、`partial`（来源只公开了部分字段）和 `unresolved`（本轮无法从来源解析），不会把空 JSON 当成“详细信息齐全”。
 
 更多问题见[故障排查指南](docs/guides/troubleshooting.md)。
 

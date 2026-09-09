@@ -256,43 +256,10 @@ class BilibiliSpider(BaseSpider):
                 record.language = "zh"
                 record.speaker = video_title[:30]
                 record.source_id = f"{bvid}_p{page_num}"
-                owner = video_info.get("owner") or {}
-                record.webpage_url = f"https://www.bilibili.com/video/{bvid}?p={page_num}"
-                record.description = plain_text(video_info.get("desc", ""))
-                record.author = owner.get("name", "")
-                record.cover_url = video_info.get("pic", "") or page.get("first_frame", "")
-                published = video_info.get("pubdate")
-                if published:
-                    record.published_at = datetime.fromtimestamp(
-                        int(published), tz=timezone.utc,
-                    ).isoformat()
-                record.metadata_json = encode_metadata(metadata_envelope(
-                    "bilibili",
-                    common={
-                        "description": record.description,
-                        "webpage_url": record.webpage_url,
-                        "author": record.author,
-                        "cover_url": record.cover_url,
-                        "podcast_title": video_info.get("title", video_title),
-                        "categories": [video_info.get("tname", ""), keyword],
-                    },
-                    source_data={
-                        "bvid": bvid,
-                        "aid": video_info.get("aid"),
-                        "cid": cid,
-                        "page": page_num,
-                        "part": part_title,
-                        "owner": {
-                            "mid": owner.get("mid"),
-                            "name": owner.get("name", ""),
-                            "image": owner.get("face", ""),
-                        },
-                        "copyright": video_info.get("copyright"),
-                        "rights": video_info.get("rights", {}),
-                        "stats": video_info.get("stat", {}),
-                    },
-                    assets={"transcripts": subtitles},
-                ))
+                self._attach_metadata(
+                    record, video_info, page, bvid=bvid, cid=cid,
+                    page_num=page_num, keyword=keyword, subtitles=subtitles,
+                )
                 records.append(record)
 
                 # 大合集每隔 20P 打一次进度，避免看起来像卡住
@@ -305,6 +272,88 @@ class BilibiliSpider(BaseSpider):
 
         except Exception as e:
             self.logger.warning(f"B站视频解析失败 {bvid}: {e}")
+        return records
+
+    def _attach_metadata(self, record: AudioRecord, video_info: dict,
+                         page: dict, *, bvid: str, cid: int,
+                         page_num: int, keyword: str,
+                         subtitles: list[dict]) -> AudioRecord:
+        owner = video_info.get("owner") or {}
+        record.webpage_url = f"https://www.bilibili.com/video/{bvid}?p={page_num}"
+        record.description = plain_text(video_info.get("desc", ""))
+        record.author = owner.get("name", "")
+        record.cover_url = video_info.get("pic", "") or page.get("first_frame", "")
+        published = video_info.get("pubdate")
+        if published:
+            record.published_at = datetime.fromtimestamp(
+                int(published), tz=timezone.utc,
+            ).isoformat()
+        record.metadata_json = encode_metadata(metadata_envelope(
+            "bilibili",
+            common={
+                "description": record.description,
+                "webpage_url": record.webpage_url,
+                "author": record.author,
+                "cover_url": record.cover_url,
+                "podcast_title": video_info.get("title", record.title),
+                "categories": [video_info.get("tname", ""), keyword],
+            },
+            source_data={
+                "bvid": bvid,
+                "aid": video_info.get("aid"),
+                "cid": cid,
+                "page": page_num,
+                "part": page.get("part", ""),
+                "owner": {
+                    "mid": owner.get("mid"),
+                    "name": owner.get("name", ""),
+                    "image": owner.get("face", ""),
+                },
+                "copyright": video_info.get("copyright"),
+                "rights": video_info.get("rights", {}),
+                "stats": video_info.get("stat", {}),
+            },
+            assets={"transcripts": subtitles},
+        ))
+        return record
+
+    async def enrich_existing(self, session: aiohttp.ClientSession,
+                              rows: list[dict]) -> list[AudioRecord]:
+        """Fetch metadata for exact historical BV part IDs without searching."""
+        grouped: dict[str, list[tuple[int, dict]]] = {}
+        for row in rows:
+            match = re.fullmatch(r"(BV[0-9A-Za-z]+)_p([1-9][0-9]*)", row.get("source_id", ""))
+            if match:
+                grouped.setdefault(match.group(1), []).append((int(match.group(2)), row))
+
+        records = []
+        for bvid, targets in grouped.items():
+            await self.limiter.acquire()
+            video_info = await self._get_video_info(session, bvid)
+            pages = {
+                int(page.get("page", index + 1)): page
+                for index, page in enumerate(video_info.get("pages", []) or [])
+            }
+            for page_num, row in targets:
+                page = pages.get(page_num)
+                if not page or not page.get("cid"):
+                    continue
+                cid = page["cid"]
+                subtitles = await self._get_subtitles(session, bvid, cid)
+                record = AudioRecord(
+                    url=row["url"], source=self.name, title=row.get("title", ""),
+                    file_format=row.get("file_format", ""),
+                    file_size=row.get("file_size", 0), duration=row.get("duration", 0),
+                    language=row.get("language", ""), category=row.get("category", ""),
+                    speaker=row.get("speaker", ""), source_id=row.get("source_id", ""),
+                    published_at=row.get("published_at", ""),
+                )
+                self._attach_metadata(
+                    record, video_info, page, bvid=bvid, cid=cid,
+                    page_num=page_num, keyword=row.get("category", ""),
+                    subtitles=subtitles,
+                )
+                records.append(record)
         return records
 
     async def _get_video_info(self, session: aiohttp.ClientSession,

@@ -62,7 +62,16 @@ python main.py --background all
 
 ## 已有音频回填
 
-先重新运行对应来源 probe/collect，使数据库按 URL 或稳定 `source_id` 回填元数据。然后：
+不要只重新跑搜索并假设旧记录会再次出现。先审计并按正式库中的稳定来源 ID 定向回填：
+
+```bash
+python metadata_backfill.py --audit-only --limit 10000
+python metadata_backfill.py --limit 10000 --report logs/metadata-backfill.json
+```
+
+可以用 `--source bilibili` 单独处理来源，用 `--missing-only` 仅请求还没有版本化元数据的记录。报告分别给出 `rich`、`partial` 和 `unresolved`，因此 `metadata_json` 空壳不会被算作完整覆盖。
+
+回填数据库后，再为已经下载的物理音频生成相邻资产：
 
 ```bash
 python main.py background --limit 10000 --workers 4 --background all

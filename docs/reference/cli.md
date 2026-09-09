@@ -81,6 +81,8 @@ python collect.py --spiders podcast_rss --loop --interval 3600
 
 ```bash
 python discover.py --source apple_keyword --keywords 中文播客 --top 10
+python discover.py --source apple_keyword --keywords 中文播客 科技访谈 \
+  --top 50 --max-feeds 100 --episodes-per-feed 50 --max-new-records 5000
 python discover.py --source apple_genre --top 20
 python discover.py --parse-only
 python discover.py --stats
@@ -92,6 +94,9 @@ python discover.py --stats
 | `--top N` | 200 | Apple 每词最多播客，上限 200 |
 | `--source [SOURCES...]` | all | 选择发现来源 |
 | `--pi-max-pages N` | 20 | Podcast Index recent feeds 最大页数，上限 1000 |
+| `--max-feeds N` | 0 | 本轮最多解析的未解析 feed；0 表示不额外限制 |
+| `--episodes-per-feed N` | 0 | 每个新 feed 最多解析的单集数；0 表示 feed 内全部 |
+| `--max-new-records N` | 0 | 本轮最多新增的记录数；0 表示不额外限制 |
 | `--loop` | 关闭 | 持续发现 |
 | `--interval` | 86400 | 循环秒数 |
 | `--parse-only` | 关闭 | 仅解析未解析的已知 feed |
@@ -145,6 +150,23 @@ python main.py [download|stats|fix-meta|background] [参数]
 python main.py background --limit 10000 --workers 4 --background all
 python main.py background --source podcast_rss --limit 10000 --background metadata
 ```
+
+## 历史详细信息审计与定向回填
+
+```bash
+python metadata_backfill.py [参数]
+```
+
+| 参数 | 默认 | 说明 |
+|---|---:|---|
+| `--db` | `audiospider.db` | 目标数据库 |
+| `--source` | 全部 | 仅处理一个来源 |
+| `--limit` | `10000` | 最多审计/处理多少条 |
+| `--audit-only` | 关闭 | 只读输出详细字段覆盖率 |
+| `--missing-only` | 关闭 | 只访问 `metadata_json` 为空的历史记录 |
+| `--report` | 无 | 额外写一份 JSON 报告 |
+
+定向回填不下载音频：B站按 BV号和分P、喜马拉雅按 trackId、小宇宙按媒体路径中的 podcast ID，RSS/LibriVox按 URL 或 GUID 匹配。来源已经下架或网络不可达的记录会归入 `unresolved`，不会伪造成功。
 
 ## `db_viewer.py`
 
