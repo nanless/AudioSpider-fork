@@ -23,6 +23,7 @@
 - [下载与转码](guides/download-and-convert.md)
 - [运行与维护](guides/operations.md)
 - [故障排查](guides/troubleshooting.md)
+- [YouTube 视频、平台字幕与影视短片小白指南](guides/youtube-datasets.md)
 
 ## 第 3 层：接口参考
 
@@ -33,6 +34,7 @@
 - [数据库结构](reference/database.md)
 - [来源适配器](reference/spiders.md)
 - [背景信息与文本资产](reference/background-metadata.md)
+- [YouTube 数据集 sidecar](reference/youtube-sidecars.md)
 
 ## 第 4 层：设计与开发
 
@@ -52,6 +54,7 @@
 
 - [2026-09-08 dev_L4_1gpus 服务器验收报告](reports/2026-09-08-dev-l4-validation.md)
 - [2026-09-09 5,000 条详细元数据与音频下载终态验收](reports/2026-09-09-complete-metadata-and-scale-validation.md)
+- [2026-09-10 YouTube 长访谈与影视短片验收](reports/2026-09-10-youtube-dataset-validation.md)
 
 ## 深度研究
 
@@ -81,6 +84,12 @@
 2. [系统架构](design/architecture.md)
 3. [数据流与状态机](design/data-flow.md)
 4. [开发与测试](design/development.md)
+
+### 我要下载带平台字幕的 YouTube 视频
+
+1. [YouTube 视频、平台字幕与影视短片小白指南](guides/youtube-datasets.md)
+2. [YouTube 数据集 sidecar](reference/youtube-sidecars.md)
+3. [安全边界](design/security.md)
 
 ## 文档验证
 

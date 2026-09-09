@@ -24,6 +24,9 @@ probe.py -> 临时 DB + JSON           v
                                   description / cover / transcript / chapters
                                                    |
                                   description / cover / transcript / chapters
+
+YouTube source manifest -> youtube_dataset.py -> parent bundles -> subtitle-aligned clips
+                                                \-> run manifests and strict audit
 ```
 
 ## 入口层
@@ -34,6 +37,8 @@ probe.py -> 临时 DB + JSON           v
 - `probe.py`：对单个 Spider 做有界真实测试。
 - `doctor.py`：本机环境与数据库诊断。
 - `db_viewer.py`：人类可读的数据库浏览。
+- `youtube_dataset.py`：不经过 SQLite 队列，管理 YouTube 父视频、平台字幕和派生短片。
+- `youtube_vtt.py`：WebVTT 解析、自动滚动字幕消重和确定性 cue 分组。
 
 入口脚本负责参数校验和编排，不应复制存储或下载核心逻辑。
 
@@ -83,10 +88,12 @@ SQLite 使用 WAL。当前设计适合一台机器上的少量采集/下载进�
 - `rss_metadata.py`：RSS/iTunes/Media RSS/Podcasting 2.0 字段提取。
 
 背景信息的存储决策见 [ADR-001](adr-001-background-metadata.md)，来源能力证据见[深度研究报告](../research/2026-09-09-background-metadata-research.md)。
-- `background.py`：背景信息规范化、URL 脱敏和受限辅助资产保存。
-- `rss_metadata.py`：RSS/iTunes/Media RSS/Podcasting 2.0 字段提取。
 
-背景信息的存储决策见 [ADR-001](adr-001-background-metadata.md)，来源能力证据见[深度研究报告](../research/2026-09-09-background-metadata-research.md)。
+## YouTube bundle 层
+
+YouTube 不复用 `audio_urls`：父视频与短片都是 MP4/WAV/VTT/TXT/JSON 五件套。`job_key` 区分同一视频的 profile、请求语言和来源修订，`clip_id` 绑定父视频哈希、字幕哈希、起止毫秒和算法版本。
+
+下载先进入确定性 `.staging/<job_key>` 并支持 `.part` 续传，完整闭包验证后目录级提升。审计只扫描正式的 `interviews/`、`screen_sources/` 和 `screen_clips/`，未完成 staging 本身就是非零失败。此层的 JSONL 运行清单、bundle sidecar 和 SQLite 音频队列互不混用。
 
 ## 设计原则
 

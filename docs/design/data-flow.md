@@ -105,3 +105,33 @@ downloading -> URL/磁盘检查 -> HTTP 响应
 - 日志：`logs/download_*`、`collect_*`、`discover_*`。
 
 只看“命令退出码为 0”不足以证明数据正确；应同时核对记录数、样例字段、音频探测和状态。
+
+## YouTube 层级数据流
+
+YouTube 数据不用 SQLite 音频队列：
+
+```text
+来源 JSON
+   |
+   +--> inspect --> 标题/时长/频道/字幕轨 --> 本次 inspect JSONL
+   |
+   +--> download --> 唯一 staging 目录
+                        |
+                        +--> source.mp4
+                        +--> audio.wav
+                        +--> captions.*.vtt/.txt
+                        +--> metadata.json（bundle commit marker）
+                        |
+                        +--> 全套成功后目录级 rename
+                                      |
+                          +-----------+------------+
+                          |                        |
+                 interviews/              screen_sources/
+                                                   |
+                                                   +--> 字幕 cue 分组
+                                                         |
+                                                         +--> screen_clips/
+                                                              MP4/WAV/VTT/TXT/JSON
+```
+
+同一视频的 profile、请求字幕语言或 `source_revision` 不同，会得到不同 `job_key`，避免互相覆盖。每次 inspect/download 都写一个新的带 run ID 清单；bundle 本身用稳定 job/clip key 保证重跑幂等。

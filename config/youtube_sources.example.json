@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "url": "https://www.youtube.com/watch?v=REPLACE_ME",
+      "profile": "youtube_interviews",
+      "content_language": "zh-Hans",
+      "languages": ["zh-Hans", "en"],
+      "speaker_count": 2,
+      "speaker_count_status": "verified_manual",
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "program": "节目名称",
+      "rights": {
+        "status": "needs_review",
+        "source": "公开视频页面",
+        "note": "下载前确认用途、许可和当地法律；此字段不等于获得再分发授权。"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=REPLACE_ME",
+      "profile": "youtube_screen_clips",
+      "content_language": "ja",
+      "languages": ["ja", "en"],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "program": "影视或节目来源",
+      "rights": {
+        "status": "needs_review",
+        "source": "公开视频页面"
+      }
+    }
+  ]
+}

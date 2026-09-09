@@ -28,6 +28,7 @@ bash scripts/test.sh
 | `network_safety.py` | URL、DNS 和重定向安全 |
 | `config.py` | 路径、默认值、资源限制、来源配置 |
 | `doctor.py`、`probe.py` | 诊断与有界真实测试 |
+| `youtube_dataset.py`、`youtube_vtt.py` | YouTube 父 bundle、字幕切片、修复和审计 |
 | `tests/` | 离线自动化回归 |
 
 修改时尽量把逻辑放在所属层，不在 CLI 中复制实现。
@@ -65,6 +66,8 @@ python probe.py --source podcast_rss --feeds 1 --episodes 2
 ### 4. 端到端下载
 
 先向临时或明确测试数据库写入 1 条可授权的媒体任务，再用 1 worker 下载 original，验证音频、JSON、SHA-256 和状态。避免把正式数据库作为破坏性测试夹具。
+
+YouTube 端到端测试先用 ffmpeg 合成短视频和 VTT，验证五件套、父子哈希闭包和严格 audit；真实外网测试使用单视频清单与候选输出目录，人工/自动字幕至少各覆盖一例。真实下载不进入默认离线测试套件。
 
 ## 新增 Spider
 

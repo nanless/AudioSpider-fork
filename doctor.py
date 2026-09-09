@@ -23,6 +23,7 @@ REQUIRED_PACKAGES = {
     "lxml": "lxml",
     "fake-useragent": "fake-useragent",
     "brotli": "brotli",
+    "yt-dlp": "yt-dlp",
 }
 
 

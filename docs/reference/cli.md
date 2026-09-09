@@ -152,6 +152,33 @@ python main.py background --limit 10000 --workers 4 --background all
 python main.py background --source podcast_rss --limit 10000 --background metadata
 ```
 
+## `youtube_dataset.py`
+
+独立管理 YouTube 长访谈、父视频、平台字幕和字幕对齐影视短片，不读写 `audiospider.db`。
+
+```bash
+python youtube_dataset.py --output DIR inspect --manifest SOURCES.json
+python youtube_dataset.py --output DIR download --manifest SOURCES.json
+python youtube_dataset.py --output DIR clip --parent PARENT_DIR --max-clips 100
+python youtube_dataset.py repair-parent --parent PARENT_DIR
+python youtube_dataset.py --output DIR repair-dataset
+python youtube_dataset.py --output DIR audit
+```
+
+| 命令/参数 | 默认 | 含义 |
+|---|---:|---|
+| `--output DIR` | `downloads/youtube` | 数据集根目录；必须放在子命令前 |
+| `inspect --manifest` | 必填 | 仅读取公开元数据与字幕轨，写本次 JSONL |
+| `download --manifest` | 必填 | 下载父视频、WAV、平台字幕、文本和 sidecar |
+| `inspect/download --video-id ID` | 全部 | 只处理清单中的指定 ID，可重复传入 |
+| `clip --parent` | 必填 | 一个已完成的 `screen_sources` 父 bundle |
+| `clip --max-clips` | 500 | 单父视频最多派生片段数 |
+| `repair-parent --parent` | 必填 | 从完整原始 VTT 重建派生 TXT、探针字段和哈希 |
+| `repair-dataset` | 无 | 批量升级父/子 sidecar，并回填 AI 生成状态等新字段 |
+| `audit` | 无 | 重算哈希并用 ffprobe/VTT 解析验证全树 |
+
+完整流程和清单字段见 [YouTube 小白指南](../guides/youtube-datasets.md)。
+
 ## 历史详细信息审计与定向回填
 
 ```bash

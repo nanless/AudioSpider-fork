@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "url": "https://www.youtube.com/watch?v=u7TwqpWiY5s",
+      "profile": "youtube_interviews",
+      "content_language": "en",
+      "languages": ["en"],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=u7TwqpWiY5s",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许再分发或训练。"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=azzJur0cukc",
+      "profile": "youtube_interviews",
+      "content_language": "en",
+      "languages": ["en"],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=azzJur0cukc",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许再分发或训练。"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=guZa7mQV1l0",
+      "profile": "youtube_interviews",
+      "content_language": "en",
+      "languages": ["en"],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=guZa7mQV1l0",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许再分发或训练。"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=b2f2Kqt_KcE",
+      "profile": "youtube_screen_clips",
+      "content_language": "en",
+      "languages": ["en"],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "The Devil Wears Prada clip",
+      "rights": {
+        "status": "needs_review",
+        "source": "Movieclips 公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=b2f2Kqt_KcE"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=q3iimGb-lPc",
+      "profile": "youtube_screen_clips",
+      "content_language": "ko",
+      "languages": ["ko", "en"],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Cruel Love preview",
+      "rights": {
+        "status": "needs_review",
+        "source": "KBS WORLD TV 官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=q3iimGb-lPc"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=hNc-8ZGFJWU",
+      "profile": "youtube_screen_clips",
+      "content_language": "yue",
+      "languages": ["yue", "zh-Hant", "en"],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "再創世紀",
+      "rights": {
+        "status": "needs_review",
+        "source": "TVB 官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=hNc-8ZGFJWU"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=0p93BargoME",
+      "profile": "youtube_screen_clips",
+      "content_language": "zh-Hans",
+      "languages": ["zh-Hans", "en"],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "The Early Spring highlight",
+      "rights": {
+        "status": "needs_review",
+        "source": "YOUKU English 官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=0p93BargoME"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=KAKkwvZ96eU",
+      "profile": "youtube_screen_clips",
+      "content_language": "ja",
+      "languages": ["ja", "en"],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Detective Conan: Black Iron Submarine clip",
+      "rights": {
+        "status": "needs_review",
+        "source": "Netflix Anime 官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=KAKkwvZ96eU"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=Ye85L2r0hWw",
+      "profile": "youtube_interviews",
+      "content_language": "en",
+      "languages": ["en-US", "en"],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Firing Line with Margaret Hoover | PBS",
+      "rights": {
+        "status": "needs_review",
+        "source": "Firing Line with Margaret Hoover | PBS 官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=Ye85L2r0hWw",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许再分发或训练。"
+      }
+    }
+  ]
+}

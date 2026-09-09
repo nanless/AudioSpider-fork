@@ -51,6 +51,35 @@ python main.py --limit 5000 --workers 4 --format original --background all
 每批结束后先审计覆盖率和失败原因，再增加下一批，避免来源临时异常时持续放大错误。
 可用 `--exclude-feed-host anchor.fm spreaker.com` 临时跳过已证实不可达的主机；feed 仍保留在数据库，以后可以单独重试。
 
+### YouTube 视频、平台字幕和影视短片是独立流水线
+
+YouTube 不进入上面的 SQLite 音频 URL 队列，而由 `youtube_dataset.py` 单独管理。原因是一个公开视频会产生父视频、WAV、平台字幕、纯文本以及很多派生短片，不能塞进一个 `local_path`。
+
+最小安全流程如下：
+
+```bash
+# 1. 只看元数据和字幕是否存在，不下载大文件
+python youtube_dataset.py --output downloads/youtube-candidates inspect \
+  --manifest config/youtube_sources.example.json
+
+# 2. 下载清单中的父视频、16 kHz 单声道 WAV 和选中的平台字幕
+python youtube_dataset.py --output downloads/youtube-candidates download \
+  --manifest config/youtube_sources.example.json
+
+# 3. 影视来源按字幕时间生成短视频/短音频/字幕/文本/JSON 五件套
+python youtube_dataset.py --output downloads/youtube-candidates clip \
+  --parent downloads/youtube-candidates/screen_sources/VIDEO_ID/LANGUAGE/JOB_KEY
+
+# 4. 重算哈希、调用 ffprobe 并审计所有 bundle
+python youtube_dataset.py --output downloads/youtube-candidates audit
+```
+
+长访谈 profile 接受 25.5–60.6 分钟；影视派生片段接受 0.418–29.888 秒，切分目标约 11.5 秒。人工平台字幕保存为 `platform_manual`，自动平台字幕保存为 `platform_auto`，两者永远不会混写。内容语言与字幕语言分开保存，例如粤语对白配英文人工字幕会记录为 `language=yue`、`caption.track_language=en`。
+
+每个父视频和短片还带 `ai_generation`。没有来源声明或可复核证据时必须是 `unknown`；听起来机械、存在压缩伪影或模型给出高分都只能作为 `suspected` 线索，不能冒充“已确认 AI 生成”。
+
+第一次使用请完整阅读 [YouTube 视频与字幕数据集小白指南](docs/guides/youtube-datasets.md)；sidecar 字段见 [YouTube sidecar 参考](docs/reference/youtube-sidecars.md)。
+
 ## 2. 十分钟上手
 
 ### 第一步：进入仓库
