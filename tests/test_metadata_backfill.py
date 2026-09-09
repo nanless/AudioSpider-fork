@@ -9,6 +9,8 @@ from metadata_backfill import (
     archive_identifiers,
     audit_records,
     bilibili_target,
+    historical_rss_fallbacks,
+    librivox_titles,
     xiaoyuzhou_podcast_paths,
 )
 from storage import AudioRecord, Storage
@@ -67,6 +69,41 @@ class MetadataAuditTests(unittest.TestCase):
             }]),
             {"book-id"},
         )
+        self.assertEqual(
+            librivox_titles([
+                {"title": "Letters of Two Brides - Letter 1"},
+                {"title": "Letters of Two Brides - Letter 2"},
+            ]),
+            ["Letters of Two Brides"],
+        )
+
+    def test_historical_rss_fallback_is_explicitly_partial(self):
+        template = AudioRecord(
+            url="https://cdn.example/current.mp3", source="podcast_rss",
+            source_id="current", author="NPR", cover_url="https://img.example/npr.jpg",
+            metadata_json=encode_metadata(metadata_envelope(
+                "rss",
+                common={
+                    "author": "NPR", "cover_url": "https://img.example/npr.jpg",
+                    "podcast_title": "NPR News Now",
+                },
+                source_data={"feed_url": "https://feeds.example/npr.xml"},
+                text_source="rss",
+            )),
+        )
+        rows = [{
+            "url": "https://cdn.example/old.mp3", "source": "podcast_rss",
+            "source_id": "old", "title": "Old bulletin", "file_format": "mp3",
+            "file_size": 1, "duration": 60, "language": "en", "category": "播客",
+            "speaker": "NPR News Now", "published_at": "2026-09-08",
+        }]
+        fallback = historical_rss_fallbacks(rows, [template])[0]
+        metadata = json.loads(fallback.metadata_json)
+        self.assertTrue(
+            metadata["source_data"]["rss"]["historical_item_not_in_current_feed"]
+        )
+        self.assertEqual(fallback.author, "NPR")
+        self.assertEqual(fallback.description, "")
 
 
 class MetadataBackfillerTests(unittest.IsolatedAsyncioTestCase):

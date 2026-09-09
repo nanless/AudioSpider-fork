@@ -38,7 +38,8 @@ class LibriVoxSpider(BaseSpider):
         self.logger.info(f"LibriVox 共发现 {len(records)} 个音频文件")
         return records
 
-    async def _fetch_books(self, session: aiohttp.ClientSession) -> list[dict]:
+    async def _fetch_books(self, session: aiohttp.ClientSession,
+                           filters: dict | None = None) -> list[dict]:
         params = {
             "format": "json",
             "limit": str(self.max_items),
@@ -46,6 +47,7 @@ class LibriVoxSpider(BaseSpider):
             "extended": "1",
             "coverart": "1",
         }
+        params.update(filters or {})
         try:
             async with session.get(self.api_url, params=params,
                                    headers=build_headers("https://librivox.org"),

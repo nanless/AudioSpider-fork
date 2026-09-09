@@ -13,8 +13,8 @@ from urllib.parse import urlsplit
 import aiohttp
 
 from anti_crawler import random_delay
-from background import decode_metadata
-from storage import Storage
+from background import decode_metadata, encode_metadata, metadata_envelope
+from storage import AudioRecord, Storage
 
 
 SOURCES = ("podcast_rss", "librivox", "xiaoyuzhou", "ximalaya", "bilibili")
@@ -52,6 +52,63 @@ def archive_identifiers(rows: list[dict]) -> set[str]:
         if len(parts) >= 2 and parts[0] in {"download", "details"}:
             identifiers.add(parts[1])
     return identifiers
+
+
+def librivox_titles(rows: list[dict]) -> list[str]:
+    return sorted({
+        row.get("title", "").split(" - ", 1)[0].strip()
+        for row in rows if " - " in row.get("title", "")
+    })
+
+
+def historical_rss_fallbacks(rows: list[dict], candidates: list[AudioRecord]) -> list[AudioRecord]:
+    """Preserve truthful show-level detail for items gone from a rolling feed."""
+    matched_ids = {(item.source, item.source_id) for item in candidates}
+    templates = {}
+    for item in candidates:
+        metadata = decode_metadata(item.metadata_json)
+        feed_url = metadata.get("source_data", {}).get("rss", {}).get("feed_url", "")
+        host = urlsplit(item.url).hostname or ""
+        if feed_url and host:
+            templates.setdefault(host, metadata)
+
+    fallbacks = []
+    for row in rows:
+        stable = (row.get("source", ""), row.get("source_id", ""))
+        if stable in matched_ids:
+            continue
+        template = templates.get(urlsplit(row.get("url", "")).hostname or "")
+        if not template:
+            continue
+        common_template = template.get("common", {})
+        source_template = template.get("source_data", {}).get("rss", {})
+        common = {
+            key: common_template.get(key)
+            for key in (
+                "author", "cover_url", "podcast_title", "podcast_description",
+                "people", "categories", "license",
+            ) if common_template.get(key)
+        }
+        source_data = {
+            "feed_url": source_template.get("feed_url", ""),
+            "historical_item_not_in_current_feed": True,
+            "historical_source_id": row.get("source_id", ""),
+        }
+        record = AudioRecord(
+            url=row["url"], source=row["source"], source_id=row.get("source_id", ""),
+            title=row.get("title", ""), file_format=row.get("file_format", ""),
+            file_size=row.get("file_size", 0), duration=row.get("duration", 0),
+            language=row.get("language", ""), category=row.get("category", ""),
+            speaker=row.get("speaker", ""), author=common.get("author", ""),
+            cover_url=common.get("cover_url", ""),
+            published_at=row.get("published_at", ""),
+        )
+        record.metadata_json = encode_metadata(metadata_envelope(
+            "rss", common=common, source_data=source_data,
+            text_source="rss", transcript_status="not_provided",
+        ))
+        fallbacks.append(record)
+    return fallbacks
 
 
 def audit_records(rows: list[dict]) -> dict:
@@ -195,7 +252,8 @@ class MetadataBackfiller:
 
         spider = PodcastRSSSpider()
         spider.max_eps = max(spider.max_eps, len(rows), 200)
-        return await spider.crawl()
+        candidates = await spider.crawl()
+        return candidates + historical_rss_fallbacks(rows, candidates)
 
     async def _librivox(self, rows: list[dict]) -> list:
         from spiders.librivox import LibriVoxSpider
@@ -207,6 +265,12 @@ class MetadataBackfiller:
         records = []
         async with aiohttp.ClientSession() as session:
             books = await spider._fetch_books(session)
+            known = {book.get("id") for book in books}
+            for title in librivox_titles(rows):
+                for book in await spider._fetch_books(session, {"title": title, "limit": "10"}):
+                    if book.get("id") not in known:
+                        books.append(book)
+                        known.add(book.get("id"))
             for book in books:
                 candidates = {
                     part for key in ("url_iarchive", "url_rss")
