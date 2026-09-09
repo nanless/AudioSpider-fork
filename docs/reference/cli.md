@@ -97,6 +97,7 @@ python discover.py --stats
 | `--max-feeds N` | 0 | 本轮最多解析的未解析 feed；0 表示不额外限制 |
 | `--episodes-per-feed N` | 0 | 每个新 feed 最多解析的单集数；0 表示 feed 内全部 |
 | `--max-new-records N` | 0 | 本轮最多新增的记录数；0 表示不额外限制 |
+| `--exclude-feed-host [HOSTS...]` | 无 | 本轮跳过已知不可达主机，不删除 feed 或改变其重试状态 |
 | `--loop` | 关闭 | 持续发现 |
 | `--interval` | 86400 | 循环秒数 |
 | `--parse-only` | 关闭 | 仅解析未解析的已知 feed |

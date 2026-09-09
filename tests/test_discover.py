@@ -2,10 +2,20 @@ import unittest
 
 from aiohttp import ClientSession, web
 
-from discover import FeedFetchError, parse_rss_feed
+from discover import FeedFetchError, filter_feeds_by_host, parse_rss_feed
 
 
 class DiscoverTests(unittest.IsolatedAsyncioTestCase):
+    def test_excluded_feed_hosts_remain_out_of_current_batch(self):
+        feeds = [
+            {"feed_url": "https://anchor.fm/show/rss"},
+            {"feed_url": "https://feeds.example.test/rss"},
+        ]
+        self.assertEqual(
+            filter_feeds_by_host(feeds, ["anchor.fm"]),
+            [{"feed_url": "https://feeds.example.test/rss"}],
+        )
+
     async def asyncSetUp(self):
         self.app = web.Application()
         self.app.router.add_get("/feed.xml", self.feed)

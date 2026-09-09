@@ -27,6 +27,7 @@ import sqlite3
 import sys
 import time
 from datetime import datetime
+from urllib.parse import urlsplit
 
 import re
 from logging.handlers import RotatingFileHandler
@@ -794,7 +795,8 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
                                 backfill_published: bool = False,
                                 max_feeds: int = 0,
                                 episodes_per_feed: int = 0,
-                                max_new_records: int = 0):
+                                max_new_records: int = 0,
+                                exclude_feed_hosts: list[str] | None = None):
     """主流程：搜索 → 发现 feeds → 解析 → 入库
 
     Args:
@@ -925,6 +927,7 @@ async def discover_and_collect(keywords: list[str], top: int = 200,
 
     # ── 解析未爬取过的 feeds ──
     uncrawled = feed_store.get_uncrawled()
+    uncrawled = filter_feeds_by_host(uncrawled, exclude_feed_hosts or [])
     if max_feeds > 0:
         uncrawled = uncrawled[:max_feeds]
     if not uncrawled:
@@ -1010,6 +1013,17 @@ def _positive_int(value: str) -> int:
     return number
 
 
+def filter_feeds_by_host(feeds: list[dict], excluded_hosts: list[str]) -> list[dict]:
+    """Skip selected unavailable hosts without mutating their retryable DB state."""
+    excluded = {host.strip().lower() for host in excluded_hosts if host.strip()}
+    if not excluded:
+        return feeds
+    return [
+        feed for feed in feeds
+        if (urlsplit(feed.get("feed_url", "")).hostname or "").lower() not in excluded
+    ]
+
+
 def main():
     parser = argparse.ArgumentParser(description="AudioSpider 自动发现新的语音源")
     parser.add_argument("--keywords", nargs="*", default=None,
@@ -1028,6 +1042,8 @@ def main():
                         help="每个新 feed 最多解析多少集；默认0=feed内全部")
     parser.add_argument("--max-new-records", type=_positive_int, default=0,
                         help="本轮最多新增多少条音频记录；默认0=不额外限制")
+    parser.add_argument("--exclude-feed-host", nargs="*", default=[],
+                        help="本轮跳过这些不可达 feed 主机，不删除记录")
     parser.add_argument("--loop", action="store_true", help="持续循环发现")
     parser.add_argument("--interval", type=_positive_int, default=86400,
                         help="循环间隔秒数(默认1天)")
@@ -1094,7 +1110,8 @@ def main():
                                             backfill_published=args.backfill_published,
                                             max_feeds=args.max_feeds,
                                             episodes_per_feed=args.episodes_per_feed,
-                                            max_new_records=args.max_new_records)
+                                            max_new_records=args.max_new_records,
+                                            exclude_feed_hosts=args.exclude_feed_host)
                 logger.info(f"等待 {args.interval} 秒...")
                 await asyncio.sleep(args.interval)
         asyncio.run(loop())
@@ -1106,7 +1123,8 @@ def main():
                                           backfill_published=args.backfill_published,
                                           max_feeds=args.max_feeds,
                                           episodes_per_feed=args.episodes_per_feed,
-                                          max_new_records=args.max_new_records))
+                                          max_new_records=args.max_new_records,
+                                          exclude_feed_hosts=args.exclude_feed_host))
 
 
 if __name__ == "__main__":

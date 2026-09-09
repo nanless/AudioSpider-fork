@@ -49,6 +49,7 @@ python main.py --limit 5000 --workers 4 --format original --background all
 ```
 
 每批结束后先审计覆盖率和失败原因，再增加下一批，避免来源临时异常时持续放大错误。
+可用 `--exclude-feed-host anchor.fm spreaker.com` 临时跳过已证实不可达的主机；feed 仍保留在数据库，以后可以单独重试。
 
 ## 2. 十分钟上手
 
