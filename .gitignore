@@ -1,6 +1,7 @@
 # 下载的音频文件
 downloads/
 datasets/
+archive/
 config/*.local.json
 
 # 数据库

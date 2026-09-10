@@ -127,14 +127,9 @@ YouTube 数据不用 SQLite 音频队列：
                           +-----------+------------+
                           |                        |
                  interviews/              screen_sources/
-                                                   |
-                                                   +--> 字幕 cue 分组
-                                                         |
-                                                         +--> screen_clips/
-                                                              MP4/WAV/VTT/TXT/JSON
 ```
 
-同一视频的 profile、请求字幕语言或 `source_revision` 不同，会得到不同 `job_key`，避免互相覆盖。每次 inspect/download 都写一个新的带 run ID 清单；bundle 本身用稳定 job/clip key 保证重跑幂等。
+同一视频的 profile、请求字幕语言或 `source_revision` 不同，会得到不同 `job_key`，避免互相覆盖。每次 inspect/download 都写一个新的带 run ID 清单；bundle 本身用稳定 job key 保证重跑幂等。正式流程到父视频为止，不继续生成 `screen_clips/`。
 
 ## B 站视频层级数据流
 

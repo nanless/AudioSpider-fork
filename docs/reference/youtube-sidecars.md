@@ -1,6 +1,6 @@
 # YouTube 数据集 sidecar 参考
 
-每个完整父视频和短片 bundle 都有一个 UTF-8 `metadata.json`。只有 sidecar 最后原子写入且目录完成提升，bundle 才算完成。
+每个完整父视频 bundle 都有一个 UTF-8 `metadata.json`。只有 sidecar 最后原子写入且目录完成提升，bundle 才算完成。短片字段只为历史兼容保留，当前正式流程不生成 clip。
 
 ## 父视频字段
 
@@ -35,8 +35,8 @@
 | `status` | `downloaded` | 字幕状态 |
 | `kind` | `manual` | 人工或自动字幕 |
 | `text_source` | `platform_manual` | 明确文本来源 |
-| `requested_languages` | `["yue", "zh-Hant", "en"]` | 请求优先级 |
-| `track_language` | `en` | 实际下载轨道语言 |
+| `requested_languages` | `["yue", "zh-Hant", "zh-HK", "zh"]` | 与内容语言一致的请求优先级 |
+| `track_language` | `zh-Hant` | 实际下载轨道语言 |
 | `source_language` | `en` | 平台声明的源语言 |
 | `track_name` | `English` | 平台轨道名 |
 | `track_format` | `vtt` | 最终规范格式 |
@@ -45,6 +45,8 @@
 | `selected_by_rule` | `exact_requested_language` | 命中的确定性规则 |
 
 临时字幕 URL 不进入 sidecar。字幕原文件和规范化 TXT 的 SHA-256 位于 `files.caption_vtt` 和 `files.transcript_txt`。
+
+字幕语言硬规则：英文内容只接受英文字幕；中文、普通话或粤语内容只接受中文/粤语字幕；其他内容按主语言代码一致。跨语言字幕会被 manifest、下载后确认和 audit 拒绝。
 
 ## `files` 字段
 
@@ -61,7 +63,7 @@
 
 路径必须是 bundle 内的相对路径。审计会拒绝路径逃逸、文件缺失和哈希不一致。
 
-## 短片字段
+## 历史短片字段（当前不生成）
 
 短片 `asset_type=youtube_screen_clip`，除通用字段外还包含：
 

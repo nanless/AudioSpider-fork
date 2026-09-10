@@ -14,6 +14,7 @@ from bilibili_dataset import (
     _subprocess_env,
     audit_dataset,
     bilibili_video_id,
+    caption_language_matches_content,
     build_jobs,
     select_dash_streams,
     select_caption_tracks,
@@ -25,6 +26,20 @@ from youtube_dataset import write_json_atomic
 
 
 class ManifestTests(unittest.TestCase):
+    def test_caption_language_must_match_content_language(self):
+        self.assertTrue(caption_language_matches_content("en", "en-US"))
+        self.assertTrue(caption_language_matches_content("zh", "zh-Hans"))
+        self.assertTrue(caption_language_matches_content("yue", "zh-Hant"))
+        self.assertFalse(caption_language_matches_content("zh", "en"))
+
+    def test_manifest_rejects_cross_language_caption_fallback(self):
+        with self.assertRaises(ValueError):
+            validate_manifest({"items": [{
+                "bvid": "BV1xx411c7mD",
+                "content_language": "zh",
+                "languages": ["zh-Hans", "en"],
+            }]})
+
     def test_bv_id_and_canonical_url_are_accepted(self):
         expected = "BV1xx411c7mD"
         self.assertEqual(bilibili_video_id(expected), expected)
@@ -48,6 +63,7 @@ class ManifestTests(unittest.TestCase):
             "url": "https://www.bilibili.com/video/BV1xx411c7mD",
             "parts": [2, 1, 2],
             "languages": ["zh-Hans", "ai-zh"],
+            "content_language": "zh",
             "max_height": 720,
             "require_caption": True,
             "rights": {"status": "needs_review"},

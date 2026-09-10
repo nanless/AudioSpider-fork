@@ -51,9 +51,9 @@ python main.py --limit 5000 --workers 4 --format original --background all
 每批结束后先审计覆盖率和失败原因，再增加下一批，避免来源临时异常时持续放大错误。
 可用 `--exclude-feed-host anchor.fm spreaker.com` 临时跳过已证实不可达的主机；feed 仍保留在数据库，以后可以单独重试。
 
-### YouTube 视频、平台字幕和影视短片是独立流水线
+### YouTube 完整视频和平台字幕是独立流水线
 
-YouTube 不进入上面的 SQLite 音频 URL 队列，而由 `youtube_dataset.py` 单独管理。原因是一个公开视频会产生父视频、WAV、平台字幕、纯文本以及很多派生短片，不能塞进一个 `local_path`。
+YouTube 不进入上面的 SQLite 音频 URL 队列，而由 `youtube_dataset.py` 单独管理。当前正式模式只保存完整父视频、WAV、平台字幕、纯文本和 sidecar，不生成短 clip。
 
 最小安全流程如下：
 
@@ -66,15 +66,11 @@ python youtube_dataset.py --output downloads/youtube-candidates inspect \
 python youtube_dataset.py --output downloads/youtube-candidates download \
   --manifest config/youtube_sources.example.json
 
-# 3. 影视来源按字幕时间生成短视频/短音频/字幕/文本/JSON 五件套
-python youtube_dataset.py --output downloads/youtube-candidates clip \
-  --parent downloads/youtube-candidates/screen_sources/VIDEO_ID/LANGUAGE/JOB_KEY
-
-# 4. 重算哈希、调用 ffprobe 并审计所有 bundle
+# 3. 重算哈希、调用 ffprobe 并审计所有父视频 bundle
 python youtube_dataset.py --output downloads/youtube-candidates audit
 ```
 
-长访谈 profile 接受 25.5–60.6 分钟；影视派生片段接受 0.418–29.888 秒，切分目标约 11.5 秒。人工平台字幕保存为 `platform_manual`，自动平台字幕保存为 `platform_auto`，两者永远不会混写。内容语言与字幕语言分开保存，例如粤语对白配英文人工字幕会记录为 `language=yue`、`caption.track_language=en`。
+长访谈 profile 接受 25.5–60.6 分钟。人工平台字幕保存为 `platform_manual`，自动平台字幕保存为 `platform_auto`，两者永远不会混写。字幕语言必须与内容语言一致：英文视频只选英文字幕，中文/粤语视频只选中文或粤语字幕，日语、韩语同样只选本语言字幕。跨语言兜底会在 manifest 校验或 bundle 审计时失败。
 
 每个父视频和短片还带 `ai_generation`。没有来源声明或可复核证据时必须是 `unknown`；听起来机械、存在压缩伪影或模型给出高分都只能作为 `suspected` 线索，不能冒充“已确认 AI 生成”。
 
@@ -86,15 +82,15 @@ python youtube_dataset.py --output downloads/youtube-candidates audit
 
 ```bash
 # 只查分 P、CID、时长和字幕可用性
-python bilibili_dataset.py --output datasets/bilibili-video-candidates \
+python bilibili_dataset.py --output downloads/bilibili-video-candidates \
   inspect --manifest config/bilibili_sources.example.json
 
 # 下载分离的 DASH 视频/音频并合并 MP4，同时抽取 16 kHz WAV
-python bilibili_dataset.py --output datasets/bilibili-video-candidates \
+python bilibili_dataset.py --output downloads/bilibili-video-candidates \
   download --manifest config/bilibili_sources.example.json
 
 # 重算全部哈希、媒体流和字幕派生关系
-python bilibili_dataset.py --output datasets/bilibili-video-candidates audit
+python bilibili_dataset.py --output downloads/bilibili-video-candidates audit
 ```
 
 每个分 P 至少有 `source.mp4`、`audio.wav` 和 `metadata.json`。平台公开字幕时，每条轨道再保存原始 JSON、VTT 和 TXT；同一分 P 的多语言、多类型轨道全部保留。字幕分为 `manual/platform_manual`、`automatic/platform_auto` 和 `unknown/platform_unknown`，并保存判定规则和原始枚举。
@@ -300,8 +296,7 @@ python main.py --retry-failed --source bilibili --limit 100
 ```text
 AudioSpider-fork/
 ├── audiospider.db         SQLite 数据库
-├── downloads/             音频与 JSON 元信息
-├── datasets/              独立的 YouTube/B站视频 bundle（推荐位置）
+├── downloads/             音频、YouTube/B站完整视频 bundle 与 JSON 元信息
 ├── logs/                  运行日志
 └── tmp/                   SQLite/程序临时文件
 ```
@@ -310,6 +305,8 @@ AudioSpider-fork/
 
 ```text
 downloads/
+├── bilibili-video-日期/    B站完整 MP4、WAV、字幕和 sidecar
+├── youtube-批次/           YouTube完整父视频、WAV、字幕和 sidecar
 ├── podcast_rss/
 │   └── 教育/
 │       ├── episode_xxx.mp3

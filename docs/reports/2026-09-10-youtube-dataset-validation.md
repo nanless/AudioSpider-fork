@@ -1,5 +1,7 @@
 # 2026-09-10 YouTube 长访谈与影视短片数据验收报告
 
+> 后续纠偏：下文 101 个短片和跨语言字幕是历史运行记录，不再属于当前正式集。clips 已移动到 `/root/code/github_repos/AudioSpider-fork/archive/youtube-clips-20260910/`；粤语配英文、中文配英文的两个父 bundle 已移动到 `archive/youtube-language-mismatch-20260910/`。当前正式模式只保留完整父视频，并强制字幕语言与内容语言一致。
+
 ## 1. 结论
 
 在 `dev_L4_1gpus` 完成了 YouTube 独立数据流水线的开发、真实下载、字幕切片、缺陷修复和全量审计。

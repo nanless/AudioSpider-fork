@@ -58,6 +58,7 @@
 - [2026-09-09 5,000 条详细元数据与音频下载终态验收](reports/2026-09-09-complete-metadata-and-scale-validation.md)
 - [2026-09-10 YouTube 长访谈与影视短片验收](reports/2026-09-10-youtube-dataset-validation.md)
 - [2026-09-10 B 站视频数据管线首批验收](reports/2026-09-10-bilibili-video-validation.md)
+- [2026-09-10 视频目录与字幕语言纠偏验收](reports/2026-09-10-video-layout-language-correction.md)
 
 ## 深度研究
 

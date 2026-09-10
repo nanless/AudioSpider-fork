@@ -138,6 +138,24 @@ def _language_family(value: str) -> str:
     return value.replace("_", "-").split("-", 1)[0].lower()
 
 
+def caption_language_matches_content(content_language: str, caption_language: str) -> bool:
+    """Require native-language captions; Chinese and Cantonese share one text family."""
+
+    content_family = _language_family(content_language)
+    caption_family = _language_family(caption_language)
+    chinese = {"zh", "yue", "cmn"}
+    if content_family in chinese:
+        return caption_family in chinese
+    return content_family == caption_family and content_family not in {"", "und"}
+
+
+def default_caption_languages(content_language: str) -> list[str]:
+    family = _language_family(content_language)
+    if family == "yue":
+        return ["yue", "zh-Hant", "zh-HK", "zh"]
+    return [content_language] if family not in {"", "und"} else []
+
+
 def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
     """Validate and normalize a source manifest without making network requests."""
 
@@ -163,6 +181,15 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
         languages = list(dict.fromkeys(language.strip().replace("_", "-") for language in languages))
         content_language = str(item.get("content_language") or (languages[0] if languages else "und"))
         content_language = _safe_component(content_language.replace("_", "-"), "content_language")
+        if not languages:
+            languages = default_caption_languages(content_language)
+        if any(
+            not caption_language_matches_content(content_language, language)
+            for language in languages
+        ):
+            raise ValueError(
+                f"item {index} caption languages must match content_language {content_language!r}"
+            )
         maximum_parent_duration = float(item.get("max_parent_duration_seconds", 4 * 3600))
         if not math.isfinite(maximum_parent_duration) or not 0 < maximum_parent_duration <= 4 * 3600:
             raise ValueError(f"item {index} max_parent_duration_seconds must be in (0, 14400]")
@@ -443,6 +470,10 @@ def build_parent_sidecar(
     """Build an allowlisted sidecar that never embeds extractor internals."""
 
     video_id = str(info.get("id") or item["video_id"])
+    if caption and not caption_language_matches_content(
+        str(item.get("content_language") or "und"), caption.language
+    ):
+        raise ValueError("selected caption language does not match the video content language")
     caption_data = {
         "status": "downloaded" if caption else "missing",
         "kind": caption.kind if caption else None,
@@ -521,6 +552,8 @@ def inspect_item(item: dict[str, Any]) -> tuple[dict[str, Any], CaptionSelection
     caption = select_caption(info, item.get("languages") or [])
     if caption is None:
         raise ValueError("no acceptable platform caption is available")
+    if not caption_language_matches_content(item["content_language"], caption.language):
+        raise ValueError("selected caption language does not match the video content language")
     return info, caption
 
 
@@ -881,6 +914,9 @@ def repair_parent_bundle(parent_directory: Path) -> dict[str, Any]:
     if metadata.get("job_key") != directory.name:
         raise ValueError("parent directory does not match job_key")
     caption = _validate_caption_provenance(metadata.get("caption"))
+    caption_language = str(caption.get("track_language") or caption.get("language") or "")
+    if not caption_language_matches_content(str(metadata.get("language") or "und"), caption_language):
+        raise ValueError("caption language does not match media content language")
     files = metadata.get("files")
     if not isinstance(files, dict) or set(files) != {
         "video", "audio", "caption_vtt", "transcript_txt"
@@ -1049,6 +1085,9 @@ def _validate_bundle(sidecar_path: Path) -> dict[str, Any]:
     if not isinstance(metadata.get("language"), str) or not metadata["language"]:
         raise ValueError("content language is required")
     caption = _validate_caption_provenance(metadata.get("caption"))
+    caption_language = str(caption.get("track_language") or caption.get("language") or "")
+    if not caption_language_matches_content(metadata["language"], caption_language):
+        raise ValueError("caption language does not match media content language")
 
     speaker_count = metadata.get("speaker_count")
     speaker_status = metadata.get("speaker_count_status")
@@ -1348,6 +1387,10 @@ def build_parser() -> argparse.ArgumentParser:
     clip = subparsers.add_parser("clip")
     clip.add_argument("--parent", type=Path, required=True)
     clip.add_argument("--max-clips", type=bounded_clip_count, default=500)
+    clip.add_argument(
+        "--allow-clips", action="store_true",
+        help="明确确认本次需要生成短 clips；默认禁止",
+    )
     repair = subparsers.add_parser("repair-parent")
     repair.add_argument("--parent", type=Path, required=True)
     subparsers.add_parser("repair-dataset")
@@ -1362,6 +1405,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "download":
         return _run_manifest(args, download=True)
     if args.command == "clip":
+        if not args.allow_clips:
+            raise ValueError("clip generation requires explicit --allow-clips authorization")
         created = create_clips(args.parent, args.output, max_clips=args.max_clips)
         print(json.dumps({"created": len(created), "paths": [str(path) for path in created]}, ensure_ascii=False, indent=2))
         return 0

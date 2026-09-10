@@ -1,9 +1,9 @@
-# YouTube 视频、平台字幕与影视短片小白指南
+# YouTube 完整视频与同语言平台字幕小白指南
 
 本页面向第一次接触命令行和数据集的人，讲清楚如何得到以下两类数据：
 
 - 长访谈/播客：保留整段视频、整段 WAV、平台字幕、纯文本和 JSON；
-- 影视/节目短片：先保留父视频，再生成很多个短视频、短 WAV、相对时间字幕、文本和 JSON。
+- 影视/节目视频：保留完整父视频、完整 WAV、同语言平台字幕、文本和 JSON，不生成短 clip。
 
 ## 1. 开始前必须知道的四件事
 
@@ -58,7 +58,7 @@ cp config/youtube_sources.example.json /tmp/my-youtube-sources.json
   "url": "https://www.youtube.com/watch?v=视频ID",
   "profile": "youtube_screen_clips",
   "content_language": "yue",
-  "languages": ["yue", "zh-Hant", "en"],
+  "languages": ["yue", "zh-Hant", "zh-HK", "zh"],
   "speaker_count": null,
   "speaker_count_status": "needs_review",
   "program": "节目或影视名称",
@@ -73,9 +73,9 @@ cp config/youtube_sources.example.json /tmp/my-youtube-sources.json
 字段解释：
 
 - `url`：只接受单视频 `https://youtube.com/watch?v=...` 或 `https://youtu.be/...`，不接受播放列表和任意网站。
-- `profile`：长访谈用 `youtube_interviews`，影视短片用 `youtube_screen_clips`。
+- `profile`：长访谈用 `youtube_interviews`；影视/节目父视频沿用兼容名称 `youtube_screen_clips`，但下载动作只产生完整父视频。
 - `content_language`：音视频对白的主要语言；粤语写 `yue`，简体中文可写 `zh-Hans`。
-- `languages`：字幕选择优先顺序，与对白语言不是同一个概念。
+- `languages`：字幕选择优先顺序，必须与对白语言一致。英文内容只能列英文；中文/粤语内容只能列中文或粤语；日语、韩语同样只列本语言。
 - `speaker_count`：只有人工看过并确认时才填整数。
 - `speaker_count_status`：有整数时必须是 `verified_manual`；未知必须是 `needs_review`。
 - `rights`：来源与权利证据。`needs_review` 不会被误写成已经获权。
@@ -144,38 +144,18 @@ downloads/youtube-candidates/interviews/VIDEO_ID/en/JOB_KEY/
 
 重跑同一个清单时，如果最终 `metadata.json` 已存在，会复用已完成 bundle，不重复下载。未完成的确定性 staging 会保留 `.part` 和脱敏 `failure.json` 以便续传；每次运行的结果写入新的 `download-*.jsonl`，不会覆盖旧运行记录。
 
-## 6. 把影视父视频切成短片
+## 6. 当前正式流程不生成 clip
 
-先从下载输出中复制一个真实父目录：
+不要为当前视频数据集运行 `clip`。命令行现在默认拒绝 clip，只有用户明确提出短片需求时，才可以额外提供 `--allow-clips`：
 
 ```bash
 PARENT='downloads/youtube-candidates/screen_sources/VIDEO_ID/字幕语言/JOB_KEY'
 python youtube_dataset.py \
   --output downloads/youtube-candidates \
-  clip --parent "$PARENT" --max-clips 100
+  clip --parent "$PARENT" --max-clips 100 --allow-clips
 ```
 
-切分逻辑：
-
-- 按平台 VTT 字幕 cue 对齐，不随机切断文字；
-- cue 间隔超过 5 秒时开始新片段；该阈值用真实多语言样本校准，使批次平均值接近 11.5 秒；
-- 严格保留 0.418–29.888 秒；
-- 尽量在 11.5 秒附近结束一个片段；
-- 超过 29.888 秒的单个异常 cue 不强行切开，直接舍弃；
-- 每个 clip ID 由父视频哈希、字幕哈希、起止毫秒和算法版本确定。
-
-每个短片都是五件套：
-
-```text
-screen_clips/yue/VIDEO_ID/CLIP_ID/
-├── clip.mp4
-├── audio.wav
-├── captions.vtt
-├── transcript.txt
-└── metadata.json
-```
-
-`captions.vtt` 的时间从 00:00:00 开始；`metadata.json` 同时保存原视频中的 `start_ms`、`end_ms`，因此能追溯回父视频。
+这只是向后兼容的底层能力，不属于本项目当前下载流程。历史生成的 clips 已从正式数据集移到 `archive/youtube-clips-20260910/`，未删除，可恢复。
 
 ## 7. 全量审计
 
@@ -190,10 +170,9 @@ python youtube_dataset.py --output downloads/youtube-candidates audit
 - 验证 sidecar 内相对路径没有越界；
 - 验证 VTT 至少有一个有效 cue；
 - 平台原始字幕若仅在结尾轻微超出媒体，会作为 warning 保留原件；派生片段会严格裁到父视频实际结尾；
-- 验证影视短片严格位于时长范围；
 - 检查 sidecar 是否意外保存 `token=`、`sig=`、`expire=` 等临时签名；
 - 汇总 profile、语言、人工/自动字幕和说话人数核验状态；
-- 报告短片数量、平均/最短/最长时长。
+- 正式父视频与字幕语言不一致时直接失败。
 
 `failure_count=0` 才表示文件闭包通过。它不代表权利已经确认，也不代表自动字幕文字百分之百正确。
 
@@ -211,7 +190,7 @@ python youtube_dataset.py repair-parent --parent "$PARENT"
 python youtube_dataset.py --output downloads/youtube-candidates repair-dataset
 ```
 
-它会先修复全部父 bundle，再让短片重新继承父级字幕、内容语言、权利和 `ai_generation` 字段；媒体与原始 VTT 仍保持不变。
+它会修复全部父 bundle 的派生字段；媒体与原始 VTT 仍保持不变。
 
 ## 8. 怎么判断自动字幕
 
@@ -240,11 +219,11 @@ PY
 
 ### 为什么下载很慢
 
-长访谈包含 25–60 分钟视频，还要额外解出整段 WAV；短片又要逐段重编码。代理出口、YouTube 分片速度、ffmpeg 编码和磁盘都可能成为瓶颈。先用 1–3 个视频验证，不要直接给数百个 URL。
+长访谈包含 25–60 分钟视频，还要额外解出整段 WAV。代理出口、YouTube 分片速度、ffmpeg 和磁盘都可能成为瓶颈。先用 1–3 个视频验证，不要直接给数百个 URL。
 
 ### 为什么只拿到英文字幕
 
-`languages` 表示字幕优先顺序。若平台没有粤语/中文轨但有英文人工字幕，工具会选中后面的英文；sidecar 仍用 `content_language=yue` 表示对白语言，并用 `caption.track_language=en` 表示字幕语言。
+现在不会这样做。英文内容只选英文字幕，中文/粤语内容只选中文或粤语字幕。平台只有英文字幕而中文视频没有中文字幕时，该视频会被拒绝或从正式集隔离，不能用英文字幕兜底。
 
 ### 为什么某个视频被拒绝
 
@@ -258,9 +237,8 @@ PY
 
 1. 清单先放 3 个长访谈、每种目标语言 1 个影视来源。
 2. 全部 inspect，删除无字幕或时长不合格项。
-3. download 1 个长访谈和 2 个影视父视频。
-4. 每个父视频先 `--max-clips 20`。
-5. audit 为 0 后，人工抽看字幕和 A/V 同步。
-6. 再逐步增加到 10、50、100 个来源，并记录每批下载字节和失败率。
+3. download 1 个长访谈和 2 个影视父视频，不运行 `clip`。
+4. audit 为 0 后，人工抽看字幕语言和 A/V 同步。
+5. 再逐步增加到 10、50、100 个来源，并记录每批下载字节和失败率。
 
 详细字段定义见 [YouTube 数据集 sidecar](../reference/youtube-sidecars.md)，整体数据流见[数据流与状态机](../design/data-flow.md)。

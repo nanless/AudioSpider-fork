@@ -153,6 +153,16 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
         if not math.isfinite(max_duration) or not 0 < max_duration <= 4 * 3600:
             raise ValueError(f"item {index} max_duration_seconds must be in (0, 14400]")
         languages = _short_strings(item.get("languages"), f"item {index} languages")
+        content_language = str(item.get("content_language") or "und")[:80].replace("_", "-")
+        if not languages:
+            languages = default_caption_languages(content_language)
+        if any(
+            not caption_language_matches_content(content_language, language)
+            for language in languages
+        ):
+            raise ValueError(
+                f"item {index} caption languages must match content_language {content_language!r}"
+            )
         require_caption = item.get("require_caption", False)
         if not isinstance(require_caption, bool):
             raise ValueError(f"item {index} require_caption must be boolean")
@@ -201,7 +211,7 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
             "max_duration_seconds": max_duration,
             "languages": languages,
             "require_caption": require_caption,
-            "content_language": str(item.get("content_language") or "und")[:80],
+            "content_language": content_language,
             "program": str(item.get("program") or "")[:500],
             "rights": rights,
             "ai_generation": {"status": ai_generation["status"], "evidence": evidence},
@@ -271,6 +281,22 @@ def build_jobs(item: dict[str, Any], view: dict[str, Any]) -> list[dict[str, Any
 def _language_family(value: str) -> str:
     value = value.lower().replace("_", "-")
     return "zh" if value.startswith("ai-zh") else value.removeprefix("ai-").split("-", 1)[0]
+
+
+def caption_language_matches_content(content_language: str, caption_language: str) -> bool:
+    content_family = _language_family(content_language)
+    caption_family = _language_family(caption_language)
+    chinese = {"zh", "yue", "cmn"}
+    if content_family in chinese:
+        return caption_family in chinese
+    return content_family == caption_family and content_family not in {"", "und"}
+
+
+def default_caption_languages(content_language: str) -> list[str]:
+    family = _language_family(content_language)
+    if family in {"zh", "yue", "cmn"}:
+        return ["zh", "zh-Hans", "zh-Hant", "zh-CN", "zh-TW", "zh-HK", "ai-zh", "yue"]
+    return [content_language] if family not in {"", "und"} else []
 
 
 def select_caption_tracks(
@@ -757,6 +783,11 @@ async def download_job(
         try:
             inventory = await client.caption_inventory(job["bvid"], job["cid"])
             tracks = select_caption_tracks(inventory["tracks"], job["languages"])
+            if any(
+                not caption_language_matches_content(job["content_language"], track["language"])
+                for track in tracks
+            ):
+                raise ValueError("selected caption language does not match video content language")
             caption_status = caption_selection_status(inventory, tracks, job["languages"])
             if job["require_caption"] and not tracks:
                 raise ValueError("no acceptable Bilibili platform caption is available")
@@ -1025,6 +1056,8 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
         }.get(kind)
         if source != expected:
             raise ValueError(f"caption track {index} has inconsistent provenance")
+        if not caption_language_matches_content(metadata["content_language"], track.get("language", "")):
+            raise ValueError(f"caption track {index} language does not match media content")
         raw_track = {
             "type": track.get("track_type"),
             "lan": track.get("language"),

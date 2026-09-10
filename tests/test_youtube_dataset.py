@@ -10,6 +10,23 @@ import youtube_dataset as dataset
 
 
 class YoutubeDatasetTests(unittest.TestCase):
+    def test_caption_language_must_match_content_language(self):
+        self.assertTrue(dataset.caption_language_matches_content("en", "en-US"))
+        self.assertTrue(dataset.caption_language_matches_content("zh-Hans", "zh-CN"))
+        self.assertTrue(dataset.caption_language_matches_content("yue", "zh-Hant"))
+        self.assertTrue(dataset.caption_language_matches_content("ko", "ko"))
+        self.assertFalse(dataset.caption_language_matches_content("en", "zh-Hans"))
+        self.assertFalse(dataset.caption_language_matches_content("zh-Hans", "en"))
+
+    def test_manifest_rejects_cross_language_caption_fallback(self):
+        with self.assertRaises(ValueError):
+            dataset.validate_manifest({"items": [{
+                "url": "https://youtu.be/dQw4w9WgXcQ",
+                "profile": "youtube_screen_clips",
+                "content_language": "zh-Hans",
+                "languages": ["zh-Hans", "en"],
+            }]})
+
     def test_profile_bounds(self):
         interview = dataset.PROFILES["youtube_interviews"]
         screen = dataset.PROFILES["youtube_screen_clips"]
@@ -127,6 +144,14 @@ class YoutubeDatasetTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             dataset.create_clips(Path("missing"), Path("out"), max_clips=0)
 
+    def test_clip_cli_requires_explicit_authorization_flag(self):
+        with self.assertRaises(ValueError):
+            dataset.main(["clip", "--parent", "missing"])
+        args = dataset.build_parser().parse_args([
+            "clip", "--parent", "parent", "--allow-clips",
+        ])
+        self.assertTrue(args.allow_clips)
+
     def test_atomic_json_and_hash(self):
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / "metadata.json"
@@ -142,7 +167,7 @@ class YoutubeDatasetTests(unittest.TestCase):
             "speaker_count": None,
             "speaker_count_status": "needs_review",
             "languages": ["en"],
-            "content_language": "yue",
+            "content_language": "en",
             "rights": {"status": "unknown"},
         }
         info = {
@@ -160,7 +185,7 @@ class YoutubeDatasetTests(unittest.TestCase):
         self.assertNotIn("secret", serialized)
         self.assertEqual(sidecar["caption"]["text_source"], "platform_auto")
         self.assertEqual(sidecar["speaker_count_status"], "needs_review")
-        self.assertEqual(sidecar["language"], "yue")
+        self.assertEqual(sidecar["language"], "en")
 
     def test_rights_need_status_and_evidence_before_clearance(self):
         item = {"rights": {"status": "creative_commons"}}

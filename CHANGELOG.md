@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+### 纠偏
+
+- B 站完整视频从误建的 `datasets/` 迁移到 `downloads/bilibili-video-20260910/`；以后视频数据统一放在 `downloads/`。
+- YouTube 正式流程只保存完整父视频，不再默认生成 clip；CLI 生成 clip 必须显式提供 `--allow-clips`。
+- YouTube/B站字幕强制与内容语言一致：英文配英文，中文/粤语配中文或粤语，其他语言按主语言代码一致。
+- 历史 YouTube clips 和两条跨语言字幕父视频移入可恢复 `archive/`，没有删除。
+
 ### 新增
 
 - 面向新手的中文根 README 和分层文档中心。

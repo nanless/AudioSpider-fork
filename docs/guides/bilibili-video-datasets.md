@@ -3,7 +3,7 @@
 这条管线适合“我要保留视频，并尽量同时保存 B 站平台字幕”的任务。它与旧的 B 站纯音频下载是两套互不覆盖的流程：
 
 - `collect.py` + `main.py`：把 B 站分 P 当成音频任务，结果在 `downloads/bilibili/`。
-- `bilibili_dataset.py`：把每个分 P 做成视频数据 bundle，结果建议放在 `datasets/bilibili-video-日期/`。
+- `bilibili_dataset.py`：把每个分 P 做成视频数据 bundle，结果建议放在 `downloads/bilibili-video-日期/`。
 
 不要把两套目录混在一起，也不要用旧 SQLite 的临时音频 URL 作为视频来源。
 
@@ -66,7 +66,7 @@ cp config/bilibili_sources.example.json config/bilibili_sources.local.json
 
 - `parts`：只下载指定分 P；空数组表示从前往后取，但仍受 `max_parts` 限制。
 - `max_height`：最高分辨率，范围 144–1080；初次推荐 480 或 720。
-- `languages`：字幕语言优先范围；空数组表示保留所有公开轨道。
+- `languages`：字幕语言优先范围，必须与 `content_language` 一致。英文内容只允许英文字幕；中文/粤语内容只允许中文或粤语字幕。空数组会按内容语言自动生成本语言候选，不再表示“所有语言”。
 - `require_caption`：是否把“没有可下载字幕”当失败。
 - `rights`：使用权审核；公开可看不能自动改成 cleared。
 - `ai_generation`：视频内容是否 AI 生成；不能用自动字幕反推。
@@ -75,7 +75,7 @@ cp config/bilibili_sources.example.json config/bilibili_sources.local.json
 
 ```bash
 env -u BILIBILI_COOKIE python bilibili_dataset.py \
-  --output datasets/bilibili-video-candidates \
+  --output downloads/bilibili-video-candidates \
   inspect --manifest config/bilibili_sources.local.json
 ```
 
@@ -83,7 +83,7 @@ env -u BILIBILI_COOKIE python bilibili_dataset.py \
 
 ```bash
 env -u BILIBILI_COOKIE python bilibili_dataset.py \
-  --output datasets/bilibili-video-candidates \
+  --output downloads/bilibili-video-candidates \
   download --manifest config/bilibili_sources.local.json
 ```
 
@@ -91,7 +91,7 @@ env -u BILIBILI_COOKIE python bilibili_dataset.py \
 
 ```bash
 python bilibili_dataset.py \
-  --output datasets/bilibili-video-candidates audit \
+  --output downloads/bilibili-video-candidates audit \
   --manifest config/bilibili_sources.local.json
 ```
 
@@ -124,7 +124,7 @@ python bilibili_dataset.py \
 ```bash
 read -r -s BILIBILI_COOKIE
 export BILIBILI_COOKIE
-python bilibili_dataset.py --output datasets/bilibili-video-candidates \
+python bilibili_dataset.py --output downloads/bilibili-video-candidates \
   inspect --manifest config/bilibili_sources.local.json
 unset BILIBILI_COOKIE
 ```
@@ -136,7 +136,7 @@ Cookie 只进入 HTTP 请求头，不写 manifest、日志、sidecar 或下载�
 升级旧版 sidecar 的派生字段时可运行：
 
 ```bash
-python bilibili_dataset.py --output datasets/bilibili-video-candidates repair-metadata
+python bilibili_dataset.py --output downloads/bilibili-video-candidates repair-metadata
 ```
 
 它只重建 probe/声明时长等派生元数据，不替换原视频和原字幕。
@@ -151,7 +151,7 @@ ffmpeg 使用两个明确输入合并：第一个输入的视频流和第二个�
 
 ## 6. 为什么目录里有 `.audiospider-dataset.json`
 
-这是保护标记。旧的 `convert_audio.py` 默认递归扫描 `downloads/` 并把 WAV 转 Opus；它现在看到该标记会跳过整个数据集，避免删除 `audio.wav` 后破坏 sidecar/hash。仍推荐把视频数据放在独立 `datasets/` 根目录。
+这是保护标记。旧的 `convert_audio.py` 默认递归扫描 `downloads/` 并把 WAV 转 Opus；它现在看到该标记会跳过整个视频数据集，避免删除 `audio.wav` 后破坏 sidecar/hash。B 站视频的正式位置就是 `downloads/bilibili-video-日期/`。
 
 ## 7. 常见问题
 
@@ -176,7 +176,7 @@ ffmpeg 使用两个明确输入合并：第一个输入的视频流和第二个�
 正式首批默认约定为：
 
 ```text
-/root/code/github_repos/AudioSpider-fork/datasets/bilibili-video-20260910
+/root/code/github_repos/AudioSpider-fork/downloads/bilibili-video-20260910
 ```
 
 父样本在 `parents/<BV>/p<分P>/<job_key>/`，每轮 inspect/download 记录在 `manifests/`。

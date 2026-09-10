@@ -98,6 +98,6 @@ HTTP/API 失败不会被写成上述“空字幕”状态，也不会提升正�
 运行：
 
 ```bash
-python bilibili_dataset.py --output datasets/bilibili-video-20260910 \
+python bilibili_dataset.py --output downloads/bilibili-video-20260910 \
   audit --manifest config/bilibili_sources.initial.json
 ```

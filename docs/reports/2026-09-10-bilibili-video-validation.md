@@ -5,7 +5,7 @@
 - 服务器：`dev_L4_1gpus`
 - 仓库：`/root/code/github_repos/AudioSpider-fork`
 - Conda：`audiospider`，Python 3.11
-- 数据：`/root/code/github_repos/AudioSpider-fork/datasets/bilibili-video-20260910`
+- 数据：`/root/code/github_repos/AudioSpider-fork/downloads/bilibili-video-20260910`（已于 2026-09-10 从误建的 `datasets/` 目录迁移）
 - 清单：示例 1 条 + 现有 B 站音频候选回采 15 个分 P
 - 画质上限：480p
 

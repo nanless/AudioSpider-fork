@@ -5,7 +5,7 @@
       "url": "https://www.youtube.com/watch?v=REPLACE_ME",
       "profile": "youtube_interviews",
       "content_language": "zh-Hans",
-      "languages": ["zh-Hans", "en"],
+      "languages": ["zh-Hans", "zh-CN", "zh-Hant", "zh"],
       "speaker_count": 2,
       "speaker_count_status": "verified_manual",
       "ai_generation": {
@@ -23,7 +23,7 @@
       "url": "https://www.youtube.com/watch?v=REPLACE_ME",
       "profile": "youtube_screen_clips",
       "content_language": "ja",
-      "languages": ["ja", "en"],
+      "languages": ["ja"],
       "speaker_count": null,
       "speaker_count_status": "needs_review",
       "ai_generation": {

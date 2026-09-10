@@ -150,13 +150,13 @@ python main.py [download|stats|fix-meta|background] [参数]
 独立管理 B 站视频 bundle，不读写 `audio_urls`：
 
 ```bash
-python bilibili_dataset.py --output datasets/bilibili-video-candidates \
+python bilibili_dataset.py --output downloads/bilibili-video-candidates \
   inspect --manifest config/bilibili_sources.example.json
-python bilibili_dataset.py --output datasets/bilibili-video-candidates \
+python bilibili_dataset.py --output downloads/bilibili-video-candidates \
   download --manifest config/bilibili_sources.example.json
-python bilibili_dataset.py --output datasets/bilibili-video-candidates \
+python bilibili_dataset.py --output downloads/bilibili-video-candidates \
   audit --manifest config/bilibili_sources.example.json
-python bilibili_dataset.py --output datasets/bilibili-video-candidates repair-metadata
+python bilibili_dataset.py --output downloads/bilibili-video-candidates repair-metadata
 ```
 
 | 动作/参数 | 含义 |
@@ -166,7 +166,7 @@ python bilibili_dataset.py --output datasets/bilibili-video-candidates repair-me
 | `audit` | 校验所有正式 bundle；空集或 staging 残留也返回非零 |
 | `audit --manifest PATH` | 额外要求清单中显式列出的每个分 P 都有合法 bundle |
 | `repair-metadata` | 从现有媒体和运行清单重建派生 sidecar 字段，不替换来源媒体 |
-| `--output PATH` | 数据集根目录，推荐在 `datasets/` 下 |
+| `--output PATH` | 数据集根目录，推荐在 `downloads/` 下 |
 
 可选 `BILIBILI_COOKIE` 环境变量用于当前进程的合法登录态；不得写入 manifest。字幕必需性、分 P、语言、清晰度、时长、权利和 AI 状态都在 JSON 清单逐项声明。
 
@@ -184,11 +184,13 @@ python main.py background --source podcast_rss --limit 10000 --background metada
 ```bash
 python youtube_dataset.py --output DIR inspect --manifest SOURCES.json
 python youtube_dataset.py --output DIR download --manifest SOURCES.json
-python youtube_dataset.py --output DIR clip --parent PARENT_DIR --max-clips 100
+python youtube_dataset.py --output DIR clip --parent PARENT_DIR --max-clips 100 --allow-clips
 python youtube_dataset.py repair-parent --parent PARENT_DIR
 python youtube_dataset.py --output DIR repair-dataset
 python youtube_dataset.py --output DIR audit
 ```
+
+当前正式 YouTube 流程只运行 `inspect`、`download` 和 `audit`，不生成 clip。`clip` 是历史兼容动作，只有用户明确提出短片需求时才允许加 `--allow-clips`。所有来源清单的字幕语言必须与 `content_language` 一致。
 
 | 命令/参数 | 默认 | 含义 |
 |---|---:|---|

@@ -28,7 +28,7 @@ bash scripts/test.sh
 | `network_safety.py` | URL、DNS 和重定向安全 |
 | `config.py` | 路径、默认值、资源限制、来源配置 |
 | `doctor.py`、`probe.py` | 诊断与有界真实测试 |
-| `youtube_dataset.py`、`youtube_vtt.py` | YouTube 父 bundle、字幕切片、修复和审计 |
+| `youtube_dataset.py`、`youtube_vtt.py` | YouTube 完整父 bundle、同语言字幕、修复和审计；clip 仅显式授权 |
 | `tests/` | 离线自动化回归 |
 
 修改时尽量把逻辑放在所属层，不在 CLI 中复制实现。
