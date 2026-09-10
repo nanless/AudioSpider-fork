@@ -194,6 +194,9 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
         if not math.isfinite(maximum_parent_duration) or not 0 < maximum_parent_duration <= 4 * 3600:
             raise ValueError(f"item {index} max_parent_duration_seconds must be in (0, 14400]")
         item["max_parent_duration_seconds"] = maximum_parent_duration
+        require_caption = item.get("require_caption", True)
+        if not isinstance(require_caption, bool):
+            raise ValueError(f"item {index} require_caption must be a boolean")
         ai_generation = item.get("ai_generation") or {"status": "unknown", "evidence": []}
         if not isinstance(ai_generation, dict) or ai_generation.get("status") not in AI_GENERATION_STATUSES:
             raise ValueError(f"item {index} ai_generation has an unsupported status")
@@ -258,9 +261,12 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
         revision = str(item.get("source_revision") or "current")
         _safe_component(revision, "source_revision")
         language_key = languages[0] if languages else "any"
+        identity = [video_id, profile_name, languages, revision]
+        if not require_caption:
+            identity.insert(3, require_caption)
         fingerprint = hashlib.sha256(
             json.dumps(
-                [video_id, profile_name, languages, revision],
+                identity,
                 ensure_ascii=False,
                 separators=(",", ":"),
             ).encode("utf-8")
@@ -276,6 +282,7 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
                 "profile": profile_name,
                 "languages": languages,
                 "content_language": content_language,
+                "require_caption": require_caption,
                 "ai_generation": ai_generation,
                 "speaker_count": count,
                 "speaker_count_status": status,
@@ -356,6 +363,29 @@ def select_caption(info: dict[str, Any], preferred_languages: Iterable[str]) -> 
     )
 
 
+def caption_availability_status(
+    info: dict[str, Any],
+    preferred_languages: Iterable[str],
+    caption: CaptionSelection | None = None,
+) -> str:
+    """Classify an inspected caption inventory without mistaking errors for absence."""
+
+    if caption is not None:
+        return "available"
+    requested = [value.replace("_", "-") for value in preferred_languages if value]
+    has_any_track = False
+    for mapping in (info.get("subtitles") or {}, info.get("automatic_captions") or {}):
+        if not isinstance(mapping, dict):
+            continue
+        for entries in mapping.values():
+            if _caption_format(entries) is not None:
+                has_any_track = True
+                break
+        if has_any_track:
+            break
+    return "no_matching_language" if has_any_track and requested else "missing"
+
+
 def output_paths(
     root: Path,
     profile: str,
@@ -396,10 +426,12 @@ def build_inspect_options() -> dict[str, Any]:
     }
 
 
-def build_download_options(directory: Path, caption: CaptionSelection) -> dict[str, Any]:
+def build_download_options(
+    directory: Path, caption: CaptionSelection | None
+) -> dict[str, Any]:
     """Build bounded single-video options without login, cookies or plugins."""
 
-    return {
+    options = {
         "quiet": True,
         "no_warnings": True,
         "noprogress": True,
@@ -410,11 +442,6 @@ def build_download_options(directory: Path, caption: CaptionSelection) -> dict[s
             "bestvideo[height<=720]+bestaudio/best[height<=720]"
         ),
         "merge_output_format": "mp4",
-        "writesubtitles": caption.kind == "manual",
-        "writeautomaticsub": caption.kind == "automatic",
-        "subtitleslangs": [caption.language],
-        "subtitlesformat": "vtt/best",
-        "convertsubtitles": "vtt",
         "overwrites": False,
         "continuedl": True,
         "socket_timeout": 30,
@@ -422,6 +449,15 @@ def build_download_options(directory: Path, caption: CaptionSelection) -> dict[s
         "fragment_retries": 5,
         "max_filesize": 8 * 1024 * 1024 * 1024,
     }
+    if caption is not None:
+        options.update({
+            "writesubtitles": caption.kind == "manual",
+            "writeautomaticsub": caption.kind == "automatic",
+            "subtitleslangs": [caption.language],
+            "subtitlesformat": "vtt/best",
+            "convertsubtitles": "vtt",
+        })
+    return options
 
 
 def write_json_atomic(path: Path, value: Any) -> None:
@@ -466,6 +502,7 @@ def build_parent_sidecar(
     files: dict[str, Any],
     *,
     yt_dlp_version: str,
+    caption_status: str | None = None,
 ) -> dict[str, Any]:
     """Build an allowlisted sidecar that never embeds extractor internals."""
 
@@ -475,7 +512,13 @@ def build_parent_sidecar(
     ):
         raise ValueError("selected caption language does not match the video content language")
     caption_data = {
-        "status": "downloaded" if caption else "missing",
+        "status": (
+            "downloaded" if caption else
+            caption_status or caption_availability_status(
+                info, item.get("languages") or [], caption
+            )
+        ),
+        "required": bool(item.get("require_caption", True)),
         "kind": caption.kind if caption else None,
         "text_source": caption.text_source if caption else None,
         "requested_languages": list(item.get("languages") or []),
@@ -550,9 +593,11 @@ def inspect_item(item: dict[str, Any]) -> tuple[dict[str, Any], CaptionSelection
             f"parent duration {duration:.3f}s is outside 0-{maximum_parent_duration:.3f}s"
         )
     caption = select_caption(info, item.get("languages") or [])
-    if caption is None:
+    if caption is None and item.get("require_caption", True):
         raise ValueError("no acceptable platform caption is available")
-    if not caption_language_matches_content(item["content_language"], caption.language):
+    if caption is not None and not caption_language_matches_content(
+        item["content_language"], caption.language
+    ):
         raise ValueError("selected caption language does not match the video content language")
     return info, caption
 
@@ -571,10 +616,19 @@ def _public_inspection(item: dict[str, Any], info: dict[str, Any], caption: Capt
         "channel_id": str(info.get("channel_id") or info.get("uploader_id") or ""),
         "upload_date": info.get("upload_date"),
         "content_language": item.get("content_language", "und"),
-        "caption": (
-            {key: value for key, value in asdict(caption).items() if key != "url"}
-            if caption else None
-        ),
+        "caption": ({
+            "status": "available",
+            "required": bool(item.get("require_caption", True)),
+            **{key: value for key, value in asdict(caption).items() if key != "url"},
+        } if caption else {
+            "status": caption_availability_status(
+                info, item.get("languages") or [], caption
+            ),
+            "required": bool(item.get("require_caption", True)),
+            "kind": None,
+            "text_source": None,
+            "track_language": None,
+        }),
         "speaker_count": item.get("speaker_count"),
         "speaker_count_status": item["speaker_count_status"],
         "rights": item["rights"],
@@ -676,8 +730,6 @@ def download_item(
     """Download one complete parent bundle and atomically promote its directory."""
 
     info, caption = inspect_item(item)
-    if caption is None:
-        raise ValueError("download currently requires a platform caption")
     lock = Path(output_root).resolve() / ".locks" / f"{item['job_key']}.lock"
     with _exclusive_file_lock(lock):
         return _download_item_locked(
@@ -689,12 +741,19 @@ def _download_item_locked(
     item: dict[str, Any],
     output_root: Path,
     info: dict[str, Any],
-    caption: CaptionSelection,
+    caption: CaptionSelection | None,
     *,
     destination: Path | None = None,
 ) -> Path:
+    caption_status = caption_availability_status(
+        info, item.get("languages") or [], caption
+    )
     paths = output_paths(
-        output_root, item["profile"], item["video_id"], caption.language, item["job_key"]
+        output_root,
+        item["profile"],
+        item["video_id"],
+        caption.language if caption else item.get("content_language", "und"),
+        item["job_key"],
     )
     configured_root = Path(output_root).resolve()
     if destination is None:
@@ -720,11 +779,12 @@ def _download_item_locked(
             downloaded_info = ydl.extract_info(item["url"], download=True)
             downloaded_info = ydl.sanitize_info(downloaded_info)
         confirmed_caption = select_caption(downloaded_info, item.get("languages") or [])
-        if confirmed_caption is None or (
-            confirmed_caption.language, confirmed_caption.kind
-        ) != (caption.language, caption.kind):
-            raise ValueError("caption track changed between inspect and download")
-        caption = confirmed_caption
+        if caption is not None:
+            if confirmed_caption is None or (
+                confirmed_caption.language, confirmed_caption.kind
+            ) != (caption.language, caption.kind):
+                raise ValueError("caption track changed between inspect and download")
+            caption = confirmed_caption
         source_video = _find_video(stage)
         video = stage / "source.mp4"
         if source_video != video:
@@ -732,31 +792,36 @@ def _download_item_locked(
         audio = stage / "audio.wav"
         _extract_wav(video, audio)
 
-        source_caption = _find_caption(stage, caption)
-        caption_path = stage / _caption_filename(caption)
-        if source_caption != caption_path:
-            os.replace(source_caption, caption_path)
-        if caption_path.stat().st_size > MAX_CAPTION_BYTES:
-            raise ValueError("downloaded caption exceeds the byte limit")
-        cues = parse_vtt(
-            caption_path.read_text(encoding="utf-8", errors="replace"),
-            deduplicate_rolling=caption.kind == "automatic",
-        )
-        if not cues:
-            raise ValueError("downloaded caption has no valid cues")
-        transcript_path = caption_path.with_suffix(".txt")
-        write_text_atomic(transcript_path, "\n".join(cue.text for cue in cues) + "\n")
         files = {
             "video": _file_record(video, stage),
             "audio": _file_record(audio, stage),
-            "caption_vtt": _file_record(caption_path, stage),
-            "transcript_txt": _file_record(transcript_path, stage),
         }
+        cues: list[Cue] = []
+        if caption is not None:
+            source_caption = _find_caption(stage, caption)
+            caption_path = stage / _caption_filename(caption)
+            if source_caption != caption_path:
+                os.replace(source_caption, caption_path)
+            if caption_path.stat().st_size > MAX_CAPTION_BYTES:
+                raise ValueError("downloaded caption exceeds the byte limit")
+            cues = parse_vtt(
+                caption_path.read_text(encoding="utf-8", errors="replace"),
+                deduplicate_rolling=caption.kind == "automatic",
+            )
+            if not cues:
+                raise ValueError("downloaded caption has no valid cues")
+            transcript_path = caption_path.with_suffix(".txt")
+            write_text_atomic(transcript_path, "\n".join(cue.text for cue in cues) + "\n")
+            files.update({
+                "caption_vtt": _file_record(caption_path, stage),
+                "transcript_txt": _file_record(transcript_path, stage),
+            })
         if sum(record["bytes"] for record in files.values()) > MAX_BUNDLE_BYTES:
             raise ValueError("downloaded bundle exceeds the total byte limit")
         sidecar = build_parent_sidecar(
             item, downloaded_info, caption, files,
             yt_dlp_version=getattr(yt_dlp.version, "__version__", "unknown"),
+            caption_status=caption_status,
         )
         video_probe = probe_media(video)
         video_duration = _probe_duration(video_probe)
@@ -769,8 +834,8 @@ def _download_item_locked(
                 stream.get("codec_type") == "audio" for stream in video_probe.get("streams") or []
             ),
         }
-        sidecar["caption"]["tail_overrun_seconds"] = max(
-            0.0, max(cue.end for cue in cues) - video_duration
+        sidecar["caption"]["tail_overrun_seconds"] = (
+            max(0.0, max(cue.end for cue in cues) - video_duration) if cues else None
         )
         (stage / "failure.json").unlink(missing_ok=True)
         write_json_atomic(stage / "metadata.json", sidecar)
@@ -813,6 +878,8 @@ def create_clips(parent_directory: Path, output_root: Path, *, max_clips: int = 
         raise ValueError("max_clips must be between 1 and 10000")
     validated_parent = _validate_bundle(parent_directory / "metadata.json")
     metadata = validated_parent["metadata"]
+    if not validated_parent["cues"]:
+        raise ValueError("clips require a parent bundle with downloaded captions")
     if metadata.get("profile") != "youtube_screen_clips":
         raise ValueError("clips can only be generated from youtube_screen_clips parents")
     video = validated_parent["paths"]["video"]
@@ -926,7 +993,9 @@ def repair_parent_bundle(parent_directory: Path) -> dict[str, Any]:
         raise ValueError("repair-parent requires a schema v1 youtube_parent bundle")
     if metadata.get("job_key") != directory.name:
         raise ValueError("parent directory does not match job_key")
-    caption = _validate_caption_provenance(metadata.get("caption"))
+    caption = _validate_caption_provenance(metadata.get("caption"), allow_missing=True)
+    if (caption.get("status") or "downloaded") in {"missing", "no_matching_language"}:
+        return _validate_bundle(sidecar_path)
     caption_language = str(caption.get("track_language") or caption.get("language") or "")
     if not caption_language_matches_content(str(metadata.get("language") or "und"), caption_language):
         raise ValueError("caption language does not match media content language")
@@ -1071,9 +1140,24 @@ def _validate_media_probe(name: str, probe: dict[str, Any]) -> None:
         raise ValueError(f"WAV channel count is not 1: {stream.get('channels')}")
 
 
-def _validate_caption_provenance(caption: Any) -> dict[str, Any]:
+def _validate_caption_provenance(
+    caption: Any, *, allow_missing: bool = False
+) -> dict[str, Any]:
     if not isinstance(caption, dict):
         raise ValueError("caption metadata is required")
+    status = caption.get("status") or "downloaded"
+    if status in {"missing", "no_matching_language"}:
+        if not allow_missing:
+            raise ValueError("this asset requires a downloaded caption")
+        if caption.get("required") is not False:
+            raise ValueError("captionless parent must declare required=false")
+        if any(caption.get(key) is not None for key in (
+            "kind", "text_source", "track_language", "source_language", "track_name",
+        )):
+            raise ValueError("captionless parent cannot declare a caption track")
+        return caption
+    if status != "downloaded":
+        raise ValueError(f"unsupported caption status: {status!r}")
     expected = {"manual": "platform_manual", "automatic": "platform_auto"}
     kind = caption.get("kind")
     if kind not in expected or caption.get("text_source") != expected[kind]:
@@ -1097,10 +1181,15 @@ def _validate_bundle(sidecar_path: Path) -> dict[str, Any]:
         raise ValueError("unsupported or missing profile")
     if not isinstance(metadata.get("language"), str) or not metadata["language"]:
         raise ValueError("content language is required")
-    caption = _validate_caption_provenance(metadata.get("caption"))
-    caption_language = str(caption.get("track_language") or caption.get("language") or "")
-    if not caption_language_matches_content(metadata["language"], caption_language):
-        raise ValueError("caption language does not match media content language")
+    caption = _validate_caption_provenance(
+        metadata.get("caption"), allow_missing=asset_type == "youtube_parent"
+    )
+    caption_status = caption.get("status") or "downloaded"
+    has_caption = caption_status == "downloaded"
+    if has_caption:
+        caption_language = str(caption.get("track_language") or caption.get("language") or "")
+        if not caption_language_matches_content(metadata["language"], caption_language):
+            raise ValueError("caption language does not match media content language")
 
     speaker_count = metadata.get("speaker_count")
     speaker_status = metadata.get("speaker_count_status")
@@ -1132,10 +1221,12 @@ def _validate_bundle(sidecar_path: Path) -> dict[str, Any]:
     if any(marker in serialized for marker in sensitive_markers):
         raise ValueError("sidecar appears to contain credentials or a signed URL")
 
-    required_files = {"video", "audio", "caption_vtt", "transcript_txt"}
+    required_files = {"video", "audio"}
+    if has_caption:
+        required_files.update({"caption_vtt", "transcript_txt"})
     files = metadata.get("files")
     if not isinstance(files, dict) or set(files) != required_files:
-        raise ValueError("sidecar must declare exactly video/audio/VTT/TXT payloads")
+        raise ValueError("sidecar payload closure does not match its caption status")
     paths: dict[str, Path] = {}
     for name in sorted(required_files):
         record = files[name]
@@ -1169,22 +1260,24 @@ def _validate_bundle(sidecar_path: Path) -> dict[str, Any]:
     if any(int(stream.get("height") or 0) > 720 for stream in video_streams):
         raise ValueError("video height exceeds 720p")
 
-    raw_vtt = paths["caption_vtt"].read_text(encoding="utf-8", errors="replace")
-    if not raw_vtt.lstrip("\ufeff").startswith("WEBVTT"):
-        raise ValueError("caption is missing the WEBVTT header")
-    cues = parse_vtt(
-        raw_vtt,
-        deduplicate_rolling=caption.get("kind") == "automatic",
-    )
-    if not cues:
-        raise ValueError("caption has no valid cues")
-    if any(current.start < previous.start for previous, current in zip(cues, cues[1:])):
-        raise ValueError("caption cues are not monotonic")
-    transcript = paths["transcript_txt"].read_text(
-        encoding="utf-8", errors="replace"
-    ).strip()
-    if transcript != "\n".join(cue.text for cue in cues).strip():
-        raise ValueError("transcript text does not match normalized VTT")
+    cues: list[Cue] = []
+    if has_caption:
+        raw_vtt = paths["caption_vtt"].read_text(encoding="utf-8", errors="replace")
+        if not raw_vtt.lstrip("\ufeff").startswith("WEBVTT"):
+            raise ValueError("caption is missing the WEBVTT header")
+        cues = parse_vtt(
+            raw_vtt,
+            deduplicate_rolling=caption.get("kind") == "automatic",
+        )
+        if not cues:
+            raise ValueError("caption has no valid cues")
+        if any(current.start < previous.start for previous, current in zip(cues, cues[1:])):
+            raise ValueError("caption cues are not monotonic")
+        transcript = paths["transcript_txt"].read_text(
+            encoding="utf-8", errors="replace"
+        ).strip()
+        if transcript != "\n".join(cue.text for cue in cues).strip():
+            raise ValueError("transcript text does not match normalized VTT")
 
     video_duration = _probe_duration(probes["video"])
     audio_duration = _probe_duration(probes["audio"])
@@ -1246,7 +1339,7 @@ def audit_dataset(output_root: Path) -> dict[str, Any]:
             result = _validate_bundle(sidecar_path)
             metadata = result["metadata"]
             caption = metadata["caption"]
-            if metadata["asset_type"] == "youtube_parent":
+            if metadata["asset_type"] == "youtube_parent" and result["cues"]:
                 overrun = max(cue.end for cue in result["cues"]) - result["video_duration"]
                 if overrun > 0.5:
                     if overrun > 5.0:
@@ -1263,7 +1356,7 @@ def audit_dataset(output_root: Path) -> dict[str, Any]:
         (
             result["metadata"]["source_id"],
             result["metadata"]["files"]["video"]["sha256"],
-            result["metadata"]["files"]["caption_vtt"]["sha256"],
+            (result["metadata"]["files"].get("caption_vtt") or {}).get("sha256", ""),
         )
         for _, result in valid
         if result["metadata"]["asset_type"] == "youtube_parent"
@@ -1292,7 +1385,10 @@ def audit_dataset(output_root: Path) -> dict[str, Any]:
         counts[f"asset_type:{metadata['asset_type']}"] += 1
         counts[f"profile:{metadata['profile']}"] += 1
         counts[f"language:{metadata['language']}"] += 1
-        counts[f"caption_kind:{caption['kind']}"] += 1
+        caption_status = caption.get("status") or "downloaded"
+        counts[f"caption_status:{caption_status}"] += 1
+        if caption.get("kind"):
+            counts[f"caption_kind:{caption['kind']}"] += 1
         counts[f"speaker_status:{metadata['speaker_count_status']}"] += 1
         counts[f"rights:{'cleared' if metadata.get('rights_cleared') else 'candidate'}"] += 1
         counts[f"ai_generation:{metadata['ai_generation']['status']}"] += 1

@@ -59,6 +59,7 @@ cp config/youtube_sources.example.json /tmp/my-youtube-sources.json
   "profile": "youtube_screen_clips",
   "content_language": "yue",
   "languages": ["yue", "zh-Hant", "zh-HK", "zh"],
+  "require_caption": false,
   "speaker_count": null,
   "speaker_count_status": "needs_review",
   "program": "节目或影视名称",
@@ -76,6 +77,8 @@ cp config/youtube_sources.example.json /tmp/my-youtube-sources.json
 - `profile`：长访谈用 `youtube_interviews`；影视/节目父视频沿用兼容名称 `youtube_screen_clips`，但下载动作只产生完整父视频。
 - `content_language`：音视频对白的主要语言；粤语写 `yue`，简体中文可写 `zh-Hans`。
 - `languages`：字幕选择优先顺序，必须与对白语言一致。英文内容只能列英文；中文/粤语内容只能列中文或粤语；日语、韩语同样只列本语言。
+- `require_caption`：本条任务是否必须有同语言字幕。省略默认为 `true`，保持历史严格行为；
+  “尽量获取，无字幕也保留”必须显式填 `false`。
 - `speaker_count`：只有人工看过并确认时才填整数。
 - `speaker_count_status`：有整数时必须是 `verified_manual`；未知必须是 `needs_review`。
 - `rights`：来源与权利证据。`needs_review` 不会被误写成已经获权。
@@ -101,12 +104,13 @@ downloads/youtube-candidates/manifests/inspect-时间-runid.jsonl
 
 - `status=accepted`；
 - 长访谈 `duration_seconds` 在 1530–3636 秒；
-- `caption.kind` 是 `manual` 或 `automatic`；
-- `caption.text_source` 与 kind 一致；
+- 有字幕时，`caption.kind` 是 `manual` 或 `automatic`，且 `text_source` 一致；
+- best-effort 无字幕时，`caption.status` 是 `missing` 或 `no_matching_language`；
 - `content_language` 没有被英文字幕错误覆盖；
 - `rights_cleared=false` 的候选没有被当作已授权数据。
 
-没有可接受字幕、直播、待开播、时长不合法或非单视频 URL 会直接失败。
+严格任务没有可接受字幕时失败；best-effort 任务则仍被接受。直播、待开播、时长不合法、
+非单视频 URL 或平台请求错误始终失败。
 
 ## 5. 下载父视频、音频和字幕
 
@@ -126,6 +130,8 @@ python youtube_dataset.py --output downloads/youtube-candidates download \
 ```
 
 工具限制为单视频、最高 720p、最大 8 GiB，不读浏览器 Cookie。每条数据先在 `.staging` 目录生成；视频、WAV、字幕、文本和 metadata 全部完成后才整体移动到最终目录。
+对 `require_caption=false` 的无字幕任务，闭包只有 `source.mp4`、`audio.wav` 和
+`metadata.json`；工具不会生成空白字幕或伪转写。
 
 长访谈目录示例：
 
@@ -223,11 +229,13 @@ PY
 
 ### 为什么只拿到英文字幕
 
-现在不会这样做。英文内容只选英文字幕，中文/粤语内容只选中文或粤语字幕。平台只有英文字幕而中文视频没有中文字幕时，该视频会被拒绝或从正式集隔离，不能用英文字幕兜底。
+英文内容只选英文字幕，中文/粤语内容只选中文或粤语字幕。若只有其他语言轨，
+严格任务拒绝；best-effort 任务保留完整媒体并写 `no_matching_language`，但绝不用跨语言字幕兜底。
 
 ### 为什么某个视频被拒绝
 
-查看最新 `manifests/inspect-*.jsonl` 或 `download-*.jsonl`。常见原因是没有平台字幕、长访谈时长越界、直播、视频下架、地区不可用、代理失败或 YouTube 页面变化。
+查看最新 `manifests/inspect-*.jsonl` 或 `download-*.jsonl`。常见原因是严格任务没有平台字幕、
+长访谈时长越界、直播、视频下架、地区不可用、代理失败或 YouTube 页面变化。
 
 ### 可以把 `needs_review` 数据公开吗
 
@@ -236,7 +244,7 @@ PY
 ## 10. 推荐的批次节奏
 
 1. 清单先放 3 个长访谈、每种目标语言 1 个影视来源。
-2. 全部 inspect，删除无字幕或时长不合格项。
+2. 全部 inspect；严格集删除无字幕项，best-effort 集核对其 `caption.status`。
 3. download 1 个长访谈和 2 个影视父视频，不运行 `clip`。
 4. audit 为 0 后，人工抽看字幕语言和 A/V 同步。
 5. 再逐步增加到 10、50、100 个来源，并记录每批下载字节和失败率。

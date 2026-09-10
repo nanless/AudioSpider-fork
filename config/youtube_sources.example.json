@@ -6,6 +6,7 @@
       "profile": "youtube_interviews",
       "content_language": "zh-Hans",
       "languages": ["zh-Hans", "zh-CN", "zh-Hant", "zh"],
+      "require_caption": false,
       "speaker_count": 2,
       "speaker_count_status": "verified_manual",
       "ai_generation": {
@@ -24,6 +25,7 @@
       "profile": "youtube_screen_clips",
       "content_language": "ja",
       "languages": ["ja"],
+      "require_caption": false,
       "speaker_count": null,
       "speaker_count_status": "needs_review",
       "ai_generation": {

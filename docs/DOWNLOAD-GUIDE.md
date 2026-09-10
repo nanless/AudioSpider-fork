@@ -135,8 +135,15 @@ YouTube 核验和下载分别运行在可终止子进程中；默认硬超时为
 会自动触发。用户显式要求 clip 时，应从已验收父 bundle 派生，保留父哈希和边界，
 且不能覆盖母视频。
 
-字幕优先人工轨，但自动轨必须保留 `platform_auto`，不能包装成人工。中文/粤语视频
-不使用英文 fallback；没有本语言字幕时如实失败或记录 `no_matching_language`。
+每条 manifest 可设置 `require_caption`：
+
+- 省略或设为 `true`：保持历史严格行为，没有合格同语言字幕时拒绝完成；
+- 设为 `false`：尽量获取同语言字幕，无字幕也保留完整母视频和 WAV。
+
+有字幕时优先人工轨，自动轨必须保留 `platform_auto`。中文/粤语视频不使用
+英文 fallback。平台完全没有字幕轨时记录 `caption.status=missing`；有其他语言轨但
+没有同语言轨时记录 `no_matching_language`。这两种 bundle 不生成空 VTT/TXT。网络、
+API 或解析异常仍然是失败，不能冒充无字幕。
 
 ## 5. 输出解释
 
@@ -160,6 +167,9 @@ downloads/<source>/<category>/<source-id>/<job-key>/
 ├── captions.<language>.<kind>.<id>.txt
 └── metadata.json
 ```
+
+YouTube best-effort 无字幕 bundle 的合法闭包精确为
+`source.mp4 + audio.wav + metadata.json`。
 
 `done` 的普通音频 `local_path` 指向音频文件；`done` 的视频任务用 `local_path` 指向
 bundle 内 `source.mp4`，并用 `bundle_path` 指向 bundle 根目录。任何 `.part`、不完整

@@ -33,6 +33,7 @@
 | 字段 | 例子 | 含义 |
 |---|---|---|
 | `status` | `downloaded` | 字幕状态 |
+| `required` | `false` | manifest 是否要求必须有同语言字幕 |
 | `kind` | `manual` | 人工或自动字幕 |
 | `text_source` | `platform_manual` | 明确文本来源 |
 | `requested_languages` | `["yue", "zh-Hant", "zh-HK", "zh"]` | 与内容语言一致的请求优先级 |
@@ -48,6 +49,10 @@
 
 字幕语言硬规则：英文内容只接受英文字幕；中文、普通话或粤语内容只接受中文/粤语字幕；其他内容按主语言代码一致。跨语言字幕会被 manifest、下载后确认和 audit 拒绝。
 
+`require_caption=false` 时，平台无任何轨记为 `missing`；有轨但无同语言轨记为
+`no_matching_language`。这时 `kind`、`text_source` 和 `track_language` 均为 null，
+不会创建空 VTT/TXT。外部请求错误不得写成这两种状态。
+
 ## `files` 字段
 
 父视频通常包含：
@@ -62,6 +67,7 @@
 ```
 
 路径必须是 bundle 内的相对路径。审计会拒绝路径逃逸、文件缺失和哈希不一致。
+无字幕母视频的 `files` 只允许 `video` 和 `audio`；`metadata.json` 是闭包边界文件。
 
 ## 历史短片字段（当前不生成）
 

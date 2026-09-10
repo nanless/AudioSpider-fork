@@ -35,7 +35,9 @@ flowchart LR
 
 负责有界来源适配与元数据入库，不下载大媒体。当前实现包含固定 RSS、LibriVox、
 小宇宙、喜马拉雅、B站和 YouTube。B站新任务默认是完整分P `video_bundle`；
-YouTube 从受控 manifest 核验完整母视频及同语言字幕后入队。
+YouTube 从受控 manifest 核验完整母视频后入队。同语言平台字幕优先人工轨，
+再选自动轨；`require_caption=false` 时无同语言字幕也保留完整 MP4/WAV，并在
+sidecar 明确标注 `missing` 或 `no_matching_language`，不生成假字幕文件。
 
 ### 下载：`main.py`
 

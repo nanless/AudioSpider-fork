@@ -160,12 +160,17 @@ ID、profile 与 yt-dlp 版本，但不能保存完整 format 字典或临时媒
 | 状态 | 含义 |
 |---|---|
 | `downloaded` | 至少一条字幕闭包完成 |
+| `missing` | 平台成功响应，但没有任何可用字幕轨 |
 | `auth_required` | 平台明确要求登录才能判断或取得 |
 | `not_provided_publicly` | 成功公开响应明确无轨 |
 | `no_matching_language` | 有轨但没有满足同语言策略的轨 |
 | `unknown` | 字段不足，不能下结论 |
 
 HTTP/API 错误不是上述任一空字幕状态，应让任务失败或记录显式 external error。
+
+YouTube 每条任务还保存 `caption.required`。`required=false` 且状态为 `missing` 或
+`no_matching_language` 时，`kind/text_source/track_language` 必须为 null，文件闭包精确为
+MP4、WAV 和 sidecar；不允许用空文件伪造字幕。
 
 `kind` 与 `text_source` 必须成对：
 

@@ -78,6 +78,42 @@ class YoutubeSpiderTests(unittest.IsolatedAsyncioTestCase):
                 records = await spider.crawl()
         self.assertEqual(records, [])
 
+    async def test_best_effort_manifest_queues_parent_without_caption(self):
+        document = {
+            "schema_version": 1,
+            "items": [{
+                "url": "https://www.youtube.com/watch?v=u7TwqpWiY5s",
+                "profile": "youtube_interviews",
+                "content_language": "en",
+                "languages": ["en"],
+                "require_caption": False,
+                "rights": {"status": "needs_review"},
+            }],
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            manifest = Path(temp) / "youtube.json"
+            manifest.write_text(json.dumps(document), encoding="utf-8")
+            spider = YoutubeSpider()
+            spider.manifest_path = manifest
+            info = {
+                "id": "u7TwqpWiY5s", "title": "Captionless interview",
+                "description": "Background", "duration": 1800,
+                "channel": "Example Channel", "upload_date": "20260102",
+                "caption_status": "missing",
+            }
+            with mock.patch(
+                "spiders.youtube._bounded_inspect_item", return_value=(info, None)
+            ):
+                records = await spider.crawl()
+
+        self.assertEqual(len(records), 1)
+        metadata = decode_metadata(records[0].metadata_json)
+        source = metadata["source_data"]["youtube"]
+        self.assertFalse(source["job"]["require_caption"])
+        self.assertEqual(source["inspection"]["caption"]["status"], "missing")
+        self.assertEqual(metadata["transcript_status"], "missing")
+        self.assertEqual(metadata["text_source"], "none")
+
 
 if __name__ == "__main__":
     unittest.main()

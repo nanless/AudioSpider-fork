@@ -11,6 +11,30 @@ import youtube_dataset as dataset
 
 
 class YoutubeDatasetTests(unittest.TestCase):
+    def test_manifest_caption_requirement_defaults_strict_and_changes_job_identity(self):
+        base = {
+            "url": "https://youtu.be/dQw4w9WgXcQ",
+            "profile": "youtube_interviews",
+            "content_language": "en",
+            "languages": ["en"],
+        }
+        strict = dataset.validate_manifest({"items": [base]})[0]
+        best_effort = dataset.validate_manifest({"items": [base | {"require_caption": False}]})[0]
+        self.assertTrue(strict["require_caption"])
+        self.assertFalse(best_effort["require_caption"])
+        self.assertNotEqual(strict["job_key"], best_effort["job_key"])
+        self.assertEqual(
+            dataset.validate_manifest({"items": [strict]})[0]["job_key"],
+            strict["job_key"],
+        )
+        self.assertEqual(
+            dataset.validate_manifest({"items": [best_effort]})[0]["job_key"],
+            best_effort["job_key"],
+        )
+
+        with self.assertRaisesRegex(ValueError, "require_caption"):
+            dataset.validate_manifest({"items": [base | {"require_caption": "false"}]})
+
     def test_custom_destination_reuses_completed_bundle(self):
         item = {
             "profile": "youtube_interviews", "video_id": "dQw4w9WgXcQ",
@@ -162,6 +186,158 @@ class YoutubeDatasetTests(unittest.TestCase):
         self.assertNotIn("username", options)
         self.assertFalse(options["format"].endswith("/best"))
 
+    def test_download_options_without_caption_do_not_request_subtitles(self):
+        options = dataset.build_download_options(Path("/tmp/job"), None)
+        self.assertNotIn("writesubtitles", options)
+        self.assertNotIn("writeautomaticsub", options)
+        self.assertNotIn("subtitleslangs", options)
+        self.assertNotIn("convertsubtitles", options)
+
+    def test_best_effort_inspection_accepts_missing_or_wrong_language_caption(self):
+        base_item = dataset.validate_manifest({"items": [{
+            "url": "https://youtu.be/dQw4w9WgXcQ",
+            "profile": "youtube_interviews",
+            "content_language": "en",
+            "languages": ["en"],
+            "require_caption": False,
+        }]})[0]
+
+        class FakeYDL:
+            def __init__(self, _options):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def extract_info(self, _url, download=False):
+                self.assert_download = download
+                return self.info
+
+            def sanitize_info(self, info):
+                return info
+
+        fake_module = mock.Mock()
+        fake_module.YoutubeDL = FakeYDL
+
+        for info, expected in [
+            ({"id": "dQw4w9WgXcQ", "duration": 1800, "subtitles": {},
+              "automatic_captions": {}}, "missing"),
+            ({"id": "dQw4w9WgXcQ", "duration": 1800,
+              "subtitles": {"fr": [{"ext": "vtt"}]},
+              "automatic_captions": {}}, "no_matching_language"),
+        ]:
+            FakeYDL.info = info
+            with self.subTest(expected=expected), mock.patch(
+                "youtube_dataset._import_yt_dlp", return_value=fake_module
+            ):
+                observed_info, caption = dataset.inspect_item(base_item)
+            self.assertIsNone(caption)
+            self.assertEqual(
+                dataset.caption_availability_status(
+                    observed_info, base_item["languages"], caption
+                ),
+                expected,
+            )
+
+        strict_item = base_item | {"require_caption": True}
+        FakeYDL.info = {"id": "dQw4w9WgXcQ", "duration": 1800,
+                        "subtitles": {}, "automatic_captions": {}}
+        with mock.patch("youtube_dataset._import_yt_dlp", return_value=fake_module), \
+                self.assertRaisesRegex(ValueError, "no acceptable platform caption"):
+            dataset.inspect_item(strict_item)
+
+    def test_captionless_sidecar_has_explicit_reason_and_no_fake_text_payload(self):
+        item = {
+            "profile": "youtube_interviews", "video_id": "dQw4w9WgXcQ",
+            "job_key": "job", "source_revision": "current",
+            "content_language": "en", "languages": ["en"],
+            "require_caption": False, "speaker_count": None,
+            "speaker_count_status": "needs_review",
+            "rights": {"status": "needs_review"},
+            "ai_generation": {"status": "unknown", "evidence": []},
+        }
+        info = {
+            "id": "dQw4w9WgXcQ", "title": "No captions", "duration": 1800,
+            "subtitles": {"fr": [{"ext": "vtt"}]}, "automatic_captions": {},
+        }
+        files = {
+            "video": {"path": "source.mp4", "bytes": 1, "sha256": "0" * 64},
+            "audio": {"path": "audio.wav", "bytes": 1, "sha256": "1" * 64},
+        }
+        sidecar = dataset.build_parent_sidecar(
+            item, info, None, files, yt_dlp_version="test"
+        )
+        self.assertEqual(sidecar["caption"]["status"], "no_matching_language")
+        self.assertFalse(sidecar["caption"]["required"])
+        self.assertIsNone(sidecar["caption"]["kind"])
+        self.assertIsNone(sidecar["caption"]["text_source"])
+        self.assertEqual(set(sidecar["files"]), {"video", "audio"})
+
+    def test_captionless_download_writes_only_media_and_metadata(self):
+        item = dataset.validate_manifest({"items": [{
+            "url": "https://youtu.be/dQw4w9WgXcQ",
+            "profile": "youtube_interviews",
+            "content_language": "en",
+            "languages": ["en"],
+            "require_caption": False,
+            "rights": {"status": "needs_review"},
+        }]})[0]
+        info = {
+            "id": item["video_id"], "title": "No caption", "duration": 1800,
+            "subtitles": {}, "automatic_captions": {},
+        }
+        observed_options = []
+
+        class FakeYDL:
+            def __init__(self, options):
+                observed_options.append(options)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def extract_info(self, _url, download=True):
+                output = Path(observed_options[-1]["outtmpl"].replace("%(ext)s", "mp4"))
+                output.write_bytes(b"fake-video")
+                return info
+
+            def sanitize_info(self, value):
+                return value
+
+        fake_module = mock.Mock()
+        fake_module.YoutubeDL = FakeYDL
+        fake_module.version.__version__ = "test"
+        video_probe = {
+            "streams": [{"codec_type": "video"}, {"codec_type": "audio"}],
+            "format": {"duration": "1800"},
+        }
+        with tempfile.TemporaryDirectory() as temp, mock.patch(
+            "youtube_dataset._import_yt_dlp", return_value=fake_module
+        ), mock.patch(
+            "youtube_dataset._extract_wav", side_effect=lambda _video, target: target.write_bytes(b"wav")
+        ), mock.patch(
+            "youtube_dataset.probe_media", return_value=video_probe
+        ), mock.patch("youtube_dataset._validate_bundle"):
+            destination = Path(temp) / item["job_key"]
+            result = dataset._download_item_locked(
+                item, Path(temp), info, None, destination=destination
+            )
+            produced_names = sorted(path.name for path in destination.iterdir())
+            metadata = json.loads(
+                (destination / "metadata.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(result, destination.resolve())
+        self.assertNotIn("writesubtitles", observed_options[0])
+        self.assertEqual(produced_names, ["audio.wav", "metadata.json", "source.mp4"])
+        self.assertEqual(metadata["caption"]["status"], "missing")
+        self.assertEqual(set(metadata["files"]), {"video", "audio"})
+
     def test_cli_accepts_repeatable_video_filter(self):
         args = dataset.build_parser().parse_args(
             ["download", "--manifest", "sources.json", "--video-id", "dQw4w9WgXcQ",
@@ -282,6 +458,65 @@ class YoutubeDatasetTests(unittest.TestCase):
             report = dataset.audit_dataset(root)
             self.assertEqual(report["failure_count"], 1)
             self.assertIn("escapes", report["failures"][0]["error"])
+
+    @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg required")
+    def test_captionless_parent_bundle_audits_without_placeholder_text(self):
+        with tempfile.TemporaryDirectory() as root_text:
+            root = Path(root_text)
+            job_key = "dQw4w9WgXcQ-youtube_interviews-en-best-effort"
+            parent = root / "interviews" / "dQw4w9WgXcQ" / "en" / job_key
+            parent.mkdir(parents=True)
+            video = parent / "source.mp4"
+            subprocess.run(
+                [
+                    "ffmpeg", "-nostdin", "-loglevel", "error", "-y",
+                    "-f", "lavfi", "-i", "color=c=black:s=320x180:r=25:d=2",
+                    "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=16000:duration=2",
+                    "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+                    str(video),
+                ],
+                check=True,
+            )
+            audio = parent / "audio.wav"
+            subprocess.run(
+                [
+                    "ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(video),
+                    "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(audio),
+                ],
+                check=True,
+            )
+            files = {
+                name: {"path": path.name, "bytes": path.stat().st_size,
+                       "sha256": dataset.sha256_file(path)}
+                for name, path in {"video": video, "audio": audio}.items()
+            }
+            dataset.write_json_atomic(parent / "metadata.json", {
+                "schema_version": 1,
+                "asset_type": "youtube_parent",
+                "profile": "youtube_interviews",
+                "job_key": job_key,
+                "source_id": "dQw4w9WgXcQ",
+                "duration_seconds": 2.0,
+                "language": "en",
+                "speaker_count": None,
+                "speaker_count_status": "needs_review",
+                "caption": {
+                    "status": "missing", "required": False,
+                    "kind": None, "text_source": None,
+                    "requested_languages": ["en"], "track_language": None,
+                },
+                "rights": {"status": "needs_review"},
+                "rights_cleared": False,
+                "ai_generation": {"status": "unknown", "evidence": []},
+                "files": files,
+                "toolchain": {},
+            })
+
+            report = dataset.audit_dataset(root)
+
+        self.assertEqual(report["failure_count"], 0, report["failures"])
+        self.assertEqual(report["counts"]["caption_status:missing"], 1)
+        self.assertNotIn("caption_kind:None", report["counts"])
 
     @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg required")
     def test_synthetic_screen_bundle_clips_and_audits(self):

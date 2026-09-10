@@ -86,7 +86,7 @@ downloads/
 └── youtube/<category>/<source-id>/<job-key>/
     ├── source.mp4
     ├── audio.wav
-    ├── captions.*.vtt/.txt
+    ├── captions.*.vtt/.txt  # 有同语言平台字幕时
     └── metadata.json
 ```
 
@@ -103,6 +103,10 @@ downloads/
 
 自动字幕不证明视频或音频由 AI 生成。平台 manual 也不等于逐字人工验真。字幕必须
 与内容语言同族；中文/普通话/粤语内容不能用英文字幕兜底。
+
+YouTube 清单通过 `require_caption` 决定字幕是硬门禁还是 best effort。缺失字幕的完整
+母视频只能在 `require_caption=false` 时完成，并必须以 `missing` 或
+`no_matching_language` 保留原因；不创建假 VTT/TXT。外部请求异常始终进入失败路径。
 
 ## 当前正式命令
 
