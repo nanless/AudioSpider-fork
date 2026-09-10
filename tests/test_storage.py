@@ -365,6 +365,89 @@ class StorageTests(unittest.TestCase):
             [("downloading", "worker-a"), ("downloading", "worker-b")],
         )
 
+    def test_expired_lease_recovery_is_scoped_to_current_claim(self):
+        storage = Storage(self.db_path)
+        storage.add_urls_batch([
+            AudioRecord(
+                url="https://example.test/youtube", source="youtube",
+                category="访谈", language="en", artifact_kind="video_bundle",
+                job_key="youtube-job",
+            ),
+            AudioRecord(
+                url="https://example.test/bilibili", source="bilibili",
+                category="访谈", language="zh", artifact_kind="video_bundle",
+                job_key="bilibili-job",
+            ),
+        ])
+        youtube = storage.claim_pending(
+            1, "youtube-worker", 3600, source="youtube",
+            artifact_kind="video_bundle",
+        )[0]
+        bilibili = storage.claim_pending(
+            1, "bilibili-worker", 3600, source="bilibili",
+            artifact_kind="video_bundle",
+        )[0]
+        storage._get_conn().execute(
+            "UPDATE audio_urls SET lease_expires_at=? WHERE id IN (?,?)",
+            ("2000-01-01T00:00:00+00:00", youtube["id"], bilibili["id"]),
+        )
+        storage._get_conn().commit()
+
+        reclaimed = storage.claim_pending(
+            1, "new-bilibili-worker", 3600, source="bilibili",
+            category="访谈", language="zh", artifact_kind="video_bundle",
+        )
+
+        self.assertEqual([row["id"] for row in reclaimed], [bilibili["id"]])
+        rows = storage._get_conn().execute(
+            "SELECT id, status, claimed_by FROM audio_urls ORDER BY id"
+        ).fetchall()
+        self.assertEqual(
+            [(row["id"], row["status"], row["claimed_by"]) for row in rows],
+            [
+                (youtube["id"], "downloading", "youtube-worker"),
+                (bilibili["id"], "downloading", "new-bilibili-worker"),
+            ],
+        )
+
+    def test_renew_claims_only_updates_active_rows_owned_by_worker(self):
+        storage = Storage(self.db_path)
+        storage.add_urls_batch([
+            AudioRecord(url="https://example.test/a", source="test"),
+            AudioRecord(url="https://example.test/b", source="test"),
+            AudioRecord(url="https://example.test/c", source="test"),
+        ])
+        claimed = storage.claim_pending(2, "worker-a", 3600)
+        other = storage.claim_pending(1, "worker-b", 3600)[0]
+        first, completed = claimed
+        storage.finalize_download(
+            completed["url"], "/tmp/completed", "wav", 1, "hash-completed"
+        )
+        storage._get_conn().execute(
+            "UPDATE audio_urls SET lease_expires_at=? WHERE status='downloading'",
+            ("2000-01-01T00:00:00+00:00",),
+        )
+        storage._get_conn().commit()
+
+        renewed = storage.renew_claims(
+            [first["id"], completed["id"], other["id"]], "worker-a", 3600
+        )
+
+        self.assertEqual(renewed, 1)
+        rows = storage._get_conn().execute(
+            "SELECT id, status, claimed_by, lease_expires_at FROM audio_urls ORDER BY id"
+        ).fetchall()
+        by_id = {row["id"]: row for row in rows}
+        self.assertGreater(
+            by_id[first["id"]]["lease_expires_at"],
+            "2000-01-01T00:00:00+00:00",
+        )
+        self.assertEqual(by_id[completed["id"]]["status"], "done")
+        self.assertEqual(
+            by_id[other["id"]]["lease_expires_at"],
+            "2000-01-01T00:00:00+00:00",
+        )
+
     def test_finalize_download_deduplicates_transactionally(self):
         storage = Storage(self.db_path)
         storage.add_urls_batch([

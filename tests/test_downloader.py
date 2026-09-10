@@ -202,5 +202,40 @@ class DownloaderTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["bundle_path"], bundle)
         self.assertEqual(row["local_path"], result["local_path"])
 
+    async def test_long_batch_renews_claims_until_downloads_finish(self):
+        storage = self.storage()
+        storage.add_url(AudioRecord(
+            url="https://example.test/lease", source="test", file_format="wav",
+        ))
+        downloader_instance = Downloader(
+            storage, max_workers=1, convert=False,
+            allow_private_network=True, min_disk_free_bytes=0,
+        )
+        renewed = asyncio.Event()
+        event_loop = asyncio.get_running_loop()
+        original_renew = storage.renew_claims
+
+        def renew(record_ids, worker_id, lease_seconds):
+            result = original_renew(record_ids, worker_id, lease_seconds)
+            event_loop.call_soon_threadsafe(renewed.set)
+            return result
+
+        async def wait_for_heartbeat(*_args):
+            await asyncio.wait_for(renewed.wait(), timeout=1)
+
+        with (
+            mock.patch.object(storage, "renew_claims", side_effect=renew) as renew_mock,
+            mock.patch.object(
+                downloader_instance, "_lease_heartbeat_interval", return_value=0.01,
+            ),
+            mock.patch.object(
+                downloader_instance, "_download_one", side_effect=wait_for_heartbeat,
+            ),
+        ):
+            await downloader_instance.download_all(limit=1)
+
+        self.assertGreaterEqual(renew_mock.call_count, 1)
+        self.assertEqual(renew_mock.call_args.args[1], downloader_instance.worker_id)
+
 if __name__ == "__main__":
     unittest.main()

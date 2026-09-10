@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- 修复长视频批次超过两小时后 lease 过期、被其他来源 downloader 误回收的问题：活跃批次现在周期性续租，过期回收也限制在当前领取过滤范围内。
+
 ### 统一媒体队列
 
 - 正式主路径统一为 `collect.py -> audiospider.db -> main.py -> downloads/<source>/<category>/`；

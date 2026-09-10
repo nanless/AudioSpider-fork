@@ -67,6 +67,8 @@ pending  ──原子领取──> downloading ───────────
 
 - 领取在 `BEGIN IMMEDIATE` 事务内完成，避免多个 worker 拿到同一任务。
 - 只有 lease 过期的 `downloading` 任务会被回收。
+- 活跃 downloader 会周期性续租本批已经领取但尚未完成的全部记录；默认每 60 秒一次。
+- 过期回收沿用本次领取的来源、类别、语言、时间和产物类型过滤器，不会因启动 B 站任务而改写 YouTube 队列。
 - 旧版数据库中没有 lease 的 `downloading` 记录会在迁移时恢复为 pending。
 - `retry-failed` 会重新领取 failed 记录，应当设置小批次。
 

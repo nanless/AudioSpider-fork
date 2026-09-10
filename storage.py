@@ -551,11 +551,18 @@ class Storage:
         lease_text = (now + timedelta(seconds=lease_seconds)).isoformat()
         conn.execute("BEGIN IMMEDIATE")
         try:
+            expired_conditions, expired_params = self._filters(
+                "downloading", source, category, language,
+                published_since, published_before, artifact_kind,
+            )
+            expired_conditions.extend([
+                "COALESCE(lease_expires_at, '')!=''",
+                "lease_expires_at<=?",
+            ])
             conn.execute(
                 "UPDATE audio_urls SET status='pending', claimed_by='', claimed_at='', "
-                "lease_expires_at='' WHERE status='downloading' "
-                "AND lease_expires_at!='' AND lease_expires_at<=?",
-                (now_text,),
+                f"lease_expires_at='' WHERE {' AND '.join(expired_conditions)}",
+                (*expired_params, now_text),
             )
             records = self._select_records(
                 conn, status, limit, source, category, language, group_col,
@@ -603,6 +610,38 @@ class Storage:
             "failed", limit, worker_id, lease_seconds, source=source,
             artifact_kind=artifact_kind,
         )
+
+    def renew_claims(self, record_ids: list[int], worker_id: str,
+                     lease_seconds: int) -> int:
+        """Extend active claims owned by one worker; completed rows are untouched."""
+
+        if not worker_id:
+            raise ValueError("worker_id must not be empty")
+        if lease_seconds <= 0:
+            raise ValueError("lease_seconds must be positive")
+        ids = sorted(set(record_ids))
+        if any(type(record_id) is not int or record_id <= 0 for record_id in ids):
+            raise ValueError("record_ids must contain positive integers")
+        if not ids:
+            return 0
+        lease_text = (
+            self._utc_now() + timedelta(seconds=lease_seconds)
+        ).isoformat()
+        placeholders = ",".join("?" for _ in ids)
+        conn = self._get_conn()
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            cursor = conn.execute(
+                f"UPDATE audio_urls SET lease_expires_at=? "
+                f"WHERE status='downloading' AND claimed_by=? "
+                f"AND id IN ({placeholders})",
+                (lease_text, worker_id, *ids),
+            )
+            conn.commit()
+            return cursor.rowcount
+        except Exception:
+            conn.rollback()
+            raise
 
     def update_status(self, url: str, status: str, local_path: str = "",
                       job_key: str | None = None):

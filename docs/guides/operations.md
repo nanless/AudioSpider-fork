@@ -10,6 +10,8 @@ collect/discover  →  audiospider.db  →  main.py
 
 不要一开始同时运行所有来源、多个 downloader 和高并发 ffmpeg。
 
+不同来源可以各自运行一个 downloader。每个进程会为自己领取的整批任务续租，且只在自己的过滤范围内回收过期任务；因此 B 站与 YouTube 长视频批次不会互相重置状态。不要为同一来源、同一过滤条件重复启动两个进程。
+
 ## 启动前检查
 
 ```bash

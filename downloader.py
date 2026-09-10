@@ -3,6 +3,7 @@
 """批量下载器：连接池复用、并发可调、断点续传、进度条、内容指纹去重、自动格式转换"""
 
 import asyncio
+from contextlib import suppress
 import hashlib
 import json
 import logging
@@ -211,6 +212,30 @@ class Downloader:
         self.stats = {"success": 0, "failed": 0, "skipped": 0, "dup": 0}
         self._connector = None
 
+    @staticmethod
+    def _lease_heartbeat_interval() -> float:
+        return max(1.0, min(60.0, DOWNLOAD_LEASE_SECONDS / 3))
+
+    async def _lease_heartbeat(self, record_ids: list[int]) -> None:
+        """Keep every still-active row in this claimed batch from expiring."""
+
+        while True:
+            await asyncio.sleep(self._lease_heartbeat_interval())
+            try:
+                renewed = await asyncio.to_thread(
+                    self.storage.renew_claims,
+                    record_ids,
+                    self.worker_id,
+                    DOWNLOAD_LEASE_SECONDS,
+                )
+                logger.debug("续租 %d 个下载任务", renewed)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                # A transient SQLite lock must not abort long media transfers.
+                # The next heartbeat retries well before the two-hour default.
+                logger.warning("下载任务 lease 续租暂时失败: %s", type(exc).__name__)
+
     async def download_all(
         self,
         limit: int = 50,
@@ -249,24 +274,44 @@ class Downloader:
             f"视频包={bundle_count}, 音频保存={fmt_hint})..."
         )
 
-        self._connector = aiohttp.TCPConnector(limit=self.max_workers, limit_per_host=3)
-        async with aiohttp.ClientSession(connector=self._connector) as session:
-            # B站需要先获取 cookie
-            has_bilibili = any(item.get("source") == "bilibili" for item in pending)
-            if has_bilibili:
-                try:
-                    async with session.get(
-                        "https://www.bilibili.com",
-                        headers=BILIBILI_HEADERS,
-                        timeout=aiohttp.ClientTimeout(total=10),
-                        **proxy_request_kwargs(self.bilibili_proxy),
-                    ) as response:
-                        await response.read()
-                except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-                    logger.warning(f"B站 cookie 预热失败，将继续下载: {exc}")
+        record_ids = [
+            item["id"] for item in pending
+            if type(item.get("id")) is int and item["id"] > 0
+        ]
+        heartbeat = (
+            asyncio.create_task(self._lease_heartbeat(record_ids))
+            if record_ids else None
+        )
 
-            tasks = [self._download_one(session, item, i + 1, total) for i, item in enumerate(pending)]
-            await asyncio.gather(*tasks)
+        try:
+            self._connector = aiohttp.TCPConnector(
+                limit=self.max_workers, limit_per_host=3
+            )
+            async with aiohttp.ClientSession(connector=self._connector) as session:
+                # B站需要先获取 cookie
+                has_bilibili = any(item.get("source") == "bilibili" for item in pending)
+                if has_bilibili:
+                    try:
+                        async with session.get(
+                            "https://www.bilibili.com",
+                            headers=BILIBILI_HEADERS,
+                            timeout=aiohttp.ClientTimeout(total=10),
+                            **proxy_request_kwargs(self.bilibili_proxy),
+                        ) as response:
+                            await response.read()
+                    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+                        logger.warning(f"B站 cookie 预热失败，将继续下载: {exc}")
+
+                tasks = [
+                    self._download_one(session, item, i + 1, total)
+                    for i, item in enumerate(pending)
+                ]
+                await asyncio.gather(*tasks)
+        finally:
+            if heartbeat is not None:
+                heartbeat.cancel()
+                with suppress(asyncio.CancelledError):
+                    await heartbeat
 
         done = self.stats["success"] + self.stats["skipped"] + self.stats["dup"]
         logger.info(
