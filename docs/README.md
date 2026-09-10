@@ -33,6 +33,7 @@
 - [统一采集与下载指南](DOWNLOAD-GUIDE.md)
 - [YouTube 完整母视频兼容工具说明](guides/youtube-datasets.md)
 - [B站视频 bundle 兼容工具说明](guides/bilibili-video-datasets.md)
+- [150 个中英文完整访谈批次运行手册](guides/interview-batches-150.md)
 
 ## 第 3 层：接口参考
 
@@ -108,6 +109,13 @@
 2. [统一 Sidecar Schema](SIDECAR-SCHEMA.md)
 3. [统一媒体架构](architecture.md)
 4. [安全边界](design/security.md)
+
+### 我要运行 B站 100 条 + YouTube 50 条访谈批次
+
+1. [150 个中英文完整访谈批次运行手册](guides/interview-batches-150.md)
+2. [B站完整视频指南](guides/bilibili-video-datasets.md)
+3. [YouTube 完整视频指南](guides/youtube-datasets.md)
+4. [统一 Sidecar Schema](SIDECAR-SCHEMA.md)
 
 ## 文档验证
 

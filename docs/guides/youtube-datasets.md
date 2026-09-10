@@ -1,252 +1,262 @@
-# YouTube 完整视频与同语言平台字幕小白指南
+# YouTube 完整视频、WAV 与同语言字幕指南
 
-本页面向第一次接触命令行和数据集的人，讲清楚如何得到以下两类数据：
-
-- 长访谈/播客：保留整段视频、整段 WAV、平台字幕、纯文本和 JSON；
-- 影视/节目视频：保留完整父视频、完整 WAV、同语言平台字幕、文本和 JSON，不生成短 clip。
-
-## 1. 开始前必须知道的四件事
-
-第一，`公开可播放` 不等于 `可以再分发或用于训练`。清单中的 `rights.status=needs_review` 表示只是候选样本。是否允许训练、公开数据集或商业使用，需要根据许可证、授权和当地法律另行判断。
-
-第二，本工具不登录 YouTube，不使用 Cookie，不绕过 DRM、会员、付费、验证码、年龄或地区限制。访问不到就记录失败，不尝试突破平台控制。
-
-第三，平台字幕有两种：
-
-| sidecar 值 | 含义 | 建议用途 |
-|---|---|---|
-| `platform_manual` | 上传者或平台提供的人工字幕轨 | 可以作为较高质量参考，仍需抽查 |
-| `platform_auto` | YouTube 自动语音识别字幕 | 只能当弱标签，训练前建议清洗 |
-
-第四，说话人数不会从标题猜。没有人工核验时一定保存为 `speaker_count=null` 和 `speaker_count_status=needs_review`。
-
-第五，是否 AI 生成也不能只凭听感断言。没有平台/作者声明或可复核检测证据时保存 `ai_generation.status=unknown`；详细取值见 [YouTube sidecar 参考](../reference/youtube-sidecars.md)。
-
-## 2. 环境准备
-
-```bash
-cd /root/code/github_repos/AudioSpider-fork
-source /root/miniforge3/etc/profile.d/conda.sh
-conda activate audiospider
-python --version
-yt-dlp --version
-ffmpeg -version | head -n 1
-```
-
-如果 `yt-dlp` 不存在，更新环境：
-
-```bash
-bash scripts/bootstrap_conda.sh
-```
-
-当前锁定版本见 `requirements-lock.txt`。不要在系统 Python 中随意安装依赖。
-
-中国大陆网络通常不能直连 YouTube。若组织已经提供合规代理，可在当前终端临时设置 `HTTPS_PROXY`/`HTTP_PROXY`；不要把带用户名、密码或 token 的代理地址写进仓库、清单、sidecar 或日志。
-
-## 3. 复制并填写来源清单
-
-先复制示例：
-
-```bash
-cp config/youtube_sources.example.json /tmp/my-youtube-sources.json
-```
-
-每个 `items` 元素代表一个公开视频：
-
-```json
-{
-  "url": "https://www.youtube.com/watch?v=视频ID",
-  "profile": "youtube_screen_clips",
-  "content_language": "yue",
-  "languages": ["yue", "zh-Hant", "zh-HK", "zh"],
-  "require_caption": false,
-  "speaker_count": null,
-  "speaker_count_status": "needs_review",
-  "program": "节目或影视名称",
-  "rights": {
-    "status": "needs_review",
-    "source": "官方频道公开视频",
-    "evidence_url": "规范视频页面"
-  }
-}
-```
-
-字段解释：
-
-- `url`：只接受单视频 `https://youtube.com/watch?v=...` 或 `https://youtu.be/...`，不接受播放列表和任意网站。
-- `profile`：长访谈用 `youtube_interviews`；影视/节目父视频沿用兼容名称 `youtube_screen_clips`，但下载动作只产生完整父视频。
-- `content_language`：音视频对白的主要语言；粤语写 `yue`，简体中文可写 `zh-Hans`。
-- `languages`：字幕选择优先顺序，必须与对白语言一致。英文内容只能列英文；中文/粤语内容只能列中文或粤语；日语、韩语同样只列本语言。
-- `require_caption`：本条任务是否必须有同语言字幕。省略默认为 `true`，保持历史严格行为；
-  “尽量获取，无字幕也保留”必须显式填 `false`。
-- `speaker_count`：只有人工看过并确认时才填整数。
-- `speaker_count_status`：有整数时必须是 `verified_manual`；未知必须是 `needs_review`。
-- `rights`：来源与权利证据。`needs_review` 不会被误写成已经获权。
-
-长访谈的人工说话人数必须在 2–11；影视目标片段必须在 1–6。未核验样本可以作为候选下载，但不能算作已通过人数验收的数据。
-
-## 4. 第一步只探测，不下载
-
-```bash
-python youtube_dataset.py \
-  --output downloads/youtube-candidates \
-  inspect \
-  --manifest /tmp/my-youtube-sources.json
-```
-
-命令会逐条读取标题、频道、时长和字幕轨，输出一次独立的 JSONL：
+当前 YouTube 数据的**唯一正式路径**是：
 
 ```text
-downloads/youtube-candidates/manifests/inspect-时间-runid.jsonl
+受控 manifest -> collect.py -> audiospider.db -> main.py
+              -> downloads/youtube/<category>/<source_id>/<job_key>/
 ```
 
-重点检查：
+正式任务下载完整母视频，不自动切 clip。`youtube_dataset.py` 是兼容、修复和审计底层
+工具，不是新批次的任务编排入口，也不能再把 `downloads/youtube-candidates/` 当作正式
+数据根目录。
 
-- `status=accepted`；
-- 长访谈 `duration_seconds` 在 1530–3636 秒；
-- 有字幕时，`caption.kind` 是 `manual` 或 `automatic`，且 `text_source` 一致；
-- best-effort 无字幕时，`caption.status` 是 `missing` 或 `no_matching_language`；
-- `content_language` 没有被英文字幕错误覆盖；
-- `rights_cleared=false` 的候选没有被当作已授权数据。
+## 1. 一个正式父视频包含什么
 
-严格任务没有可接受字幕时失败；best-effort 任务则仍被接受。直播、待开播、时长不合法、
-非单视频 URL 或平台请求错误始终失败。
-
-## 5. 下载父视频、音频和字幕
-
-```bash
-python youtube_dataset.py \
-  --output downloads/youtube-candidates \
-  download \
-  --manifest /tmp/my-youtube-sources.json
-```
-
-只下载清单中的一条可追加 `--video-id`；多条时重复参数：
-
-```bash
-python youtube_dataset.py --output downloads/youtube-candidates download \
-  --manifest /tmp/my-youtube-sources.json \
-  --video-id b2f2Kqt_KcE --video-id KAKkwvZ96eU
-```
-
-工具限制为单视频、最高 720p、最大 8 GiB，不读浏览器 Cookie。每条数据先在 `.staging` 目录生成；视频、WAV、字幕、文本和 metadata 全部完成后才整体移动到最终目录。
-对 `require_caption=false` 的无字幕任务，闭包只有 `source.mp4`、`audio.wav` 和
-`metadata.json`；工具不会生成空白字幕或伪转写。
-
-长访谈目录示例：
+有同语言平台字幕时：
 
 ```text
-downloads/youtube-candidates/interviews/VIDEO_ID/en/JOB_KEY/
+downloads/youtube/访谈/<video_id>/<job_key>/
 ├── source.mp4
 ├── audio.wav
-├── captions.en.manual.vtt
+├── captions.en.manual.vtt       # 或 automatic
 ├── captions.en.manual.txt
 └── metadata.json
 ```
 
-影视父视频目录位于 `screen_sources/`，结构相同。
+没有同语言字幕且 manifest 明确写 `require_caption=false` 时：
 
-`audio.wav` 固定为 16 kHz、单声道、PCM16，适合大多数 ASR/VAD/说话人任务。`source.mp4` 保留画面和音轨，必要时会由 ffmpeg 规范为 MP4。
-
-重跑同一个清单时，如果最终 `metadata.json` 已存在，会复用已完成 bundle，不重复下载。未完成的确定性 staging 会保留 `.part` 和脱敏 `failure.json` 以便续传；每次运行的结果写入新的 `download-*.jsonl`，不会覆盖旧运行记录。
-
-## 6. 当前正式流程不生成 clip
-
-不要为当前视频数据集运行 `clip`。命令行现在默认拒绝 clip，只有用户明确提出短片需求时，才可以额外提供 `--allow-clips`：
-
-```bash
-PARENT='downloads/youtube-candidates/screen_sources/VIDEO_ID/字幕语言/JOB_KEY'
-python youtube_dataset.py \
-  --output downloads/youtube-candidates \
-  clip --parent "$PARENT" --max-clips 100 --allow-clips
+```text
+downloads/youtube/访谈/<video_id>/<job_key>/
+├── source.mp4
+├── audio.wav
+└── metadata.json                # caption.status=missing 或 no_matching_language
 ```
 
-这只是向后兼容的底层能力，不属于本项目当前下载流程。历史生成的 clips 已从正式数据集移到 `archive/youtube-clips-20260910/`，未删除，可恢复。
+两种情况都必须是完整母视频和完整 WAV；无字幕样本不会生成空 VTT、空 TXT，也不会用
+本地 ASR 结果冒充 YouTube 平台字幕。
 
-## 7. 全量审计
-
-```bash
-python youtube_dataset.py --output downloads/youtube-candidates audit
-```
-
-审计会：
-
-- 对每个 MP4/WAV 调用 ffprobe；
-- 对每个文件重算 SHA-256；
-- 验证 sidecar 内相对路径没有越界；
-- 验证 VTT 至少有一个有效 cue；
-- 平台原始字幕若仅在结尾轻微超出媒体，会作为 warning 保留原件；派生片段会严格裁到父视频实际结尾；
-- 检查 sidecar 是否意外保存 `token=`、`sig=`、`expire=` 等临时签名；
-- 汇总 profile、语言、人工/自动字幕和说话人数核验状态；
-- 正式父视频与字幕语言不一致时直接失败。
-
-`failure_count=0` 才表示文件闭包通过。它不代表权利已经确认，也不代表自动字幕文字百分之百正确。
-
-旧 bundle 若因字幕规范化规则升级出现“VTT 与 TXT 不一致”，可从保留的原始 VTT 安全重建派生文本：
+## 2. 运行前检查
 
 ```bash
-python youtube_dataset.py repair-parent --parent "$PARENT"
+ssh dev_L4_1gpus
+cd /root/code/github_repos/AudioSpider-fork
+source /root/miniforge3/etc/profile.d/conda.sh
+conda activate audiospider
+
+python doctor.py
+yt-dlp --version
+ffmpeg -version | head -n 1
+python main.py stats
+df -h .
 ```
 
-该命令会先核验父视频、WAV 和 VTT 的既有字节数与 SHA-256，只重建 TXT、媒体探针字段和对应 sidecar；源视频和原始平台 VTT 不会被改写。
+工具不登录 YouTube、不读取浏览器 Cookie，也不绕过 DRM、会员、付费、验证码、年龄或
+地区限制。网络不可达时记录失败，不把失败伪装成“无字幕”。
 
-整批 schema/provenance 升级使用：
+正式采集前先验证服务器出口：
 
 ```bash
-python youtube_dataset.py --output downloads/youtube-candidates repair-dataset
+timeout 20 curl -I https://www.youtube.com
 ```
 
-它会修复全部父 bundle 的派生字段；媒体与原始 VTT 仍保持不变。
+若返回 `Network is unreachable` 或超时，必须先取得用户批准的合规 HTTP(S) 代理或
+任务期临时受限隧道。凭据只放当前进程环境，不写 `.env`、Git、SQLite、日志或 sidecar。
 
-## 8. 怎么判断自动字幕
+## 3. 编写受控 manifest
 
-不要看文件名猜，直接查 JSON：
+正式清单建议放在 `config/`。英文访谈示例：
+
+```json
+{
+  "items": [
+    {
+      "url": "https://www.youtube.com/watch?v=VIDEO_ID",
+      "profile": "youtube_interviews",
+      "content_language": "en",
+      "languages": ["en"],
+      "require_caption": false,
+      "max_parent_duration_seconds": 3636,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "rights": {
+        "status": "needs_review",
+        "source": "public_video_page",
+        "evidence_url": "https://www.youtube.com/watch?v=VIDEO_ID"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      }
+    }
+  ]
+}
+```
+
+字段要点：
+
+- `url` 只接受无凭据的单视频 URL，不接受 playlist、直播或待开播视频。
+- `profile=youtube_interviews` 会按 25.5–60.6 分钟长访谈策略核验完整母视频。
+- `content_language=en` 表示内容主要语言为英文。
+- `languages=["en"]` 只选择英文同族字幕，不用其他语言兜底。
+- `require_caption=false` 表示同语言字幕 best effort；没有时仍保留媒体。
+- 旧 manifest 未显式选择 best effort 时继续保持严格字幕语义。
+- `speaker_count=null` 表示尚未人工核验，不允许从标题猜人数。
+- `rights.status=needs_review` 表示公开可见但权利尚未清理。
+- `ai_generation.status=unknown` 与字幕是否自动生成没有因果关系。
+
+`require_caption`、语言策略、profile 和来源修订会进入不可变 `job_key` 身份。同一个视频
+采用不同策略时不会互相覆盖。
+
+## 4. 正式采集：只入 SQLite，不下载视频
 
 ```bash
-python - <<'PY'
-import json
-from pathlib import Path
-
-for path in Path('downloads/youtube-candidates').glob('**/metadata.json'):
-    data = json.loads(path.read_text(encoding='utf-8'))
-    caption = data.get('caption') or {}
-    print(path, caption.get('kind'), caption.get('text_source'))
-PY
+AUDIOSPIDER_YOUTUBE_MANIFEST=config/youtube_interviews_50_20260910.json \
+AUDIOSPIDER_YOUTUBE_MAX_ITEMS=50 \
+AUDIOSPIDER_YOUTUBE_INSPECT_TIMEOUT=120 \
+python collect.py --spiders youtube
 ```
 
-以下组合是合法的：
+`collect.py` 会在可终止子进程中逐条核验：
 
-- `manual + platform_manual`；
-- `automatic + platform_auto`。
+- URL 是完整单视频且 video ID 稳定；
+- 不是 live/upcoming；
+- 时长符合 profile 和单项上限；
+- 内容语言/字幕语言策略合法；
+- 有英文人工或自动字幕时选择同语言轨；
+- 没有英文字幕时，仅当 `require_caption=false` 才把无字幕事实入队。
 
-如果出现交叉组合，说明数据损坏或 sidecar 被手工改错，应从正式数据集中隔离。
+检查队列：
 
-## 9. 常见问题
+```bash
+python main.py stats
+sqlite3 -readonly audiospider.db \
+  "SELECT status,COUNT(*) FROM audio_urls WHERE source='youtube' AND artifact_kind='video_bundle' AND category='访谈' AND language='en' GROUP BY status;"
+```
 
-### 为什么下载很慢
+采集日志中的“清单 50 项”不等于“新增 50 项”：重复 `job_key` 不会重复插入，网络失败、
+下架、直播或时长不合格项也不会静默算成功。
 
-长访谈包含 25–60 分钟视频，还要额外解出整段 WAV。代理出口、YouTube 分片速度、ffmpeg 和磁盘都可能成为瓶颈。先用 1–3 个视频验证，不要直接给数百个 URL。
+## 5. 正式下载：完整母视频，不生成 clip
 
-### 为什么只拿到英文字幕
+第一次只下载一条：
 
-英文内容只选英文字幕，中文/粤语内容只选中文或粤语字幕。若只有其他语言轨，
-严格任务拒绝；best-effort 任务保留完整媒体并写 `no_matching_language`，但绝不用跨语言字幕兜底。
+```bash
+python main.py --source youtube --artifact-kind video_bundle \
+  --category 访谈 --language en --limit 1 --workers 1 --format original
+```
 
-### 为什么某个视频被拒绝
+通过抽查后再扩量：
 
-查看最新 `manifests/inspect-*.jsonl` 或 `download-*.jsonl`。常见原因是严格任务没有平台字幕、
-长访谈时长越界、直播、视频下架、地区不可用、代理失败或 YouTube 页面变化。
+```bash
+python main.py --source youtube --artifact-kind video_bundle \
+  --category 访谈 --language en --limit 10 --workers 2 --format original
+```
 
-### 可以把 `needs_review` 数据公开吗
+`main.py` 在下载时重新解析可用格式，以最高 720p 等项目上限选择视频/音频并产出完整
+MP4；随后生成 16 kHz mono PCM16 WAV。有字幕时同时获取选择的英文轨并派生 TXT。
 
-不能根据这个工具的结果得出可以公开的结论。`needs_review` 就是尚未确认。应让数据负责人/法务检查许可证、授权范围、训练用途和再分发条款，确认后再更新权利状态与证据。
+这里不运行 `clip`。即使兼容工具还保留历史 clip 能力，也只有用户另行明确提出短片
+需求时才能使用；短片不能代替或覆盖完整母视频。
 
-## 10. 推荐的批次节奏
+## 6. 字幕 best effort 的准确含义
 
-1. 清单先放 3 个长访谈、每种目标语言 1 个影视来源。
-2. 全部 inspect；严格集删除无字幕项，best-effort 集核对其 `caption.status`。
-3. download 1 个长访谈和 2 个影视父视频，不运行 `clip`。
-4. audit 为 0 后，人工抽看字幕语言和 A/V 同步。
-5. 再逐步增加到 10、50、100 个来源，并记录每批下载字节和失败率。
+优先顺序是同语言人工轨，再到同语言自动轨：
 
-详细字段定义见 [YouTube 数据集 sidecar](../reference/youtube-sidecars.md)，整体数据流见[数据流与状态机](../design/data-flow.md)。
+| `caption.kind` | `caption.text_source` | 含义 |
+|---|---|---|
+| `manual` | `platform_manual` | YouTube 普通字幕轨；仍建议抽查文本质量 |
+| `automatic` | `platform_auto` | YouTube 自动字幕，只能作为弱标签 |
+| `unknown` | `platform_unknown` | 平台证据不足，不能擅自改成人工或自动 |
+
+没有可接受英文轨时，best-effort sidecar 必须至少保存：
+
+```json
+{
+  "caption": {
+    "status": "missing",
+    "kind": null,
+    "text_source": null,
+    "track_language": null,
+    "requested_languages": ["en"],
+    "required": false
+  }
+}
+```
+
+具体字段可能随 schema 版本增加，但以下语义不能改变：
+
+- `missing` 表示平台没有可用字幕轨；`no_matching_language` 表示存在字幕轨、但没有英文同族轨；
+- 网络/解析失败必须作为下载失败或外部错误，不能降级成 `missing`；
+- 不允许创建假的 VTT/TXT 以满足文件数量；
+- 如果未来另跑本地 ASR，必须用独立 provenance 和独立产物名，不能写成 `platform_*`；
+- 自动字幕不证明视频内容由 AI 生成。
+
+## 7. 断点续跑与超时
+
+YouTube 核验和下载分别在可终止子进程内运行。常用硬超时：
+
+| 变量 | 默认 | 含义 |
+|---|---:|---|
+| `AUDIOSPIDER_YOUTUBE_INSPECT_TIMEOUT` | `120` 秒 | 单视频元数据/字幕核验 |
+| `AUDIOSPIDER_YOUTUBE_DOWNLOAD_TIMEOUT` | `14400` 秒 | 单完整 bundle 下载 |
+
+中断后：
+
+- SQLite lease 到期的 `downloading` 会按统一机制回收；
+- 完整 bundle 已提交为 `done` 时不会重复下载；
+- 未完成 staging 不会被计入正式完成数；
+- 已保存的恢复描述不含签名 URL；
+- 只对已分类的临时失败做有界重试。
+
+```bash
+python main.py --retry-failed --source youtube \
+  --artifact-kind video_bundle --limit 5 --workers 1 --format original
+```
+
+## 8. 统一审计与抽查
+
+```bash
+python scripts/audit_media_queue.py
+```
+
+该命令统一验证 YouTube 与 B站所有 `done video_bundle`：数据库/目录身份、MP4/WAV、
+字幕闭包、sidecar、字节数、SHA-256、content hash 和孤儿目录。
+
+抽查一个父视频：
+
+```bash
+ffprobe -v error -show_streams -show_format \
+  downloads/youtube/访谈/<video_id>/<job_key>/source.mp4
+ffprobe -v error -show_streams -show_format \
+  downloads/youtube/访谈/<video_id>/<job_key>/audio.wav
+python -m json.tool \
+  downloads/youtube/访谈/<video_id>/<job_key>/metadata.json
+```
+
+重点确认：视频时长是完整父视频、MP4 同时有视频与音频流、WAV 是 16 kHz mono PCM16、
+字幕语言为英文、`kind/text_source` 配对正确、无字幕样本没有伪造字幕文件。
+
+## 9. 权利、说话人数与 AI 状态
+
+- 公开视频不等于允许批量下载、训练、公开数据集或商业再分发。
+- `rights.status=needs_review` 不是已获权；必须保留并由数据负责人/法务审核。
+- 未人工核验时 `speaker_count=null`、`speaker_count_status=needs_review`。
+- `caption.kind=automatic` 只描述文本轨，不设置媒体 `ai_generation.status`。
+- 听感或模型输出最多支持 `suspected`，不能冒充来源声明。
+
+## 10. standalone CLI 什么时候还能用
+
+`youtube_dataset.py` 只用于：
+
+- 修复旧父 bundle 的可确定派生字段；
+- 审计或迁移历史 standalone 数据；
+- 为统一 handler 提供底层验证函数；
+- 用户明确要求的隔离兼容实验。
+
+新任务必须由 `collect.py` 入 `audiospider.db`，再由 `main.py` 下载到
+`downloads/youtube/...`。旧目录使用 `scripts/migrate_video_bundles.py` 默认 dry-run，
+确认后才 `--apply`，迁移结束再跑统一审计。
+
+本次 100+50 访谈批次的完整步骤见
+[150 个中英文完整访谈批次运行手册](interview-batches-150.md)。

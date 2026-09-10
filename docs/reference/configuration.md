@@ -41,6 +41,15 @@ python discover.py --source podcastindex --keywords news --pi-max-pages 1
 | `AUDIOSPIDER_YOUTUBE_INSPECT_TIMEOUT` | `120` | 单个 YouTube 元数据/字幕核验子进程硬超时（秒） |
 | `AUDIOSPIDER_YOUTUBE_DOWNLOAD_TIMEOUT` | `14400` | 单个 YouTube 完整 bundle 下载子进程硬超时（秒） |
 | `AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE` | `zh` | B站受控搜索批次的内容语言；英文批次显式设为 `en` |
+| `AUDIOSPIDER_BILIBILI_KEYWORDS` | `config.py` 列表 | 逗号分隔的本轮 B站搜索词 |
+| `AUDIOSPIDER_BILIBILI_REQUIRED_TITLE_TERMS` | 空 | 标题至少命中一个词才保留 |
+| `AUDIOSPIDER_BILIBILI_EXCLUDED_TITLE_TERMS` | 空 | 标题命中任一词就排除；仅是候选选择证据 |
+| `AUDIOSPIDER_BILIBILI_MAX_SEARCH_PAGES` | `5` | 每个搜索词最多页数 |
+| `AUDIOSPIDER_BILIBILI_MAX_VIDEOS_PER_KEYWORD` | `100` | 每个搜索词最多解析 BV 数 |
+| `AUDIOSPIDER_BILIBILI_MAX_PAGES_PER_VIDEO` | `200` | 每个 BV 最多入队分 P 数 |
+| `AUDIOSPIDER_BILIBILI_MAX_NEW_RECORDS` | `0` | 本轮真实新增任务上限；`0` 表示不额外限制 |
+| `AUDIOSPIDER_BILIBILI_MIN_DURATION_SECONDS` | `0` | 单分 P 最短时长 |
+| `AUDIOSPIDER_BILIBILI_MAX_DURATION_SECONDS` | `14400` | 单分 P 最长时长 |
 
 所有值必须是正整数字节或秒数。例如：
 
