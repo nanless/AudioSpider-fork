@@ -520,7 +520,10 @@ class AuditTests(unittest.TestCase):
             "status": "downloaded",
             "need_login_subtitle": False,
             "track_count": 1,
-            "tracks": [{"id_str": "1", "language": "ai-zh"}],
+            "tracks": [{
+                "id_str": "1", "language": "ai-zh", "track_type": 1,
+                "ai_type": 0, "ai_status": 0, "is_lock": False,
+            }],
             "inventory_attempt_count": 1,
             "inventory_attempts": [{
                 "attempt": 1, "inventory_status": "provided",
@@ -584,7 +587,10 @@ class AuditTests(unittest.TestCase):
             "tracks": [],
             "payload_status": "rejected",
             "rejected_track_count": 1,
-            "rejected_tracks": [{"id_str": "1", "language": "ai-zh"}],
+            "rejected_tracks": [{
+                "id_str": "1", "language": "ai-zh", "track_type": 1,
+                "ai_type": 0, "ai_status": 0, "is_lock": False,
+            }],
             "inventory_attempt_count": 1,
             "inventory_attempts": [{
                 "attempt": 1, "inventory_status": "provided",
@@ -726,6 +732,7 @@ class AuditTests(unittest.TestCase):
                         "language": "zh-Hans", "label": "中文",
                         "label_brief": "", "ai_type": 0, "ai_status": 0,
                         "author": {"mid": 9, "name": "字幕作者"},
+                        "is_lock": False,
                         "kind": "manual", "text_source": "platform_manual",
                         "selected_by_rule": "bilibili_cc_with_author",
                         "translation_kind": "normal",
@@ -749,6 +756,12 @@ class AuditTests(unittest.TestCase):
                 validate_bundle(bundle / "metadata.json")
             (extra / "secret.bin").unlink()
             extra.rmdir()
+            if hasattr(os, "mkfifo"):
+                fifo = bundle / "unexpected.pipe"
+                os.mkfifo(fifo)
+                with self.assertRaises(ValueError):
+                    validate_bundle(bundle / "metadata.json")
+                fifo.unlink()
             raw_real = raw.with_suffix(".real")
             raw.rename(raw_real)
             raw.symlink_to(raw_real.name)
@@ -770,6 +783,13 @@ class AuditTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_bundle(bundle / "metadata.json")
             metadata["caption"]["tracks"][0].pop("timeline_rejection")
+            write_json_atomic(bundle / "metadata.json", metadata)
+            validate_bundle(bundle / "metadata.json")
+            metadata["caption"]["tracks"][0]["ai_status"] = 99
+            write_json_atomic(bundle / "metadata.json", metadata)
+            with self.assertRaisesRegex(ValueError, "final inventory evidence"):
+                validate_bundle(bundle / "metadata.json")
+            metadata["caption"]["tracks"][0]["ai_status"] = 0
             write_json_atomic(bundle / "metadata.json", metadata)
             validate_bundle(bundle / "metadata.json")
             metadata = json.loads((bundle / "metadata.json").read_text(encoding="utf-8"))
@@ -820,6 +840,13 @@ class AuditTests(unittest.TestCase):
                 "rejected_track_count": 1,
                 "rejected_tracks": [rejected_track],
             })
+            write_json_atomic(bundle / "metadata.json", metadata)
+            validate_bundle(bundle / "metadata.json")
+            metadata["caption"]["rejected_tracks"][0]["ai_status"] = 99
+            write_json_atomic(bundle / "metadata.json", metadata)
+            with self.assertRaisesRegex(ValueError, "final inventory evidence"):
+                validate_bundle(bundle / "metadata.json")
+            metadata["caption"]["rejected_tracks"][0]["ai_status"] = 0
             write_json_atomic(bundle / "metadata.json", metadata)
             validate_bundle(bundle / "metadata.json")
             metadata["caption"]["rejected_tracks"][0]["timeline_rejection"][

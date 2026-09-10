@@ -1328,14 +1328,27 @@ def _validate_inventory_attempts(caption: dict[str, Any]) -> None:
     ):
         raise ValueError("caption summary does not match its final inventory evidence")
     if payload_count:
+        def evidence_identity(track: dict[str, Any]) -> tuple[Any, ...]:
+            return (
+                track.get("id_str"), track.get("language"),
+                track.get("track_type")
+                if type(track.get("track_type")) is int else None,
+                track.get("ai_type")
+                if type(track.get("ai_type")) is int else None,
+                track.get("ai_status")
+                if type(track.get("ai_status")) is int else None,
+                track.get("is_lock")
+                if type(track.get("is_lock")) is bool else None,
+            )
+
         available_identities = Counter(
-            (track.get("id_str"), track.get("language"))
+            evidence_identity(track)
             for track in evidence_attempt["tracks"]
             if track.get("track_value_type") == "dict"
             and track.get("rejection_reason") == "accepted"
         )
         for track in [*top_tracks, *rejected_tracks]:
-            identity = (track.get("id_str"), track.get("language"))
+            identity = evidence_identity(track)
             if available_identities[identity] <= 0:
                 raise ValueError("caption track is absent from final inventory evidence")
             available_identities[identity] -= 1
@@ -1628,6 +1641,8 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
             raise ValueError("bundle contains an unexpected nested directory")
         if path.is_file() and relative != "metadata.json":
             actual.add(relative)
+        elif not path.is_file():
+            raise ValueError("bundle contains an unexpected special filesystem entry")
     if actual != recorded:
         raise ValueError("bundle contains unrecorded or missing regular files")
     return {"metadata": metadata, "paths": paths, "video": video, "audio": audio}
