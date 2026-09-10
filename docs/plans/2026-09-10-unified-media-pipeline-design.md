@@ -188,9 +188,9 @@ downloads/
 │           └── <job-key>/
 │               ├── source.mp4
 │               ├── audio.wav
-│               ├── captions.<lang>.<kind>.<id>.json
-│               ├── captions.<lang>.<kind>.<id>.vtt
-│               ├── captions.<lang>.<kind>.<id>.txt
+│               ├── captions.<lang>.<kind>.<id>.<index>.json
+│               ├── captions.<lang>.<kind>.<id>.<index>.vtt
+│               ├── captions.<lang>.<kind>.<id>.<index>.txt
 │               └── metadata.json
 └── youtube/
     └── 访谈/

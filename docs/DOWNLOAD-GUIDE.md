@@ -163,8 +163,9 @@ downloads/<source>/<category>/<source-id>/<job-key>/
 ├── source.mp4
 ├── audio.wav
 ├── captions.<language>.<kind>.<id>.<index>.json  # B站净化平台字幕，若有
-├── captions.<language>.<kind>.<id>.vtt
-├── captions.<language>.<kind>.<id>.txt
+├── captions.<language>.<kind>.<id>.<index>.vtt
+├── captions.<language>.<kind>.<id>.<index>.txt
+├── captions.<language>.<kind>.<id>.<index>.rejected.json  # 时间轴错配证据，不是可用字幕
 └── metadata.json
 ```
 

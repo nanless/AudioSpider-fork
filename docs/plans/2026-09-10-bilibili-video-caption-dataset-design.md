@@ -15,9 +15,9 @@ downloads/bilibili-video-YYYYMMDD/
 ├── parents/<BV号>/p<分P>/<job_key>/
 │   ├── source.mp4
 │   ├── audio.wav
-│   ├── captions.<语言>.<manual|automatic|unknown>.json
-│   ├── captions.<语言>.<manual|automatic|unknown>.vtt
-│   ├── captions.<语言>.<manual|automatic|unknown>.txt
+│   ├── captions.<语言>.<manual|automatic|unknown>.<track-id>.<index>.json
+│   ├── captions.<语言>.<manual|automatic|unknown>.<track-id>.<index>.vtt
+│   ├── captions.<语言>.<manual|automatic|unknown>.<track-id>.<index>.txt
 │   └── metadata.json
 ├── manifests/
 ├── .locks/
