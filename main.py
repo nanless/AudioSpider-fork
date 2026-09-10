@@ -106,7 +106,7 @@ def main():
         help="明确授权本次 B站视频任务使用环境中 BILIBILI_COOKIE；默认强制匿名",
     )
     parser.add_argument("--retry-failed", action="store_true",
-                        help="将所有 failed 状态重置为 pending 并重新下载")
+                        help="按本次过滤条件和 --limit 原子领取 failed 并重新下载")
     parser.add_argument("--loop", action="store_true", help="持续循环消费下载")
     parser.add_argument("--interval", type=_positive_int, default=60, help="循环间隔秒数(默认60)")
     parser.add_argument("--since", default=None,
@@ -148,15 +148,27 @@ def main():
         failed_items = storage.claim_failed(
             limit=args.limit,
             source=args.source,
+            category=args.category,
+            language=args.language,
+            per_source=args.per_source,
+            per_category=args.per_category,
+            published_since=args.since,
+            published_before=args.before,
             worker_id=dl.worker_id,
             lease_seconds=DOWNLOAD_LEASE_SECONDS,
             artifact_kind=artifact_kind,
         )
         if not failed_items:
-            scope = f"来源={args.source}" if args.source else "全部来源"
+            scope = (
+                f"来源={args.source or '全部'}, 分类={args.category or '全部'}, "
+                f"语言={args.language or '全部'}, 产物={artifact_kind or '全部'}"
+            )
             logger.info(f"没有失败的 URL 需要重试（{scope}）")
             return
-        scope = f"来源={args.source}" if args.source else "全部来源"
+        scope = (
+            f"来源={args.source or '全部'}, 分类={args.category or '全部'}, "
+            f"语言={args.language or '全部'}, 产物={artifact_kind or '全部'}"
+        )
         logger.info(f"准备重试 {len(failed_items)} 条失败的 URL（{scope}）")
 
         async def retry():

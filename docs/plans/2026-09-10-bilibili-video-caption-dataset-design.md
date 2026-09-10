@@ -1,4 +1,9 @@
-# B 站视频与字幕数据集设计
+# B 站视频与字幕数据集设计（历史 standalone 方案）
+
+> 状态：已被统一媒体流水线取代，仅保留为历史设计记录。新正式任务使用
+> `collect.py -> audiospider.db -> main.py -> downloads/bilibili/<category>/`；当前操作方法见
+> [B站完整视频指南](../guides/bilibili-video-datasets.md)和
+> [统一架构](../architecture.md)。
 
 ## 目标
 

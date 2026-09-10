@@ -92,7 +92,8 @@ python main.py --source bilibili --artifact-kind video_bundle --limit 1 --worker
 2. 新 B站任务默认写为 `video_bundle`；数据库中的历史 audio 记录不被重解释；
 3. `main.py` 刷新 DASH 表示层，分别下载视频与音频；
 4. 合并完整 MP4并抽取 16 kHz mono PCM16 WAV；
-5. 保存所有符合语言策略的公开字幕 JSON/VTT/TXT；
+5. 保存所有符合语言策略且时间轴有效的公开字幕 JSON/VTT/TXT；错配轨道只保留净化后的
+   `.rejected.json` 证据；
 6. bundle audit 通过后提交数据库 `done`。
 
 “尽量带字幕”表示字幕 best effort：匿名接口若返回

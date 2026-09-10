@@ -287,31 +287,44 @@ class BilibiliMetadataTests(unittest.IsolatedAsyncioTestCase):
         )
         spider._get_audio_url.assert_not_awaited()
 
-    async def test_collection_max_new_records_counts_database_inserts(self):
+    async def test_collection_max_new_records_counts_new_parent_bvids(self):
         spider = BilibiliSpider()
-        spider.keywords = ["中文访谈"]
+        spider.keywords = ["中文访谈", "深度对话"]
         spider.max_search_pages = 1
-        spider.max_videos_per_keyword = 3
+        spider.max_videos_per_keyword = 4
         spider.max_new_records = 2
         spider.limiter.acquire = AsyncMock()
-        spider._search_page = AsyncMock(return_value=[
-            ("BVone", "采访一", "30:00"),
-            ("BVtwo", "采访二", "40:00"),
-            ("BVthree", "采访三", "50:00"),
+        spider._search_page = AsyncMock(side_effect=[
+            [
+                ("BVexisting", "已有采访", "20:00"),
+                ("BVmulti", "多 P 采访", "30:00"),
+            ],
+            [
+                ("BVmulti", "跨关键词重复", "30:00"),
+                ("BVsecond", "采访二", "40:00"),
+                ("BVthird", "采访三", "50:00"),
+            ],
         ])
 
         async def records_for_video(session, bvid, title, keyword):
-            return [AudioRecord(
-                url=f"https://www.bilibili.com/video/{bvid}?p=1",
-                source="bilibili",
-                title=title,
-                artifact_kind="video_bundle",
-            )]
+            part_count = 3 if bvid == "BVmulti" else 1
+            return [
+                AudioRecord(
+                    url=f"https://www.bilibili.com/video/{bvid}?p={page}",
+                    source="bilibili",
+                    source_id=f"{bvid}_p{page}",
+                    title=title,
+                    artifact_kind="video_bundle",
+                )
+                for page in range(1, part_count + 1)
+            ]
 
         spider._extract_video_records = AsyncMock(side_effect=records_for_video)
         stored = []
 
         def on_batch(batch):
+            if batch[0].source_id.startswith("BVexisting_p"):
+                return 0, 0
             stored.extend(batch)
             return len(batch), 0
 
@@ -322,8 +335,15 @@ class BilibiliMetadataTests(unittest.IsolatedAsyncioTestCase):
             records = await spider.crawl(on_batch=on_batch)
 
         self.assertEqual(records, [])
-        self.assertEqual(len(stored), 2)
-        self.assertEqual(spider._extract_video_records.await_count, 2)
+        self.assertEqual(
+            [record.source_id for record in stored],
+            ["BVmulti_p1", "BVmulti_p2", "BVmulti_p3", "BVsecond_p1"],
+        )
+        self.assertEqual(spider._extract_video_records.await_count, 3)
+        self.assertEqual(
+            [call.args[1] for call in spider._extract_video_records.await_args_list],
+            ["BVexisting", "BVmulti", "BVsecond"],
+        )
 
     def test_interview_keywords_use_interview_category(self):
         self.assertEqual(BilibiliSpider._guess_category("人物访谈 长视频"), "访谈")

@@ -205,9 +205,9 @@ SPIDER_CONFIGS = {
         "max_pages_per_video": _positive_env_int(
             "AUDIOSPIDER_BILIBILI_MAX_PAGES_PER_VIDEO", 200,
         ),
-        # 0 表示不限；正数表示本轮最多向数据库新增多少条 bundle 任务。
-        # 该上限根据 on_batch 的真实新增返回值计数，因此数据库中的重复项
-        # 不会占用配额，适合“再新增 100 条”这类可复现批次。
+        # 0 表示不限；正数表示本轮最多向数据库新增多少个父 BV。
+        # 一个父 BV 被接受后，其筛选后的全部分 P 会一起入库；数据库中已有
+        # 任一分 P 的父 BV 不会占用配额，适合“再新增 100 个视频”类批次。
         "max_new_records": _nonnegative_env_int(
             "AUDIOSPIDER_BILIBILI_MAX_NEW_RECORDS", 0,
         ),

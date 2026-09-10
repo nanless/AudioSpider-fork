@@ -108,33 +108,30 @@ downloading -> URL/磁盘检查 -> HTTP 响应
 
 ## YouTube 层级数据流
 
-YouTube 数据不用 SQLite 音频队列：
+YouTube 完整父视频使用统一 SQLite 媒体队列；受控 manifest 由 `collect.py` 检查并登记，
+`main.py` 才执行真实下载：
 
 ```text
-来源 JSON
-   |
-   +--> inspect --> 标题/时长/频道/字幕轨 --> 本次 inspect JSONL
-   |
-   +--> download --> 唯一 staging 目录
+受控来源 JSON -> collect.py -> audiospider.db -> main.py -> 唯一 staging 目录
                         |
                         +--> source.mp4
                         +--> audio.wav
-                        +--> captions.*.vtt/.txt
+                        +--> captions.*.vtt/.txt（存在同语言平台轨时）
                         +--> metadata.json（bundle commit marker）
                         |
                         +--> 全套成功后目录级 rename
                                       |
-                          +-----------+------------+
-                          |                        |
-                 interviews/              screen_sources/
+                       downloads/youtube/<category>/<source_id>/<job_key>/
 ```
 
-同一视频的 profile、请求字幕语言或 `source_revision` 不同，会得到不同 `job_key`，避免互相覆盖。每次 inspect/download 都写一个新的带 run ID 清单；bundle 本身用稳定 job key 保证重跑幂等。正式流程到父视频为止，不继续生成 `screen_clips/`。
+同一视频的 profile、请求字幕语言、`require_caption` 或 `source_revision` 不同，会得到不同
+`job_key`，避免互相覆盖。`youtube_dataset.py inspect/download` 只保留兼容、修复和历史审计
+用途。正式流程到完整父视频为止，不继续生成 `screen_clips/`。
 
 ## B 站视频层级数据流
 
 ```text
-BV 清单 -> view API -> 分 P/CID
+collect.py 受控搜索 -> audiospider.db -> main.py -> view API -> 分 P/CID
                      |
                      +-> player API -> 字幕可用性和逐轨来源
                      |
@@ -146,7 +143,8 @@ BV 清单 -> view API -> 分 P/CID
                                            |
                           净化平台字幕 JSON -> VTT + TXT（有有效轨道时）
                                            |
-                                全闭包校验后提升 parents/
+                                全闭包校验后提升到
+                    downloads/bilibili/<category>/<source_id>/<job_key>/
 ```
 
 `need_login_subtitle=true` 与“公开无字幕”是两种状态；网络/API 失败不允许伪装成任一状态。签名 URL 只在本次请求内使用，resume 绑定无签名的表示层指纹。

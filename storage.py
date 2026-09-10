@@ -605,10 +605,19 @@ class Storage:
 
     def claim_failed(self, limit: int, worker_id: str, lease_seconds: int,
                      source: str | None = None,
+                     category: str | None = None,
+                     language: str | None = None,
+                     per_source: bool = False,
+                     per_category: bool = False,
+                     published_since: str | None = None,
+                     published_before: str | None = None,
                      artifact_kind: str | None = None) -> list[dict]:
+        if per_source and per_category:
+            raise ValueError("per_source and per_category are mutually exclusive")
+        group_col = "source" if per_source else "category" if per_category else None
         return self._claim(
-            "failed", limit, worker_id, lease_seconds, source=source,
-            artifact_kind=artifact_kind,
+            "failed", limit, worker_id, lease_seconds, source, category,
+            language, group_col, published_since, published_before, artifact_kind,
         )
 
     def renew_claims(self, record_ids: list[int], worker_id: str,

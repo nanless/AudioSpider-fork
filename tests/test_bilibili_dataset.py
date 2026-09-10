@@ -9,6 +9,7 @@ from unittest import mock
 from bilibili_dataset import (
     BilibiliClient,
     _content_range_start,
+    _consume_bilibili_cookie,
     _download_stream,
     _extract_wav,
     _file_record,
@@ -858,6 +859,23 @@ class AuditTests(unittest.TestCase):
 
 
 class AuthenticationBoundaryTests(unittest.IsolatedAsyncioTestCase):
+    def test_ambient_cookie_is_consumed_but_ignored_without_gate(self):
+        with mock.patch.dict(os.environ, {"BILIBILI_COOKIE": "SESSDATA=secret"}):
+            self.assertEqual(_consume_bilibili_cookie(False), "")
+            self.assertNotIn("BILIBILI_COOKIE", os.environ)
+
+    def test_cookie_is_used_only_with_explicit_gate(self):
+        with mock.patch.dict(os.environ, {"BILIBILI_COOKIE": "SESSDATA=secret"}):
+            self.assertEqual(
+                _consume_bilibili_cookie(True), "SESSDATA=secret"
+            )
+            self.assertNotIn("BILIBILI_COOKIE", os.environ)
+
+    def test_authorized_cookie_still_rejects_newlines(self):
+        with mock.patch.dict(os.environ, {"BILIBILI_COOKIE": "SESSDATA=x\nCookie:y"}):
+            with self.assertRaisesRegex(ValueError, "newline"):
+                _consume_bilibili_cookie(True)
+
     def test_subprocess_environment_drops_bilibili_cookie(self):
         previous = os.environ.get("BILIBILI_COOKIE")
         previous_proxy = os.environ.get("AUDIOSPIDER_BILIBILI_PROXY")

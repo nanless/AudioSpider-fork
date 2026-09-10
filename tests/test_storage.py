@@ -410,6 +410,53 @@ class StorageTests(unittest.TestCase):
             ],
         )
 
+    def test_failed_claim_honors_all_download_scope_filters(self):
+        storage = Storage(self.db_path)
+        records = [
+            AudioRecord(
+                url="https://example.test/target", source="youtube",
+                category="访谈", language="en", published_at="2026-09-01",
+                artifact_kind="video_bundle", job_key="target",
+            ),
+            AudioRecord(
+                url="https://example.test/wrong-category", source="youtube",
+                category="影视", language="en", published_at="2026-09-01",
+                artifact_kind="video_bundle", job_key="wrong-category",
+            ),
+            AudioRecord(
+                url="https://example.test/wrong-language", source="youtube",
+                category="访谈", language="zh", published_at="2026-09-01",
+                artifact_kind="video_bundle", job_key="wrong-language",
+            ),
+            AudioRecord(
+                url="https://example.test/wrong-date", source="youtube",
+                category="访谈", language="en", published_at="2025-01-01",
+                artifact_kind="video_bundle", job_key="wrong-date",
+            ),
+            AudioRecord(
+                url="https://example.test/wrong-kind", source="youtube",
+                category="访谈", language="en", published_at="2026-09-01",
+            ),
+        ]
+        storage.add_urls_batch(records)
+        for record in records:
+            storage.update_status(
+                record.url, "failed", job_key=record.job_key,
+            )
+
+        claimed = storage.claim_failed(
+            limit=10, worker_id="retry-worker", lease_seconds=60,
+            source="youtube", category="访谈", language="en",
+            published_since="2026-01-01", published_before="2026-12-31",
+            artifact_kind="video_bundle",
+        )
+
+        self.assertEqual([row["job_key"] for row in claimed], ["target"])
+        untouched = storage._get_conn().execute(
+            "SELECT COUNT(*) FROM audio_urls WHERE status='failed'"
+        ).fetchone()[0]
+        self.assertEqual(untouched, 4)
+
     def test_renew_claims_only_updates_active_rows_owned_by_worker(self):
         storage = Storage(self.db_path)
         storage.add_urls_batch([

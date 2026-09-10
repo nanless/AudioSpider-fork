@@ -312,15 +312,17 @@ ORDER BY id;"
 
 ```bash
 python main.py --retry-failed --source bilibili \
-  --artifact-kind video_bundle --limit 5 --workers 1 \
+  --category 访谈 --language zh --artifact-kind video_bundle \
+  --limit 5 --workers 1 \
   --format original --allow-bilibili-cookie
 
 python main.py --retry-failed --source youtube \
-  --artifact-kind video_bundle --limit 5 --workers 1 --format original
+  --category 访谈 --language en --artifact-kind video_bundle \
+  --limit 5 --workers 1 --format original
 ```
 
-`--retry-failed` 当前只按 source/artifact 过滤，可能领取历史失败行。运行前用只读 SQL
-检查全部 failed；不要为“只重试本批”而手工批量改数据库状态。
+`--retry-failed` 会继承 source/category/language/time/artifact 过滤。运行前仍应用只读 SQL
+检查待领取 failed 集合；不要为“只重试本批”而手工批量改数据库状态。
 
 B站 handler 默认会先在单任务内部最多尝试 3 次，按 10、20 秒退避刷新 API 与签名 URL；
 只有这层有限重试仍失败后，SQLite 才标为 `failed`。可用
@@ -342,7 +344,7 @@ B站 handler 默认会先在单任务内部最多尝试 3 次，按 10、20 秒�
 
 - YouTube：`caption.status=missing`、`require_caption=false`，没有字幕文件；
 - B站：区分 `auth_required`、`not_provided_publicly`、`no_matching_language`、
-  `external_failure`、`unknown`；
+  `invalid_track_inventory`、`invalid_timeline`、`unknown`；网络/API 失败不是字幕缺失状态；
 - 画面烧录字幕不是平台字幕文件；
 - 本地 ASR 若另行运行，必须用独立 provenance，不能冒充 `platform_*`。
 

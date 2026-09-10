@@ -2,11 +2,14 @@
 
 ## 目录契约
 
-正式父 bundle 只能位于：
+统一正式父 bundle 只能位于：
 
 ```text
-parents/<bvid>/p<page>/<job_key>/
+downloads/bilibili/<category>/<source_id>/<job_key>/
 ```
+
+旧 standalone 目录才使用 `parents/<bvid>/p<page>/<job_key>/`；它必须通过迁移脚本
+验收后进入统一正式树，不能继续作为新任务输出位置。
 
 `job_key` 绑定 BVID、CID、分 P、清晰度、字幕语言、`require_caption`、`source_revision`、schema 和编码 profile。分 P 顺序可能变化，CID 是更稳定的具体媒体身份。
 
@@ -70,7 +73,7 @@ HTTP/API 失败不会被写成上述“空字幕”状态，也不会提升正�
 ### `caption.rejected_tracks`
 
 存在错配轨道时，`payload_status` 为 `partial` 或 `rejected`，
-`rejected_track_count` 与 `rejected_tracks` 一致。每条拒收轨道保存平台原始
+`rejected_track_count` 与 `rejected_tracks` 一致。每条拒收轨道保存经过凭据净化的平台
 `.rejected.json`，但没有 VTT/TXT；其 `timeline_rejection` 包含固定原因、
 实际媒体时长、最大 cue 结束时间、超出秒数、2 秒容差和
 `bilibili-caption-timeline-v1` 规则版本。验收器会从隔离 JSON 重新解析 cue，
@@ -117,7 +120,8 @@ HTTP/API 失败不会被写成上述“空字幕”状态，也不会提升正�
 - VTT：毫秒时间戳，供播放器和切片工具使用。
 - TXT：按 cue 顺序展开的清洗文本。
 
-审计会重新解析 JSON 并重建 VTT/TXT 后比较，任一字幕正文被改动、文件遗漏、路径逃逸、软链接、字节数或哈希不符都会失败。
+审计会重新解析 JSON 并重建 VTT/TXT 后比较，任一字幕正文被改动、文件遗漏、路径逃逸、
+软链接、目录、FIFO/socket/device 等非普通节点、字节数或哈希不符都会失败。
 
 ## 审计硬条件
 
@@ -132,6 +136,9 @@ HTTP/API 失败不会被写成上述“空字幕”状态，也不会提升正�
 运行：
 
 ```bash
-python bilibili_dataset.py --output downloads/bilibili-video-20260910 \
-  audit --manifest config/bilibili_sources.initial.json
+python bilibili_dataset.py --output /path/to/legacy-bilibili-root \
+  audit --manifest /path/to/manifest.json
+python scripts/audit_media_queue.py
 ```
+
+第一条只用于旧 standalone/兼容目录；统一正式下载树以第二条数据库—磁盘闭包审计为准。

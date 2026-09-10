@@ -83,17 +83,25 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
             def on_batch(batch):
                 incremental["used"] = True
                 if spider.name == "bilibili" and getattr(spider, "max_new_records", 0):
-                    unique_batch = []
+                    # B 站的上限按父 BV 计算；一个父 BV 一旦被接受，必须把
+                    # spider 已筛选出的全部分 P 一起入库，不能按数据库行截断。
+                    parent_batches: dict[str, list] = {}
                     for record in batch:
                         bvid = record.source_id.split("_p", 1)[0]
-                        if not bvid or bvid in accepted_bilibili_parents:
+                        if not bvid:
+                            continue
+                        parent_batches.setdefault(bvid, []).append(record)
+
+                    unique_batch = []
+                    for bvid, parent_batch in parent_batches.items():
+                        if bvid in accepted_bilibili_parents:
                             continue
                         if storage.source_id_prefix_exists(
                             "bilibili", f"{bvid}_p", artifact_kind="video_bundle",
                         ):
                             continue
                         accepted_bilibili_parents.add(bvid)
-                        unique_batch.append(record)
+                        unique_batch.extend(parent_batch)
                     batch = unique_batch
                 added, backfilled = _flush_records(storage, batch, logger)
                 incremental["added"] += added

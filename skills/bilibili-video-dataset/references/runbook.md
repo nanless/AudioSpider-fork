@@ -8,8 +8,9 @@ The main route is `collect.py -> audiospider.db -> main.py`; do not operate a se
    rights state and native-language caption inventory.
 3. Collect with `python collect.py --spiders bilibili`.
 4. Download with `python main.py --source bilibili --artifact-kind video_bundle --limit 1 --workers 1`.
-5. Verify MP4 has video+audio, WAV is PCM16/16 kHz/mono, every visible matching caption has
-   JSON/VTT/TXT and manual/automatic/unknown provenance, and no signed URL is persisted.
+5. Verify MP4 has video+audio, WAV is PCM16/16 kHz/mono, every valid visible matching caption has
+   sanitized JSON/VTT/TXT and manual/automatic/unknown provenance, every rejected timeline has only a
+   `.rejected.json`, and no signed URL or credential is persisted.
 6. Run `python scripts/audit_media_queue.py`.
 7. For a completed bundle that needs caption-only repair, first run
    `python scripts/backfill_bilibili_captions.py --limit N` and review the
@@ -18,6 +19,29 @@ The main route is `collect.py -> audiospider.db -> main.py`; do not operate a se
 
 The worker must re-resolve the current part and require its CID to equal the collected CID. A mismatch is
 a source revision failure, never permission to download the new content under the old job.
+
+For caption-only repair, dry-run first and review the exact bundle set. Apply mode creates a SQLite
+backup, locks each job, verifies disk/DB identity twice, displaces all old caption payloads into a
+same-filesystem rollback directory, validates the replacement sidecar and commits by compare-and-swap.
+It must never redownload or rewrite MP4/WAV:
+
+```bash
+python scripts/backfill_bilibili_captions.py --limit N
+python scripts/backfill_bilibili_captions.py --limit N --apply --allow-bilibili-cookie
+```
+
+Rows marked `invalid_timeline` are excluded by default. Retry them only when the platform track may have
+changed, using `--retry-invalid-timeline`; do not loosen the two-second media-tail tolerance merely to
+force acceptance.
+
+Caption payload names are deterministic and collision-safe:
+`captions.<language>.<kind>.<track-id>.<1-based-index>.json/.vtt/.txt`; rejected tracks use the same
+base plus `.rejected.json` and never have derived VTT/TXT. A repair is complete only when its result has
+no failures, every affected bundle passes `validate_bundle`, and the unified queue audit passes.
+
+When a server loopback proxy is required, use only `AUDIOSPIDER_BILIBILI_PROXY` for the Bilibili-scoped
+process. Verify one allowed Bilibili request succeeds and an unrelated HTTPS host is rejected with 403.
+Do not enable ambient proxy discovery or persist the proxy endpoint.
 
 Default operation is anonymous. Only after explicit authorization may an operator privately set
 `BILIBILI_COOKIE` and add `--allow-bilibili-cookie`; never print or persist it.

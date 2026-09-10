@@ -82,6 +82,7 @@ downloads/
 │   ├── source.mp4
 │   ├── audio.wav
 │   ├── captions.*.json/.vtt/.txt
+│   ├── captions.*.rejected.json  # 错配时间轴隔离证据；没有派生 VTT/TXT
 │   └── metadata.json
 └── youtube/<category>/<source-id>/<job-key>/
     ├── source.mp4

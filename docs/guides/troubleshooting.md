@@ -122,9 +122,18 @@ sqlite3 audiospider.db 'PRAGMA integrity_check;'
 
 ### 任务一直是 `downloading`
 
-下载任务有 lease。进程异常退出后，没过期的 lease 不会被立即抢走。默认等待 7200 秒，或在下次部署前合理设置 `AUDIOSPIDER_DOWNLOAD_LEASE_SECONDS`。
+下载任务有 lease。进程异常退出后，没过期的 lease 不会被立即抢走。最安全是等待默认
+7200 秒后由同范围领取逻辑回收。必须提前恢复时，先确认精确 PID 已退出，再运行：
 
-不要在活跃 worker 仍存在时手工将状态改回 pending，否则可能重复下载。
+```bash
+python scripts/recover_download_claims.py \
+  --claimed-by 'hostname:pid:nonce' --source youtube \
+  --artifact-kind video_bundle --category 访谈 --language en
+# 审阅 matched rows 后，原命令追加 --apply
+```
+
+不要在活跃 worker 仍存在时手工将状态改回 pending，也不要使用不带 `claimed_by` 的全局
+UPDATE；这会造成重复下载或覆盖其他来源的租约。
 
 ### 留下 `.part`
 

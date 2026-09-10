@@ -12,7 +12,8 @@
 | `librivox` | LibriVox API + Archive.org | MP3 | 图书 API | Archive.org 可达性 |
 | `xiaoyuzhou` | 种子节目/发现页 | M4A | 节目页 | HTML 结构变化 |
 | `ximalaya` | 种子 track ID 附近探测 | MP3/M4A | checkpoint + ID | 非正式分页、元数据启发式 |
-| `bilibili` | 关键词搜索和视频分P | M4A | 搜索页/checkpoint | 风控、签名 URL、大文件 |
+| `bilibili` | 关键词搜索和视频分P | 完整 MP4+WAV bundle | 搜索页/checkpoint | 风控、签名 URL、大文件 |
+| `youtube` | 受控 manifest | 完整 MP4+WAV bundle | `job_key` 去重 | 网络限制、字幕/格式变化 |
 
 ## `podcast_rss`
 
@@ -78,7 +79,8 @@ python collect.py --spiders ximalaya
 
 ## `bilibili`
 
-按关键词搜索视频，对每个视频解析分P，选择 DASH 音频地址。来源 ID 包含 BV 号和分P，用于稳定去重。
+按关键词搜索视频，对每个视频解析分 P/CID 并登记完整视频 bundle 任务。来源 ID 包含
+BV 号和分 P，用于稳定去重；DASH 视频/音频地址只在 `main.py` 下载时临时解析。
 
 ```bash
 python probe.py --source bilibili --keywords "有声书 合集" --search-pages 1 --videos 2 --parts 3
@@ -95,11 +97,25 @@ python probe.py --source bilibili --keywords "有声书 合集" --search-pages 1
 
 视频简介、UP主、封面、发布时间、分P、权限与统计会保存；player API 公开返回字幕时声明为 transcript 资产。无字幕时保持空列表。
 
-如果需要完整视频、WAV、全部平台字幕和独立 sidecar，请不要改旧音频队列，使用 `bilibili_dataset.py`。详见[B 站视频小白指南](../guides/bilibili-video-datasets.md)和[sidecar 参考](bilibili-video-sidecars.md)。
+新 B站任务默认就是 `artifact_kind=video_bundle`，必须使用统一的
+`collect.py -> audiospider.db -> main.py`。`bilibili_dataset.py` 只保留旧数据兼容、修复和
+审计用途。详见[B 站视频小白指南](../guides/bilibili-video-datasets.md)和
+[sidecar 参考](bilibili-video-sidecars.md)。
+
+## `youtube`
+
+从受控 JSON manifest 采集完整父视频任务；同语言平台字幕可设为 strict 或 best effort，
+但不会自动生成 clip 或本地 ASR。正式下载仍由 `main.py` 完成。
+
+```bash
+python probe.py --source youtube --manifest config/youtube_sources.example.json --videos 1
+python collect.py --spiders youtube
+python main.py --source youtube --artifact-kind video_bundle --limit 1 --workers 1
+```
 
 ## 配置与正式注册
 
-`collect.py` 的 `ALL_SPIDERS` 注册当前五个 Spider；`config.py` 的 `SPIDER_CONFIGS` 控制启用状态与来源参数。新增来源时两处都要同步，并为 `probe.py` 增加一个有严格上限的配置分支。
+`collect.py` 的 `ALL_SPIDERS` 注册当前六个 Spider；`config.py` 的 `SPIDER_CONFIGS` 控制启用状态与来源参数。新增来源时两处都要同步，并为 `probe.py` 增加一个有严格上限的配置分支。
 
 ## 新增适配器的契约
 

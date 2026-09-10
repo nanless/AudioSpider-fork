@@ -164,6 +164,8 @@ ID、profile 与 yt-dlp 版本，但不能保存完整 format 字典或临时媒
 | `auth_required` | 平台明确要求登录才能判断或取得 |
 | `not_provided_publicly` | 成功公开响应明确无轨 |
 | `no_matching_language` | 有轨但没有满足同语言策略的轨 |
+| `invalid_track_inventory` | 平台报出轨道，但字段或下载 URL 无法安全接受 |
+| `invalid_timeline` | 已选同语言轨道全部与当前媒体时长明显错配；只保留隔离证据 |
 | `unknown` | 字段不足，不能下结论 |
 
 HTTP/API 错误不是上述任一空字幕状态，应让任务失败或记录显式 external error。
@@ -171,6 +173,13 @@ HTTP/API 错误不是上述任一空字幕状态，应让任务失败或记录�
 YouTube 每条任务还保存 `caption.required`。`required=false` 且状态为 `missing` 或
 `no_matching_language` 时，`kind/text_source/track_language` 必须为 null，文件闭包精确为
 MP4、WAV 和 sidecar；不允许用空文件伪造字幕。
+
+B站逐轨校验字幕时间轴。合法轨道写入经过凭据净化的平台 JSON，并由它确定性生成
+VTT/TXT；时间轴超出 MP4 尾部容差的轨道只写 `.rejected.json`，同时在
+`caption.rejected_tracks[].timeline_rejection` 保存媒体时长、最大 cue 结束时间、超出秒数、
+容差和规则版本。混合结果为 `status=downloaded,payload_status=partial`；全部轨道拒收的
+best-effort bundle 为 `status=invalid_timeline,payload_status=rejected`。隔离 JSON 是证据，
+不能当作可用字幕或训练文本。
 
 `kind` 与 `text_source` 必须成对：
 
@@ -237,12 +246,14 @@ caption automatic 永远不能自动设置 media AI declared。
 验证器必须拒绝：
 
 - 绝对路径、`..`、软链接外逸；
+- 目录、FIFO、socket、字符/块设备等任何非普通 payload 节点；
 - 文件缺失或多出未登记 payload；
 - bytes/hash 不一致；
 - signed URL/Cookie/credential；
 - MP4 缺视频或音频流；
 - WAV 不是 16 kHz mono PCM16；
 - 字幕 JSON 无法确定性重建 VTT/TXT；
+- `.rejected.json` 的 cue、身份或数值时间轴证据无法和 sidecar/inventory/媒体重新对齐；
 - `kind/text_source` 交叉；
 - 内容语言和字幕语言不匹配；
 - `metadata.json` 存在但 staging 未完成。

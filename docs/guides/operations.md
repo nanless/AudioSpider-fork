@@ -108,7 +108,23 @@ ps aux | grep -E 'discover.py|collect.py|main.py'
 
 ## 优雅停止
 
-前台进程使用 `Ctrl-C`。受管理进程发送 SIGTERM 后，应等待当前文件写完或 lease 到期。异常中断留下的 `.part` 可以在下次任务领取时继续续传。
+前台进程使用 `Ctrl-C`，后台进程先发送 SIGTERM，并用精确 PID 确认它已经退出。当前实现
+不会承诺收到信号后把正在传输的整个文件写完；已领取行会保留 `downloading/claimed_by`
+直到 lease 过期，安全 `.part` 留给下次续传。
+
+必须提前恢复时，不要手写全局 UPDATE。先从只读查询取得已退出进程的精确 `claimed_by`，
+再用默认 dry-run 的恢复工具：
+
+```bash
+python scripts/recover_download_claims.py \
+  --claimed-by 'hostname:pid:nonce' --source bilibili \
+  --artifact-kind video_bundle --category 访谈 --language zh
+```
+
+核对 JSON 中的全部行后才加 `--apply`。apply 会拒绝本机仍存活的 PID，先用 SQLite Backup
+API 创建恢复点，然后只把同一 `claimed_by` 且仍为 `downloading`、同时命中全部过滤器的行
+改回 pending；其他 worker、pending 和 failed 均不动。更严格的批次可再用成对
+`--id-min/--id-max` 或 `--job-keys-file`。
 
 ## 数据保留
 

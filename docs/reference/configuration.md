@@ -38,6 +38,7 @@ python discover.py --source podcastindex --keywords news --pi-max-pages 1
 | `AUDIOSPIDER_MAX_BACKGROUND_ASSETS` | `12` | 每条音频最多请求的辅助资产数 |
 | `AUDIOSPIDER_BACKGROUND_ASSET_TIMEOUT` | `75` | 单个辅助资产硬超时秒数 |
 | `AUDIOSPIDER_YOUTUBE_MAX_ITEMS` | `100` | 单轮最多核验多少个 YouTube 清单项 |
+| `AUDIOSPIDER_YOUTUBE_MANIFEST` | `config/youtube_sources.initial.json` | YouTube 正式采集使用的受控 manifest；建议绝对路径 |
 | `AUDIOSPIDER_YOUTUBE_INSPECT_TIMEOUT` | `120` | 单个 YouTube 元数据/字幕核验子进程硬超时（秒） |
 | `AUDIOSPIDER_YOUTUBE_DOWNLOAD_TIMEOUT` | `14400` | 单个 YouTube 完整 bundle 下载子进程硬超时（秒） |
 | `AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE` | `zh` | B站受控搜索批次的内容语言；英文批次显式设为 `en` |
@@ -48,7 +49,7 @@ python discover.py --source podcastindex --keywords news --pi-max-pages 1
 | `AUDIOSPIDER_BILIBILI_MAX_SEARCH_PAGES` | `5` | 每个搜索词最多页数 |
 | `AUDIOSPIDER_BILIBILI_MAX_VIDEOS_PER_KEYWORD` | `100` | 每个搜索词最多解析 BV 数 |
 | `AUDIOSPIDER_BILIBILI_MAX_PAGES_PER_VIDEO` | `200` | 每个 BV 最多入队分 P 数 |
-| `AUDIOSPIDER_BILIBILI_MAX_NEW_RECORDS` | `0` | 本轮真实新增任务上限；`0` 表示不额外限制 |
+| `AUDIOSPIDER_BILIBILI_MAX_NEW_RECORDS` | `0` | 本轮真实新增父 BV 上限；一个父 BV 的有效分 P 整批保留；`0` 表示不限 |
 | `AUDIOSPIDER_BILIBILI_MIN_DURATION_SECONDS` | `0` | 单分 P 最短时长 |
 | `AUDIOSPIDER_BILIBILI_MAX_DURATION_SECONDS` | `14400` | 单分 P 最长时长 |
 | `AUDIOSPIDER_BILIBILI_JOB_ATTEMPTS` | `3` | 单个 B站 bundle 的临时 API/CDN 故障最多尝试次数（1–10） |

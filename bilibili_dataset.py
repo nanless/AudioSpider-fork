@@ -697,7 +697,7 @@ def _rights_cleared(job: dict[str, Any]) -> bool:
 
 
 class BilibiliClient:
-    """Bounded anonymous client for public Bilibili metadata and captions."""
+    """Bounded client for public Bilibili data with optional explicit API-only auth."""
 
     def __init__(self, session: Any, *, auth_cookie: str = "", proxy: str | None = None):
         self.session = session
@@ -1734,6 +1734,11 @@ def repair_dataset_metadata(output_root: Path) -> dict[str, Any]:
 async def _inspect_or_download(args: argparse.Namespace, *, download: bool) -> int:
     import aiohttp
 
+    print(
+        "提示：bilibili_dataset.py 仅用于兼容、检查、修复和审计；"
+        "新正式任务请使用 collect.py -> audiospider.db -> main.py。",
+        file=sys.stderr,
+    )
     items = load_manifest(args.manifest)
     Path(args.output).mkdir(parents=True, exist_ok=True)
     write_json_atomic(Path(args.output) / ".audiospider-dataset.json", {
@@ -1741,11 +1746,7 @@ async def _inspect_or_download(args: argparse.Namespace, *, download: bool) -> i
     })
     timeout = aiohttp.ClientTimeout(total=None, connect=30, sock_connect=30, sock_read=60)
     headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://www.bilibili.com/"}
-    cookie = os.environ.get("BILIBILI_COOKIE", "")
-    os.environ.pop("BILIBILI_COOKIE", None)
-    if cookie:
-        if len(cookie) > 16_384 or "\r" in cookie or "\n" in cookie:
-            raise ValueError("BILIBILI_COOKIE is too long or contains a newline")
+    cookie = _consume_bilibili_cookie(args.allow_bilibili_cookie)
     report = {"status": "running", "mode": "download" if download else "inspect", "items": []}
     manifests = Path(args.output).resolve() / "manifests"
     manifests.mkdir(parents=True, exist_ok=True)
@@ -1821,9 +1822,24 @@ def _positive_parts(value: str) -> int:
     return number
 
 
+def _consume_bilibili_cookie(allowed: bool) -> str:
+    """Consume an explicitly authorized process-local cookie, otherwise discard it."""
+
+    cookie = os.environ.pop("BILIBILI_COOKIE", "")
+    if not allowed:
+        return ""
+    if len(cookie) > 16_384 or "\r" in cookie or "\n" in cookie:
+        raise ValueError("BILIBILI_COOKIE is too long or contains a newline")
+    return cookie
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="下载并审计 B 站视频、WAV 和平台字幕")
     parser.add_argument("--output", type=Path, required=True, help="数据集输出目录")
+    parser.add_argument(
+        "--allow-bilibili-cookie", action="store_true",
+        help="明确授权本次兼容检查/下载使用进程内 BILIBILI_COOKIE；默认匿名",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
     for name in ("inspect", "download"):
         subparser = subparsers.add_parser(name)

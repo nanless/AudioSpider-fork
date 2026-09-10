@@ -9,6 +9,9 @@ config/*.local.json
 *.db-journal
 *.db-wal
 *.db-shm
+# SQLite backup API 生成的恢复点；保留在磁盘但不进入 Git。
+audiospider.db.*.bak
+backups/
 
 # 日志
 logs/

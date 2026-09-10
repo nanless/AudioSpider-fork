@@ -26,13 +26,14 @@ python doctor.py --db /path/to/db --download-dir /path/to/downloads
 
 ```bash
 python probe.py --source podcast_rss --feeds 1 --episodes 5
+python probe.py --source youtube --manifest config/youtube_sources.example.json --videos 1
 ```
 
 通用参数：
 
 | 参数 | 默认 | 含义 |
 |---|---:|---|
-| `--source` | 必填 | `podcast_rss`、`librivox`、`xiaoyuzhou`、`ximalaya` 或 `bilibili` |
+| `--source` | 必填 | `podcast_rss`、`librivox`、`xiaoyuzhou`、`ximalaya`、`bilibili` 或 `youtube` |
 | `--timeout` | 120 | 整个探针的超时秒数 |
 | `--samples` | 3 | 输出的脱敏样例数 |
 | `--db` | 临时库 | 可选持久化路径 |
@@ -49,8 +50,9 @@ python probe.py --source podcast_rss --feeds 1 --episodes 5
 | `--probe-range` | 喜马拉雅 | 1 |
 | `--keywords` | B站 | `有声书 合集` |
 | `--search-pages` | B站 | 1 |
-| `--videos` | B站 | 2 |
+| `--videos` | B站每关键词 / YouTube manifest 总项数 | 2 |
 | `--parts` | B站 | 3 |
+| `--manifest` | YouTube | 可选受控 manifest；缺省使用来源配置 |
 | `--include-discovery` | 小宇宙 | 关闭 |
 
 退出码：0=有记录，1=异常，2=无记录。
@@ -73,7 +75,8 @@ python collect.py --spiders podcast_rss --loop --interval 3600
 | `--loop` | 关闭 | 持续采集 |
 | `--interval` | 3600 | 循环间隔秒数，必须大于 0 |
 
-合法 Spider 名：`xiaoyuzhou`、`ximalaya`、`librivox`、`podcast_rss`、`bilibili`。
+合法 Spider 名：`xiaoyuzhou`、`ximalaya`、`librivox`、`podcast_rss`、`bilibili`、
+`youtube`。B站和 YouTube 正式任务都必须从这里进入统一 SQLite 队列。
 
 ## `discover.py`
 
@@ -131,6 +134,7 @@ python main.py [download|stats|fix-meta|background] [参数]
 | `--source NAME` | 全部 | 过滤来源 |
 | `--category NAME` | 全部 | 过滤分类 |
 | `--language CODE` | 全部 | 过滤语言 |
+| `--artifact-kind` | 来源默认 | `audio` 或 `video_bundle`；B站/YouTube 默认视频 bundle |
 | `--per-source` | 关闭 | 每个来源各取 limit 条 |
 | `--per-category` | 关闭 | 每个分类各取 limit 条 |
 | `--limit N` | 50 | 单批任务数 |
@@ -142,18 +146,51 @@ python main.py [download|stats|fix-meta|background] [参数]
 | `--since DATE` | 不限 | 发布时间下界 |
 | `--before DATE` | 不限 | 发布时间上界，包含该日 |
 | `--background` | `all` | `none`、`metadata` 或 `all` |
+| `--allow-bilibili-cookie` | 关闭 | 仅对本次 B站视频任务显式启用进程内登录态 |
 
 `--per-source` 与 `--per-category` 互斥。
+`--retry-failed` 会继承 `--source`、`--category`、`--language`、发布时间、分组和
+`--artifact-kind` 过滤；仍建议先用数据库/审计命令核对待领取集合。
 
-## `bilibili_dataset.py`
+## `scripts/recover_download_claims.py`
 
-独立管理 B 站视频 bundle，不读写 `audio_urls`：
+只用于“下载进程已经退出但 lease 尚未过期”的精确恢复。默认 dry-run；必须同时指定
+`claimed_by`、来源和产物类型：
+
+```bash
+python scripts/recover_download_claims.py \
+  --claimed-by 'hostname:pid:nonce' --source bilibili \
+  --artifact-kind video_bundle --category 访谈 --language zh
+# 完整审阅 rows 后再原样追加 --apply
+```
+
+| 参数 | 规则 |
+|---|---|
+| `--claimed-by` | 必填，必须等于待恢复 worker 的完整身份 |
+| `--source` / `--artifact-kind` | 必填，防止跨来源/产物恢复 |
+| `--category` / `--language` | 可选但推荐，继续收窄范围 |
+| `--id-min` / `--id-max` | 必须成对出现 |
+| `--job-keys-file` | UTF-8，每行一个精确 job key，可与其他条件叠加 |
+| `--apply` | 唯一写入门禁；先建一致性数据库备份 |
+
+工具只匹配 `status=downloading AND claimed_by=<exact>`；不会改 pending、failed 或其他
+worker。只有身份能解析为当前主机 downloader ID 且 PID 已确认不存在时才允许 apply；
+PID 仍存活、远端主机身份或 legacy/畸形身份都会拒绝，不能用该工具强行接管。
+
+## `bilibili_dataset.py`（兼容/修复/审计工具）
+
+该 CLI 不读写 `audio_urls`，只用于检查、修复、迁移前验收或明确要求的兼容流程。
+新正式任务必须使用 `collect.py -> audiospider.db -> main.py`，不要建立第二条生产队列：
 
 ```bash
 python bilibili_dataset.py --output downloads/bilibili-video-candidates \
   inspect --manifest config/bilibili_sources.example.json
 python bilibili_dataset.py --output downloads/bilibili-video-candidates \
   download --manifest config/bilibili_sources.example.json
+# 只有已明确授权时，才在子命令前添加门禁：
+BILIBILI_COOKIE='仅当前进程' python bilibili_dataset.py \
+  --output downloads/bilibili-video-candidates --allow-bilibili-cookie \
+  inspect --manifest config/bilibili_sources.example.json
 python bilibili_dataset.py --output downloads/bilibili-video-candidates \
   audit --manifest config/bilibili_sources.example.json
 python bilibili_dataset.py --output downloads/bilibili-video-candidates repair-metadata
@@ -168,7 +205,11 @@ python bilibili_dataset.py --output downloads/bilibili-video-candidates repair-m
 | `repair-metadata` | 从现有媒体和运行清单重建派生 sidecar 字段，不替换来源媒体 |
 | `--output PATH` | 数据集根目录，推荐在 `downloads/` 下 |
 
-可选 `BILIBILI_COOKIE` 环境变量用于当前进程的合法登录态；不得写入 manifest。字幕必需性、分 P、语言、清晰度、时长、权利和 AI 状态都在 JSON 清单逐项声明。
+只有用户明确授权后，才可给当前进程设置 `BILIBILI_COOKIE` 并同时在子命令前添加
+`--allow-bilibili-cookie`；环境变量本身不构成授权。未加门禁时，兼容 CLI 会清除并忽略
+环境中的 Cookie。Cookie 不得写入 manifest、日志、
+SQLite 或 sidecar，也不得转发给媒体/字幕 CDN。字幕必需性、分 P、语言、清晰度、
+时长、权利和 AI 状态都在 JSON 清单逐项声明。
 
 ### `scripts/backfill_bilibili_captions.py`
 
@@ -199,9 +240,10 @@ python main.py background --limit 10000 --workers 4 --background all
 python main.py background --source podcast_rss --limit 10000 --background metadata
 ```
 
-## `youtube_dataset.py`
+## `youtube_dataset.py`（兼容/修复/审计工具）
 
-独立管理 YouTube 长访谈、父视频、平台字幕和字幕对齐影视短片，不读写 `audiospider.db`。
+该 CLI 不读写 `audiospider.db`，用于历史 YouTube 父视频/短片的兼容、修复和审计。
+新正式完整视频仍由统一队列编排：
 
 ```bash
 python youtube_dataset.py --output DIR inspect --manifest SOURCES.json
@@ -218,7 +260,7 @@ python youtube_dataset.py --output DIR audit
 |---|---:|---|
 | `--output DIR` | `downloads/youtube` | 数据集根目录；必须放在子命令前 |
 | `inspect --manifest` | 必填 | 仅读取公开元数据与字幕轨，写本次 JSONL |
-| `download --manifest` | 必填 | 下载父视频、WAV、平台字幕、文本和 sidecar |
+| `download --manifest` | 必填 | 下载完整父视频、WAV、sidecar；同语言平台字幕存在时再保存 VTT/TXT |
 | `inspect/download --video-id ID` | 全部 | 只处理清单中的指定 ID，可重复传入 |
 | `clip --parent` | 必填 | 一个已完成的 `screen_sources` 父 bundle |
 | `clip --max-clips` | 500 | 单父视频最多派生片段数 |

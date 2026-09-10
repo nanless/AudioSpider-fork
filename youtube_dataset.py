@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect auditable YouTube interview videos and caption-aligned screen clips."""
+"""Compatibility, repair, and audit library for complete YouTube video bundles."""
 
 from __future__ import annotations
 
@@ -1440,6 +1440,11 @@ def redact_error(value: str) -> str:
 
 
 def _run_manifest(args: argparse.Namespace, *, download: bool) -> int:
+    print(
+        "提示：youtube_dataset.py 仅用于兼容、检查、修复和审计；"
+        "新正式任务请使用 collect.py -> audiospider.db -> main.py。",
+        file=sys.stderr,
+    )
     items = _load_manifest(args.manifest)
     selected_ids = set(args.video_id or [])
     if selected_ids:

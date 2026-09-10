@@ -19,9 +19,10 @@ collect.py -> audiospider.db -> main.py -> downloads/bilibili/<category>/<source
 downloads/bilibili/访谈/BVxxxx_p1/<job_key>/
 ├── source.mp4
 ├── audio.wav
-├── captions.zh-Hans.manual.<track-id>.json  # 有轨道时才存在
-├── captions.zh-Hans.manual.<track-id>.vtt
-├── captions.zh-Hans.manual.<track-id>.txt
+├── captions.zh-Hans.manual.<track-id>.<index>.json  # 有合法轨道时才存在
+├── captions.zh-Hans.manual.<track-id>.<index>.vtt
+├── captions.zh-Hans.manual.<track-id>.<index>.txt
+├── captions.zh-Hans.manual.<track-id>.<index>.rejected.json  # 错配轨道才存在
 └── metadata.json
 ```
 
@@ -67,7 +68,7 @@ B站来源不是读取 standalone manifest，而是由 `collect.py` 使用受控
 | `AUDIOSPIDER_BILIBILI_MAX_SEARCH_PAGES` | 每个关键词最多搜索页数 |
 | `AUDIOSPIDER_BILIBILI_MAX_VIDEOS_PER_KEYWORD` | 每个关键词最多解析多少个 BV |
 | `AUDIOSPIDER_BILIBILI_MAX_PAGES_PER_VIDEO` | 每个 BV 最多采集多少个分 P；完整单视频批次通常设为 `1` |
-| `AUDIOSPIDER_BILIBILI_MAX_NEW_RECORDS` | 本轮最多**真实新增**多少条数据库任务；`0` 表示不设此上限 |
+| `AUDIOSPIDER_BILIBILI_MAX_NEW_RECORDS` | 本轮最多**真实新增**多少个父 BV；一个父 BV 的有效分 P 会完整入库；`0` 表示不限 |
 | `AUDIOSPIDER_BILIBILI_MIN_DURATION_SECONDS` | 单分 P 最短时长 |
 | `AUDIOSPIDER_BILIBILI_MAX_DURATION_SECONDS` | 单分 P 最长时长 |
 | `AUDIOSPIDER_BILIBILI_JOB_ATTEMPTS` | 单任务遇到临时 API/CDN 故障时最多尝试次数；默认 `3` |
@@ -209,9 +210,9 @@ URL、path、query、fragment、Cookie 或代理地址。
 
 平台偶尔会把整段或其他分 P 的字幕返回给极短分 P。程序使用
 ffprobe 实际视频时长与最后 cue 对比；超出 2 秒以上就标为
-`invalid_timeline`。这时 best-effort 任务仍保留完整 MP4/WAV，并把平台原始
-净化后的平台 JSON 放在 `.rejected.json` 隔离文件中；cue 内容不截断、不伪造，传输凭据会移除，并且不生成误导性
-VTT/TXT。若一条错配而另一条合法，合法轨仍保留，整体标为
+`invalid_timeline`。这时 best-effort 任务仍保留完整 MP4/WAV，并把净化后的平台 JSON
+放在 `.rejected.json` 隔离文件中；cue 内容不截断、不伪造，传输凭据会移除，并且不
+生成误导性 VTT/TXT。若一条错配而另一条合法，合法轨仍保留，整体标为
 `downloaded` + `payload_status=partial`。strict 任务至少有一条合法轨才成功。
 
 ## 7. 断点续跑与失败重试
@@ -225,10 +226,10 @@ VTT/TXT。若一条错配而另一条合法，合法轨仍保留，整体标为
   有限退避重试；每轮刷新平台 API/签名 URL，并复用安全 `.part`。
 - CID 变化、语言/时长/路径策略错误不会重试，避免把永久错误变成无界循环。
 
-先分类失败，再做小批重试：
+先分类失败，再做小批重试。重试会继承 source/category/language/time/artifact 过滤：
 
 ```bash
-python main.py --retry-failed --source bilibili \
+python main.py --retry-failed --source bilibili --category 访谈 --language zh \
   --artifact-kind video_bundle --limit 5 --workers 1 \
   --format original --allow-bilibili-cookie
 ```
@@ -258,7 +259,8 @@ python scripts/backfill_bilibili_captions.py --limit 20 --apply \
 
 `--apply` 会先用 SQLite backup API 在数据库旁创建
 `audiospider.db.caption-backfill-<UTC>.bak`，然后按精确 `job_key` 获取排他锁。每条任务只可
-新增字幕 JSON/VTT/TXT、原子替换 `metadata.json`、并同步 SQLite 闭包大小与哈希；
+新增合法字幕 JSON/VTT/TXT 或错配轨道 `.rejected.json`、原子替换 `metadata.json`、
+并同步 SQLite 闭包大小与哈希；
 不会下载或改写 `source.mp4`/`audio.wav`。任一验收或数据库步骤失败，当前任务的
 sidecar、新字幕文件和 SQLite 事务会回滚。
 

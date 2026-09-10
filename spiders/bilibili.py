@@ -86,12 +86,12 @@ class BilibiliSpider(BaseSpider):
         self.logger.info(
             f"开始爬取B站, 关键词: {len(self.keywords)} 个"
             f"（最多翻 {self.max_search_pages} 页/词，解析前 {self.max_videos_per_keyword} 个/词"
-            + (f"，本轮新增上限 {self.max_new_records} 条" if self.max_new_records else "")
+            + (f"，本轮新增上限 {self.max_new_records} 个父 BV" if self.max_new_records else "")
             + "）"
         )
         records: list[AudioRecord] = []
         total_records = 0
-        new_records = 0
+        new_parents = 0
         seen_urls: set[str] = set()
         seen_bvids: set[str] = set()
 
@@ -108,7 +108,7 @@ class BilibiliSpider(BaseSpider):
                 self.logger.warning(f"B站 cookie 预热失败，将继续搜索: {exc}")
 
             for keyword in self.keywords:
-                if self.max_new_records and new_records >= self.max_new_records:
+                if self.max_new_records and new_parents >= self.max_new_records:
                     break
                 parsed_for_keyword = 0
                 keyword_records = 0
@@ -116,7 +116,7 @@ class BilibiliSpider(BaseSpider):
 
                 try:
                     for page in range(1, self.max_search_pages + 1):
-                        if self.max_new_records and new_records >= self.max_new_records:
+                        if self.max_new_records and new_parents >= self.max_new_records:
                             break
                         if parsed_for_keyword >= self.max_videos_per_keyword:
                             break
@@ -161,7 +161,7 @@ class BilibiliSpider(BaseSpider):
                             continue
 
                         for idx, (bvid, title, duration_str) in enumerate(fresh, 1):
-                            if self.max_new_records and new_records >= self.max_new_records:
+                            if self.max_new_records and new_parents >= self.max_new_records:
                                 break
                             self.logger.info(
                                 f"解析视频 [{idx}/{len(fresh)}] {bvid} "
@@ -172,9 +172,6 @@ class BilibiliSpider(BaseSpider):
                                 session, bvid, title, keyword
                             )
                             video_batch = [r for r in page_records if r.url not in seen_urls]
-                            if self.max_new_records:
-                                remaining = self.max_new_records - new_records
-                                video_batch = video_batch[:remaining]
                             for record in video_batch:
                                 seen_urls.add(record.url)
                             keyword_records += len(video_batch)
@@ -187,14 +184,15 @@ class BilibiliSpider(BaseSpider):
                             if video_batch and on_batch is not None:
                                 result = on_batch(video_batch)
                                 added = result[0] if result is not None else len(video_batch)
-                                new_records += added
+                                if added > 0:
+                                    new_parents += 1
                                 self.logger.info(
                                     f"视频 {bvid} 已入库 {len(video_batch)} 条 "
-                                    f"（累计发现 {total_records}）"
+                                    f"（累计新增父 BV {new_parents} 个，发现 {total_records} 条）"
                                 )
                             else:
                                 if video_batch:
-                                    new_records += len(video_batch)
+                                    new_parents += 1
                                 self.logger.info(
                                     f"视频 {bvid} 解析完成: {len(page_records)} 条"
                                     f"（无新增可入库）"

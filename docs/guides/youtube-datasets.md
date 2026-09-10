@@ -211,7 +211,8 @@ YouTube 核验和下载分别在可终止子进程内运行。常用硬超时：
 
 ```bash
 python main.py --retry-failed --source youtube \
-  --artifact-kind video_bundle --limit 5 --workers 1 --format original
+  --category 访谈 --language en --artifact-kind video_bundle \
+  --limit 5 --workers 1 --format original
 ```
 
 ## 8. 统一审计与抽查
