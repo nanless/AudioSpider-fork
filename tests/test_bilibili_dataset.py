@@ -4,10 +4,12 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from bilibili_dataset import (
     BilibiliClient,
     _content_range_start,
+    _download_stream,
     _extract_wav,
     _file_record,
     _media_summary,
@@ -286,15 +288,105 @@ class AuthenticationBoundaryTests(unittest.IsolatedAsyncioTestCase):
                 self.calls = []
 
             def get(self, url, **kwargs):
-                self.calls.append((url, kwargs.get("headers") or {}))
+                self.calls.append((url, kwargs))
                 return Response()
 
         session = Session()
-        client = BilibiliClient(session, auth_cookie="SESSDATA=secret")
+        proxy = "http://127.0.0.1:18443"
+        client = BilibiliClient(
+            session, auth_cookie="SESSDATA=secret", proxy=proxy
+        )
         await client._json("https://api.bilibili.com/x/test")
         await client._json("https://aisubtitle.hdslb.com/file.json")
-        self.assertEqual(session.calls[0][1]["Cookie"], "SESSDATA=secret")
-        self.assertNotIn("Cookie", session.calls[1][1])
+        self.assertEqual(
+            session.calls[0][1]["headers"]["Cookie"], "SESSDATA=secret"
+        )
+        self.assertNotIn("Cookie", session.calls[1][1]["headers"])
+        self.assertEqual(session.calls[0][1]["proxy"], proxy)
+        self.assertEqual(session.calls[1][1]["proxy"], proxy)
+
+    async def test_disabled_proxy_is_not_added_to_api_request(self):
+        class Response:
+            status = 200
+            headers = {}
+
+            async def read(self):
+                return b"{}"
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return False
+
+        class Session:
+            def __init__(self):
+                self.kwargs = None
+
+            def get(self, _url, **kwargs):
+                self.kwargs = kwargs
+                return Response()
+
+        session = Session()
+        await BilibiliClient(session)._json("https://api.bilibili.com/x/test")
+        self.assertNotIn("proxy", session.kwargs)
+
+    async def test_dash_candidates_use_the_explicit_proxy(self):
+        class Content:
+            async def iter_chunked(self, _size):
+                yield b"synthetic-media"
+
+        class Response:
+            def __init__(self, status):
+                self.status = status
+                self.headers = (
+                    {"Content-Length": str(len(b"synthetic-media"))}
+                    if status == 200 else {}
+                )
+                self.content = Content()
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return False
+
+        class Session:
+            def __init__(self):
+                self.calls = []
+
+            def get(self, url, **kwargs):
+                self.calls.append((url, kwargs))
+                return Response(503 if len(self.calls) == 1 else 200)
+
+        proxy = "http://127.0.0.1:18443"
+        stream = {
+            "id": 64,
+            "height": 720,
+            "baseUrl": "https://first.bilivideo.com/video.m4s?token=one",
+            "backupUrl": ["https://second.bilivideo.com/video.m4s?token=two"],
+        }
+        session = Session()
+        with tempfile.TemporaryDirectory() as temporary, mock.patch(
+            "bilibili_dataset.validate_public_http_url", new=mock.AsyncMock()
+        ), mock.patch(
+            "bilibili_dataset.shutil.disk_usage",
+            return_value=mock.Mock(free=100 * 1024 * 1024 * 1024),
+        ), mock.patch(
+            "bilibili_dataset._media_summary",
+            return_value={"video_stream_count": 1, "audio_stream_count": 0},
+        ):
+            await _download_stream(
+                session,
+                stream,
+                Path(temporary) / "dash-video.bin",
+                maximum=1024,
+                expected_kind="video",
+                proxy=proxy,
+            )
+        self.assertEqual(len(session.calls), 2)
+        self.assertTrue(all(call[1]["proxy"] == proxy for call in session.calls))
+        self.assertTrue(all(call[1]["allow_redirects"] is False for call in session.calls))
 
 
 if __name__ == "__main__":

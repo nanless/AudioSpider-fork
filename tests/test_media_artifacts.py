@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -69,9 +70,12 @@ class MediaArtifactTests(unittest.IsolatedAsyncioTestCase):
         }
         client = mock.Mock()
         client.view = mock.AsyncMock(return_value={"pages": []})
-        with tempfile.TemporaryDirectory() as temp, mock.patch(
-            "media_artifacts.BilibiliClient", return_value=client
+        proxy = "http://127.0.0.1:18443"
+        with tempfile.TemporaryDirectory() as temp, mock.patch.dict(
+            os.environ, {"AUDIOSPIDER_BILIBILI_PROXY": proxy}
         ), mock.patch(
+            "media_artifacts.BilibiliClient", return_value=client
+        ) as client_class, mock.patch(
             "media_artifacts.validate_bilibili_manifest", return_value=[{"bvid": task["bvid"]}]
         ), mock.patch(
             "media_artifacts.build_bilibili_jobs",
@@ -82,6 +86,7 @@ class MediaArtifactTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaisesRegex(ValueError, "stored CID"):
                 await media_artifacts.download_video_bundle(item, object(), Path(temp))
         downloader_worker.assert_not_awaited()
+        self.assertEqual(client_class.call_args.kwargs["proxy"], proxy)
 
     async def test_bilibili_transient_failure_refreshes_job_and_retries(self):
         expected = {

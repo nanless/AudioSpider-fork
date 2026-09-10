@@ -21,6 +21,7 @@ import aiohttp
 
 from anti_crawler import random_delay, RateLimiter
 from background import encode_metadata, metadata_envelope, plain_text
+from bilibili_proxy import get_bilibili_proxy, proxy_request_kwargs
 from bilibili_subtitles import classify_subtitle_inventory, sanitize_subtitle_track
 from bilibili_dataset import (
     build_job_key,
@@ -68,6 +69,7 @@ class BilibiliSpider(BaseSpider):
         self.min_duration_seconds = cfg.get("min_duration_seconds", 0)
         self.max_duration_seconds = cfg.get("max_duration_seconds", 4 * 3600)
         self.content_language = str(cfg.get("content_language") or "und")
+        self.proxy = get_bilibili_proxy()
         self.category_override = str(cfg.get("category_override") or "").strip()
         if self.category_override and self.category_override not in {
             "有声书", "播客", "相声", "评书", "演讲", "脱口秀",
@@ -99,6 +101,7 @@ class BilibiliSpider(BaseSpider):
                 async with session.get(
                     "https://www.bilibili.com",
                     timeout=aiohttp.ClientTimeout(total=10),
+                    **proxy_request_kwargs(self.proxy),
                 ) as response:
                     await response.read()
             except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
@@ -224,7 +227,8 @@ class BilibiliSpider(BaseSpider):
             await self.limiter.acquire()
             params = {"keyword": keyword, "page": page, "duration": 4}
             async with session.get(SEARCH_URL, params=params,
-                                   timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                                   timeout=aiohttp.ClientTimeout(total=15),
+                                   **proxy_request_kwargs(self.proxy)) as resp:
                 if resp.status != 200:
                     return []
                 data = await resp.json(content_type=None)
@@ -265,7 +269,8 @@ class BilibiliSpider(BaseSpider):
             pages = video_info.get("pages", [])
             if not pages:
                 async with session.get(PAGELIST_URL, params={"bvid": bvid},
-                                       timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                                       timeout=aiohttp.ClientTimeout(total=10),
+                                       **proxy_request_kwargs(self.proxy)) as resp:
                     if resp.status != 200:
                         return []
                     data = await resp.json(content_type=None)
@@ -501,6 +506,7 @@ class BilibiliSpider(BaseSpider):
             async with session.get(
                 VIEW_URL, params={"bvid": bvid},
                 timeout=aiohttp.ClientTimeout(total=10),
+                **proxy_request_kwargs(self.proxy),
             ) as response:
                 if response.status != 200:
                     return {}
@@ -520,6 +526,7 @@ class BilibiliSpider(BaseSpider):
             async with session.get(
                 PLAYER_URL, params={"bvid": bvid, "cid": cid},
                 timeout=aiohttp.ClientTimeout(total=10),
+                **proxy_request_kwargs(self.proxy),
             ) as response:
                 if response.status != 200:
                     return {

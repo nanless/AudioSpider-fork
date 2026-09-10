@@ -20,6 +20,7 @@ from typing import Any
 import aiohttp
 
 from background import decode_metadata
+from bilibili_proxy import get_bilibili_proxy
 from bilibili_dataset import (
     BilibiliClient,
     build_jobs as build_bilibili_jobs,
@@ -211,7 +212,9 @@ async def _download_bilibili(
         len(auth_cookie) > 16_384 or "\r" in auth_cookie or "\n" in auth_cookie
     ):
         raise ValueError("BILIBILI_COOKIE is too long or contains a newline")
-    client = BilibiliClient(session, auth_cookie=auth_cookie)
+    client = BilibiliClient(
+        session, auth_cookie=auth_cookie, proxy=get_bilibili_proxy()
+    )
     view = await client.view(manifest_item["bvid"])
     jobs = build_bilibili_jobs(manifest_item, view)
     if len(jobs) != 1:

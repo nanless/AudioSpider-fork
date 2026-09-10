@@ -19,6 +19,7 @@ import aiofiles
 
 from anti_crawler import build_headers, random_delay, get_aio_proxy
 from background import persist_background, save_sidecar
+from bilibili_proxy import get_bilibili_proxy, proxy_request_kwargs
 from config import (
     CHUNK_SIZE,
     DOWNLOAD_DIR,
@@ -105,7 +106,9 @@ def _guess_referer(url: str) -> str:
     return urlparse(url).scheme + "://" + urlparse(url).netloc + "/"
 
 
-async def _resolve_bilibili_url(session: aiohttp.ClientSession, source_id: str) -> str:
+async def _resolve_bilibili_url(
+    session: aiohttp.ClientSession, source_id: str, *, proxy: str | None = None
+) -> str:
     """B站音频流 URL 有时效性，下载时实时获取新的"""
     m = re.match(r"(BV[\w]+)_p(\d+)", source_id)
     if not m:
@@ -118,6 +121,7 @@ async def _resolve_bilibili_url(session: aiohttp.ClientSession, source_id: str) 
             params={"bvid": bvid},
             headers=BILIBILI_HEADERS,
             timeout=aiohttp.ClientTimeout(total=10),
+            **proxy_request_kwargs(proxy),
         ) as resp:
             data = await resp.json(content_type=None)
             pages = data.get("data", [])
@@ -130,6 +134,7 @@ async def _resolve_bilibili_url(session: aiohttp.ClientSession, source_id: str) 
             params={"bvid": bvid, "cid": cid, "fnval": 16},
             headers=BILIBILI_HEADERS,
             timeout=aiohttp.ClientTimeout(total=10),
+            **proxy_request_kwargs(proxy),
         ) as resp:
             data = await resp.json(content_type=None)
             audios = data.get("data", {}).get("dash", {}).get("audio", [])
@@ -199,6 +204,8 @@ class Downloader:
             raise ValueError("background_mode must be none, metadata, or all")
         self.background_mode = background_mode
         self.allow_bilibili_cookie = allow_bilibili_cookie
+        # Validate the explicit source proxy before any queue row is claimed.
+        self.bilibili_proxy = get_bilibili_proxy()
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:12]}"
         self.semaphore = asyncio.Semaphore(self.max_workers)
         self.stats = {"success": 0, "failed": 0, "skipped": 0, "dup": 0}
@@ -252,6 +259,7 @@ class Downloader:
                         "https://www.bilibili.com",
                         headers=BILIBILI_HEADERS,
                         timeout=aiohttp.ClientTimeout(total=10),
+                        **proxy_request_kwargs(self.bilibili_proxy),
                     ) as response:
                         await response.read()
                 except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
@@ -288,7 +296,9 @@ class Downloader:
 
                 # 仅兼容历史 B 站 audio 记录；新记录默认走 video_bundle。
                 if source == "bilibili" and source_id:
-                    fresh_url = await _resolve_bilibili_url(session, source_id)
+                    fresh_url = await _resolve_bilibili_url(
+                        session, source_id, proxy=self.bilibili_proxy
+                    )
                     if not fresh_url:
                         raise DownloadValidationError("B站 URL 刷新失败")
                     url = fresh_url

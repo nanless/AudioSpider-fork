@@ -130,6 +130,71 @@ class BilibiliMetadataTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(inventory["status"], "auth_required")
         self.assertEqual(inventory["assets"], [])
 
+    async def test_all_collection_requests_use_only_the_explicit_proxy(self):
+        class Response:
+            status = 200
+
+            def __init__(self, url):
+                self.url = url
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return False
+
+            async def read(self):
+                return b""
+
+            async def json(self, **_kwargs):
+                if self.url == bilibili_module.SEARCH_URL:
+                    return {"code": 0, "data": {"result": []}}
+                if self.url == bilibili_module.PAGELIST_URL:
+                    return {"code": 0, "data": []}
+                if self.url == bilibili_module.PLAYER_URL:
+                    return {"code": 0, "data": {"subtitle": {"subtitles": []}}}
+                return {"code": 0, "data": {}}
+
+        class Session:
+            def __init__(self):
+                self.calls = []
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return False
+
+            def get(self, url, **kwargs):
+                self.calls.append((url, kwargs))
+                return Response(url)
+
+        proxy = "http://127.0.0.1:18443"
+        spider = BilibiliSpider()
+        spider.proxy = proxy
+        spider.keywords = []
+        spider.limiter.acquire = AsyncMock()
+        session = Session()
+        with patch("spiders.bilibili.aiohttp.ClientSession", return_value=session):
+            await spider.crawl()
+        await spider._search_page(session, "test", 1)
+        await spider._get_video_info(session, "BV1xx411c7mD")
+        await spider._get_subtitle_inventory(session, "BV1xx411c7mD", 1)
+        spider._get_video_info = AsyncMock(return_value={})
+        await spider._extract_video_records(
+            session, "BV1xx411c7mD", "test", "test"
+        )
+
+        expected_urls = {
+            "https://www.bilibili.com",
+            bilibili_module.SEARCH_URL,
+            bilibili_module.VIEW_URL,
+            bilibili_module.PLAYER_URL,
+            bilibili_module.PAGELIST_URL,
+        }
+        self.assertEqual({call[0] for call in session.calls}, expected_urls)
+        self.assertTrue(all(call[1]["proxy"] == proxy for call in session.calls))
+
     async def test_collection_emits_video_bundle_without_resolving_dash_audio(self):
         spider = BilibiliSpider()
         spider.limiter.acquire = AsyncMock()

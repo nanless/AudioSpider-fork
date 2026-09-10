@@ -53,6 +53,7 @@ python discover.py --source podcastindex --keywords news --pi-max-pages 1
 | `AUDIOSPIDER_BILIBILI_MAX_DURATION_SECONDS` | `14400` | 单分 P 最长时长 |
 | `AUDIOSPIDER_BILIBILI_JOB_ATTEMPTS` | `3` | 单个 B站 bundle 的临时 API/CDN 故障最多尝试次数（1–10） |
 | `AUDIOSPIDER_BILIBILI_RETRY_BACKOFF_SECONDS` | `10` | B站单任务线性重试退避基数秒数（0–600） |
+| `AUDIOSPIDER_BILIBILI_PROXY` | 空 | 仅供 B站请求使用的本机反向隧道入口；只接受精确的 `http://127.0.0.1:端口` |
 
 所有值必须是正整数字节或秒数。例如：
 
@@ -64,6 +65,26 @@ python doctor.py
 ```
 
 `main.py` 默认使用 4 个 downloader worker；`AUDIOSPIDER_MAX_WORKERS` 是允许用户传入的上限，不是默认并发数。
+
+### B站来源专用代理
+
+当服务器需要通过已经授权的本机反向隧道访问 B站时，可以只给本轮 B站进程设置：
+
+```bash
+AUDIOSPIDER_BILIBILI_PROXY=http://127.0.0.1:18443 \
+python main.py --source bilibili --artifact-kind video_bundle \
+  --limit 1 --workers 1 --format original
+```
+
+同一变量也适用于 `python collect.py --spiders bilibili`。它会覆盖 B站首页预热、搜索、
+稿件/分 P/字幕目录 API、字幕文件与 DASH CDN 请求；不会改变 YouTube、RSS 等其他来源，
+也不会写入数据库、sidecar 或日志。程序不会读取通用 `HTTP_PROXY`、`HTTPS_PROXY`，也
+不会启用 aiohttp 的 `trust_env`。
+
+为防止把隧道误配置成通用远程代理，该变量只接受小写 `http`、固定地址
+`127.0.0.1` 和 1–65535 端口。`localhost`、远端 IP、用户名密码、末尾 `/`、路径、query、
+fragment、空白或换行都会在领取下载任务前被拒绝。域名白名单还必须由本机代理端实施；
+变量本身只是服务器 loopback 入口。不要把代理地址或 B站 Cookie 写进仓库配置文件。
 
 ## 固定路径
 

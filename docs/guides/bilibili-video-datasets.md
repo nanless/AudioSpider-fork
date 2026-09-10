@@ -72,6 +72,7 @@ B站来源不是读取 standalone manifest，而是由 `collect.py` 使用受控
 | `AUDIOSPIDER_BILIBILI_MAX_DURATION_SECONDS` | 单分 P 最长时长 |
 | `AUDIOSPIDER_BILIBILI_JOB_ATTEMPTS` | 单任务遇到临时 API/CDN 故障时最多尝试次数；默认 `3` |
 | `AUDIOSPIDER_BILIBILI_RETRY_BACKOFF_SECONDS` | 重试线性退避基数秒数；默认 `10` |
+| `AUDIOSPIDER_BILIBILI_PROXY` | 可选的 B站专用 loopback HTTP 代理；格式只能是 `http://127.0.0.1:端口` |
 
 `MAX_NEW_RECORDS` 按 SQLite 去重后的真实新增父 BV 数计数；数据库中已有任一分 P 的父
 BV 不会重复进入本批，也不会消耗新增配额。所有上限只控制 `collect.py`；采集阶段只写
@@ -96,6 +97,23 @@ python collect.py --spiders bilibili
 
 标题包含/排除规则只是选择候选的证据，不能证明实际音轨一定为中文。正式数据仍应抽听
 或用独立语言识别质检，并把语言核验来源单独记录。
+
+如果服务器直连 B站暂时不可用，而你已经建立了受控的本机反向代理隧道，可在采集和
+下载命令前临时加：
+
+```bash
+AUDIOSPIDER_BILIBILI_PROXY=http://127.0.0.1:18443 \
+python collect.py --spiders bilibili
+
+AUDIOSPIDER_BILIBILI_PROXY=http://127.0.0.1:18443 \
+python main.py --source bilibili --artifact-kind video_bundle \
+  --category 访谈 --language zh --limit 1 --workers 1 --format original
+```
+
+该入口只显式传给 B站请求，不读取 `HTTP_PROXY`/`HTTPS_PROXY`，不影响同进程的其他来源。
+代理值不会进入 SQLite、sidecar 或日志。服务端只接受 `127.0.0.1` 的无凭据纯 HTTP
+入口；本机代理还应独立限制可访问的 B站 API、字幕和媒体 CDN 域名。不要用它绕过
+付费、DRM、验证码、地区或账户访问控制。
 
 采集后查看，不要直接假设发现数等于新增数：
 

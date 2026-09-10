@@ -32,6 +32,7 @@ from bilibili_subtitles import (
     sanitize_subtitle_track,
     redact_url,
 )
+from bilibili_proxy import get_bilibili_proxy, proxy_request_kwargs
 from youtube_dataset import redact_urls_in_text, sha256_file, write_json_atomic, write_text_atomic
 from network_safety import validate_public_http_url
 
@@ -526,10 +527,11 @@ def _rights_cleared(job: dict[str, Any]) -> bool:
 class BilibiliClient:
     """Bounded anonymous client for public Bilibili metadata and captions."""
 
-    def __init__(self, session: Any, *, auth_cookie: str = ""):
+    def __init__(self, session: Any, *, auth_cookie: str = "", proxy: str | None = None):
         self.session = session
         self.auth_cookie = auth_cookie
         self.authenticated = bool(auth_cookie)
+        self.proxy = proxy
 
     async def _json(self, url: str, *, params: dict[str, Any] | None = None,
                     maximum: int = MAX_API_BYTES) -> dict[str, Any]:
@@ -541,6 +543,7 @@ class BilibiliClient:
             headers["Cookie"] = self.auth_cookie
         async with self.session.get(
             url, params=params, headers=headers, allow_redirects=False,
+            **proxy_request_kwargs(self.proxy),
         ) as response:
             if response.status != 200:
                 raise RuntimeError(f"Bilibili HTTP {response.status} for {urlsplit(url).path}")
@@ -614,7 +617,7 @@ def _content_range_start(value: str) -> int | None:
 
 async def _download_stream(
     session: Any, stream: dict[str, Any], destination: Path, *, maximum: int,
-    expected_kind: str,
+    expected_kind: str, proxy: str | None = None,
 ) -> None:
     """Download one fixed representation with identity-bound HTTP Range resume."""
 
@@ -670,7 +673,10 @@ async def _download_stream(
             }
             if offset:
                 headers["Range"] = f"bytes={offset}-"
-            async with session.get(url, headers=headers, allow_redirects=False) as response:
+            async with session.get(
+                url, headers=headers, allow_redirects=False,
+                **proxy_request_kwargs(proxy),
+            ) as response:
                 if response.status not in {200, 206}:
                     raise RuntimeError(f"DASH CDN returned HTTP {response.status}")
                 range_info = _parse_content_range(response.headers.get("Content-Range", ""))
@@ -816,11 +822,11 @@ async def download_job(
             raw_audio = stage / "dash-audio.bin"
             await _download_stream(
                 client.session, video_stream, raw_video, maximum=MAX_MEDIA_BYTES,
-                expected_kind="video",
+                expected_kind="video", proxy=client.proxy,
             )
             await _download_stream(
                 client.session, audio_stream, raw_audio, maximum=MAX_MEDIA_BYTES,
-                expected_kind="audio",
+                expected_kind="audio", proxy=client.proxy,
             )
             video = stage / "source.mp4"
             merge_mode = _merge_dash(raw_video, raw_audio, video)
@@ -1245,7 +1251,9 @@ async def _inspect_or_download(args: argparse.Namespace, *, download: bool) -> i
     name = f"{report['mode']}-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}.json"
     try:
         async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
-            client = BilibiliClient(session, auth_cookie=cookie)
+            client = BilibiliClient(
+                session, auth_cookie=cookie, proxy=get_bilibili_proxy()
+            )
             for item in items:
                 try:
                     view = await client.view(item["bvid"])
