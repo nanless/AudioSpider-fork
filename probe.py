@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 from background import decode_metadata
 
 
-SOURCES = ("podcast_rss", "librivox", "xiaoyuzhou", "ximalaya", "bilibili")
+SOURCES = ("podcast_rss", "librivox", "xiaoyuzhou", "ximalaya", "bilibili", "youtube")
 
 
 def positive_int(value: str) -> int:
@@ -39,6 +39,15 @@ def database_snapshot(storage, source: str):
 
 
 def configure_spider(args):
+    if args.source == "youtube":
+        from spiders.youtube import YoutubeSpider
+
+        spider = YoutubeSpider()
+        if args.manifest:
+            spider.manifest_path = args.manifest.resolve()
+        spider.max_items = args.videos
+        return spider
+
     if args.source == "podcast_rss":
         from spiders.podcast_rss import PodcastRSSSpider
 
@@ -131,6 +140,9 @@ async def run_probe(args) -> dict:
             "media_host": parsed.hostname or "",
             "scheme": parsed.scheme,
             "format": row["file_format"],
+            "artifact_kind": row["artifact_kind"],
+            "job_key": row["job_key"],
+            "bundle_path": row["bundle_path"],
             "duration": row["duration"],
             "language": row["language"],
             "category": row["category"],
@@ -192,6 +204,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="B站每关键词视频数，默认 2")
     parser.add_argument("--parts", type=positive_int, default=3,
                         help="B站每视频分P数，默认 3")
+    parser.add_argument("--manifest", type=Path,
+                        help="YouTube 可选受控来源清单")
     parser.add_argument("--include-discovery", action="store_true",
                         help="小宇宙额外访问首页/发现页")
     parser.add_argument("--timeout", type=positive_int, default=120,

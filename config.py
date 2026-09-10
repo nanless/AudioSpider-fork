@@ -140,6 +140,10 @@ SPIDER_CONFIGS = {
     },
     "bilibili": {
         "enabled": True,
+        # 当前受控搜索清单面向中文语音；改抓英文时必须显式改为 en。
+        "content_language": os.environ.get(
+            "AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE", "zh"
+        ),
         "search_keywords": [
             # 有声书 / 听书
             "有声书 合集", "有声书 全集", "有声小说 全集", "听书 合集",
@@ -173,6 +177,17 @@ SPIDER_CONFIGS = {
         "max_videos_per_keyword": 100,
         # 每个视频最多取多少分P（设很大 ≈ 不限）
         "max_pages_per_video": 200,
+    },
+    "youtube": {
+        "enabled": True,
+        # 只定义受控来源；collect.py 负责核验后入共享队列，main.py 才下载。
+        "manifest_path": os.environ.get(
+            "AUDIOSPIDER_YOUTUBE_MANIFEST", "config/youtube_sources.initial.json"
+        ),
+        "max_items": _positive_env_int("AUDIOSPIDER_YOUTUBE_MAX_ITEMS", 100),
+        "inspect_timeout_seconds": _positive_env_int(
+            "AUDIOSPIDER_YOUTUBE_INSPECT_TIMEOUT", 120
+        ),
     },
 }
 

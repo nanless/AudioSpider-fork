@@ -229,6 +229,22 @@ def load_manifest(path: Path) -> list[dict[str, Any]]:
     return validate_manifest(json.loads(path.read_text(encoding="utf-8")))
 
 
+def build_job_key(item: dict[str, Any], part: int, cid: int) -> str:
+    """Build the immutable artifact identity shared by collect and download."""
+
+    fingerprint = hashlib.sha256(
+        json.dumps(
+            [
+                item["bvid"], part, cid, item["max_height"], item["languages"],
+                item["require_caption"], item["source_revision"], SCHEMA_VERSION,
+                ENCODING_PROFILE,
+            ],
+            separators=(",", ":"), ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()[:12]
+    return f"{item['bvid']}-p{part}-c{cid}-{fingerprint}"
+
+
 def build_jobs(item: dict[str, Any], view: dict[str, Any]) -> list[dict[str, Any]]:
     """Turn a validated video item and view response into bounded part jobs."""
 
@@ -249,16 +265,6 @@ def build_jobs(item: dict[str, Any], view: dict[str, Any]) -> list[dict[str, Any
             raise ValueError(f"Bilibili part {part} has no valid cid")
         if not math.isfinite(duration) or duration <= 0 or duration > item["max_duration_seconds"]:
             raise ValueError(f"Bilibili part {part} has invalid/out-of-policy duration")
-        fingerprint = hashlib.sha256(
-            json.dumps(
-                [
-                    item["bvid"], part, cid, item["max_height"], item["languages"],
-                    item["require_caption"], item["source_revision"], SCHEMA_VERSION,
-                    ENCODING_PROFILE,
-                ],
-                separators=(",", ":"), ensure_ascii=False,
-            ).encode("utf-8")
-        ).hexdigest()[:12]
         jobs.append({
             **item,
             "aid": view.get("aid"),
@@ -266,7 +272,7 @@ def build_jobs(item: dict[str, Any], view: dict[str, Any]) -> list[dict[str, Any
             "part": part,
             "part_title": str(page.get("part") or ""),
             "duration_seconds": duration,
-            "job_key": f"{item['bvid']}-p{part}-c{cid}-{fingerprint}",
+            "job_key": build_job_key(item, part, cid),
         })
         if len(jobs) >= item["max_parts"]:
             break
@@ -430,11 +436,17 @@ def select_dash_streams(dash: dict[str, Any], max_height: int) -> tuple[dict[str
     return video, audio
 
 
-def output_directory(root: Path, job: dict[str, Any]) -> Path:
+def output_directory(
+    root: Path, job: dict[str, Any], *, destination: Path | None = None
+) -> Path:
     root = Path(root).resolve()
-    directory = root / "parents" / job["bvid"] / f"p{job['part']}" / job["job_key"]
+    directory = (
+        Path(destination)
+        if destination is not None
+        else root / "parents" / job["bvid"] / f"p{job['part']}" / job["job_key"]
+    )
     directory = directory.resolve()
-    if root not in directory.parents:
+    if root != directory and root not in directory.parents:
         raise ValueError("bundle output escaped the configured root")
     return directory
 
@@ -521,7 +533,10 @@ class BilibiliClient:
 
     async def _json(self, url: str, *, params: dict[str, Any] | None = None,
                     maximum: int = MAX_API_BYTES) -> dict[str, Any]:
-        headers = {}
+        headers = {
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://www.bilibili.com/",
+        }
         if self.auth_cookie and (urlsplit(url).hostname or "").lower() == "api.bilibili.com":
             headers["Cookie"] = self.auth_cookie
         async with self.session.get(
@@ -769,11 +784,13 @@ def _media_summary(path: Path) -> dict[str, Any]:
 
 
 async def download_job(
-    client: BilibiliClient, job: dict[str, Any], view: dict[str, Any], output_root: Path
+    client: BilibiliClient, job: dict[str, Any], view: dict[str, Any], output_root: Path,
+    *, destination: Path | None = None,
 ) -> Path:
     """Download one public BV part and atomically promote its complete bundle."""
 
-    destination = output_directory(output_root, job)
+    integrated_destination = destination is not None
+    destination = output_directory(output_root, job, destination=destination)
     with job_lock(output_root, job["job_key"]):
         if (destination / "metadata.json").is_file():
             validate_bundle(destination / "metadata.json")
@@ -844,6 +861,9 @@ async def download_job(
                 "asset_type": "bilibili_parent",
                 "source": "bilibili",
                 "source_id": f"{job['bvid']}_p{job['part']}",
+                "storage_layout": (
+                    "integrated_queue" if integrated_destination else "legacy_dataset"
+                ),
                 "bvid": job["bvid"],
                 "aid": job.get("aid"),
                 "cid": job["cid"],
@@ -943,9 +963,22 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
         raise ValueError("bundle source_id does not match bvid/part")
     if metadata.get("canonical_url") != f"https://www.bilibili.com/video/{bvid}?p={part}":
         raise ValueError("bundle canonical_url does not match bvid/part")
-    formal_hierarchy = bundle.parent.name == f"p{part}" and bundle.parent.parent.name == bvid
+    layout = metadata.get("storage_layout") or (
+        "integrated_queue"
+        if bundle.parent.name == metadata.get("source_id")
+        else "legacy_dataset"
+    )
+    formal_hierarchy = (
+        layout == "legacy_dataset"
+        and bundle.parent.name == f"p{part}"
+        and bundle.parent.parent.name == bvid
+    )
+    integrated_hierarchy = (
+        layout == "integrated_queue"
+        and bundle.parent.name == metadata.get("source_id")
+    )
     staging_hierarchy = allow_staging and bundle.parent.name == ".staging"
-    if not formal_hierarchy and not staging_hierarchy:
+    if not formal_hierarchy and not integrated_hierarchy and not staging_hierarchy:
         raise ValueError("bundle directory hierarchy does not match bvid/part")
     if type(metadata.get("aid")) is not int or metadata["aid"] <= 0:
         raise ValueError("bundle has invalid aid")

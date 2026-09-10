@@ -37,6 +37,10 @@ python discover.py --source podcastindex --keywords news --pi-max-pages 1
 | `AUDIOSPIDER_MAX_BACKGROUND_TOTAL_BYTES` | `52428800` | 每条音频背景资产合计最大 50 MiB |
 | `AUDIOSPIDER_MAX_BACKGROUND_ASSETS` | `12` | 每条音频最多请求的辅助资产数 |
 | `AUDIOSPIDER_BACKGROUND_ASSET_TIMEOUT` | `75` | 单个辅助资产硬超时秒数 |
+| `AUDIOSPIDER_YOUTUBE_MAX_ITEMS` | `100` | 单轮最多核验多少个 YouTube 清单项 |
+| `AUDIOSPIDER_YOUTUBE_INSPECT_TIMEOUT` | `120` | 单个 YouTube 元数据/字幕核验子进程硬超时（秒） |
+| `AUDIOSPIDER_YOUTUBE_DOWNLOAD_TIMEOUT` | `14400` | 单个 YouTube 完整 bundle 下载子进程硬超时（秒） |
+| `AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE` | `zh` | B站受控搜索批次的内容语言；英文批次显式设为 `en` |
 
 所有值必须是正整数字节或秒数。例如：
 

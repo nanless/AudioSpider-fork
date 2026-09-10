@@ -161,6 +161,8 @@ def check_database(db_path: Path) -> dict:
                 row[1] for row in connection.execute("PRAGMA table_info(audio_urls)")
             }
             rich_columns = {"description", "author", "cover_url", "metadata_json"}
+            artifact_columns = {"artifact_kind", "bundle_path", "job_key"}
+            missing_artifact_columns = sorted(artifact_columns - columns)
             if rich_columns.issubset(columns):
                 coverage = connection.execute(
                     "SELECT SUM(description!=''), SUM(author!=''), "
@@ -178,6 +180,12 @@ def check_database(db_path: Path) -> dict:
                 "database", "error", "数据库结构或完整性异常",
                 exists=True, integrity=integrity, missing_tables=missing,
                 status_counts=counts,
+            )
+        if missing_artifact_columns:
+            return make_result(
+                "database", "error", "数据库未执行媒体产物迁移",
+                exists=True, integrity=integrity,
+                missing_columns=missing_artifact_columns, status_counts=counts,
             )
         return make_result(
             "database", "ok", f"SQLite 完整，记录数 {sum(counts.values())}",

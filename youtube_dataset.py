@@ -670,7 +670,9 @@ def _exclusive_file_lock(path: Path):
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
-def download_item(item: dict[str, Any], output_root: Path) -> Path:
+def download_item(
+    item: dict[str, Any], output_root: Path, *, destination: Path | None = None
+) -> Path:
     """Download one complete parent bundle and atomically promote its directory."""
 
     info, caption = inspect_item(item)
@@ -678,7 +680,9 @@ def download_item(item: dict[str, Any], output_root: Path) -> Path:
         raise ValueError("download currently requires a platform caption")
     lock = Path(output_root).resolve() / ".locks" / f"{item['job_key']}.lock"
     with _exclusive_file_lock(lock):
-        return _download_item_locked(item, output_root, info, caption)
+        return _download_item_locked(
+            item, output_root, info, caption, destination=destination
+        )
 
 
 def _download_item_locked(
@@ -686,13 +690,22 @@ def _download_item_locked(
     output_root: Path,
     info: dict[str, Any],
     caption: CaptionSelection,
+    *,
+    destination: Path | None = None,
 ) -> Path:
     paths = output_paths(
         output_root, item["profile"], item["video_id"], caption.language, item["job_key"]
     )
-    destination = paths["directory"]
-    if paths["metadata"].exists():
-        completed = _validate_bundle(paths["metadata"])
+    configured_root = Path(output_root).resolve()
+    if destination is None:
+        destination = paths["directory"]
+    else:
+        destination = Path(destination).resolve()
+        if configured_root != destination and configured_root not in destination.parents:
+            raise ValueError("integrated destination escaped its configured root")
+    destination_metadata = destination / "metadata.json"
+    if destination_metadata.exists():
+        completed = _validate_bundle(destination_metadata)
         if completed["metadata"].get("job_key") != item["job_key"]:
             raise ValueError("completed bundle has the wrong job_key")
         return destination

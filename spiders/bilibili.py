@@ -1,14 +1,15 @@
 # Copyright (c) 2026 Hao Yin. All rights reserved.
 
-"""B站爬虫 — 提取视频中的音频流（有声书、评书、相声、演讲等）
+"""B站爬虫 — 采集可下载的分 P 视频 bundle 任务。
 
 策略：
 1. 搜索 API 按关键词翻页找语音类长视频（max_search_pages）
-2. 搜到一页后立刻解析该页视频的分P音频流（边搜边解析）
+2. 搜到一页后立刻解析该页视频的分 P 与字幕元数据（边搜边解析）
 3. 每个视频解析完立刻通过 on_batch 增量入库（合集分P多时更安全）
 4. 解析当前页时预取下一页搜索结果（asyncio 流水线，共用限速器）
 
-注意：B站音频流 URL 有时效性，需要带 Referer 下载。
+注意：采集阶段只入库稳定的 BV 分 P 页面 URL；DASH 视频/音频
+签名 URL 留给下载器在实际传输时获取，不入库。
 """
 
 import asyncio
@@ -21,6 +22,11 @@ import aiohttp
 from anti_crawler import random_delay, RateLimiter
 from background import encode_metadata, metadata_envelope, plain_text
 from bilibili_subtitles import classify_subtitle_inventory, sanitize_subtitle_track
+from bilibili_dataset import (
+    build_job_key,
+    caption_language_matches_content,
+    default_caption_languages,
+)
 from config import SPIDER_CONFIGS
 from spiders.base import BaseSpider
 from storage import AudioRecord
@@ -41,7 +47,6 @@ BILIBILI_HEADERS = {
 
 SEARCH_URL = "https://api.bilibili.com/x/web-interface/search/all/v2"
 PAGELIST_URL = "https://api.bilibili.com/x/player/pagelist"
-PLAYURL_URL = "https://api.bilibili.com/x/player/playurl"
 VIEW_URL = "https://api.bilibili.com/x/web-interface/view"
 PLAYER_URL = "https://api.bilibili.com/x/player/v2"
 
@@ -57,6 +62,7 @@ class BilibiliSpider(BaseSpider):
         self.max_pages_per_video = cfg.get("max_pages_per_video", 20)
         # 搜索结果翻页数：每页约 20 个视频，翻页越多每个关键词覆盖越广
         self.max_search_pages = cfg.get("max_search_pages", 1)
+        self.content_language = str(cfg.get("content_language") or "und")
         self.limiter = RateLimiter(rate=0.5, burst=3)
 
     async def crawl(self, on_batch: Callable[[list[AudioRecord]], None] | None = None) -> list[AudioRecord]:
@@ -136,7 +142,7 @@ class BilibiliSpider(BaseSpider):
                                 f"{title[:40]}..."
                             )
                             await self.limiter.acquire()
-                            page_records = await self._extract_audio(
+                            page_records = await self._extract_video_records(
                                 session, bvid, title, keyword
                             )
                             video_batch: list[AudioRecord] = []
@@ -175,11 +181,11 @@ class BilibiliSpider(BaseSpider):
 
                 self.logger.info(
                     f"关键词 \"{keyword}\" 完成: 解析 {parsed_for_keyword} 个视频, "
-                    f"发现 {keyword_records} 个音频"
+                    f"发现 {keyword_records} 个视频 bundle 任务"
                 )
                 await random_delay(2.0, 4.0)
 
-        self.logger.info(f"B站 共发现 {total_records} 个音频")
+        self.logger.info(f"B站 共发现 {total_records} 个视频 bundle 任务")
         return records
 
     async def _search_page(self, session: aiohttp.ClientSession,
@@ -210,10 +216,10 @@ class BilibiliSpider(BaseSpider):
             self.logger.warning(f"B站搜索失败 \"{keyword}\" 第 {page} 页: {e}")
         return results
 
-    async def _extract_audio(self, session: aiohttp.ClientSession,
-                              bvid: str, video_title: str,
-                              keyword: str) -> list[AudioRecord]:
-        """从视频的每个分P提取音频流"""
+    async def _extract_video_records(self, session: aiohttp.ClientSession,
+                                     bvid: str, video_title: str,
+                                     keyword: str) -> list[AudioRecord]:
+        """为视频的每个分 P 生成稳定的视频 bundle 任务。"""
         records = []
         try:
             video_info = await self._get_video_info(session, bvid)
@@ -243,21 +249,38 @@ class BilibiliSpider(BaseSpider):
                     continue
 
                 await self.limiter.acquire()
-                audio_url = await self._get_audio_url(session, bvid, cid)
-                if not audio_url:
-                    continue
                 caption_inventory = await self._get_subtitle_inventory(session, bvid, cid)
-                subtitles = caption_inventory["assets"]
+                subtitles = [
+                    track for track in caption_inventory["assets"]
+                    if caption_language_matches_content(
+                        self.content_language, track.get("language", "")
+                    )
+                ]
 
                 title = f"{video_title} P{page_num}" if not part_title else part_title
                 category = self._guess_category(keyword)
 
-                record = self._make_record(url=audio_url, title=title, file_format="m4a")
+                canonical_url = self._canonical_page_url(bvid, page_num)
+                record = AudioRecord(
+                    url=canonical_url,
+                    source=self.name,
+                    title=title,
+                    file_format="mp4",
+                    artifact_kind="video_bundle",
+                )
                 record.duration = duration
                 record.category = category
-                record.language = "zh"
+                record.language = self.content_language
                 record.speaker = video_title[:30]
                 record.source_id = f"{bvid}_p{page_num}"
+                job_identity = {
+                    "bvid": bvid,
+                    "max_height": 720,
+                    "languages": default_caption_languages(record.language),
+                    "require_caption": False,
+                    "source_revision": "current",
+                }
+                record.job_key = build_job_key(job_identity, page_num, cid)
                 self._attach_metadata(
                     record, video_info, page, bvid=bvid, cid=cid,
                     page_num=page_num, keyword=keyword, subtitles=subtitles,
@@ -268,7 +291,8 @@ class BilibiliSpider(BaseSpider):
                 # 大合集每隔 20P 打一次进度，避免看起来像卡住
                 if total_parts >= 50 and (i % 20 == 0 or i == total_parts):
                     self.logger.info(
-                        f"{bvid} 分P进度 {i}/{total_parts}，已取到 {len(records)} 条音频"
+                        f"{bvid} 分 P 进度 {i}/{total_parts}，"
+                        f"已生成 {len(records)} 条视频 bundle 任务"
                     )
 
                 await random_delay(0.5, 1.0)
@@ -277,13 +301,17 @@ class BilibiliSpider(BaseSpider):
             self.logger.warning(f"B站视频解析失败 {bvid}: {e}")
         return records
 
+    @staticmethod
+    def _canonical_page_url(bvid: str, page_num: int) -> str:
+        return f"https://www.bilibili.com/video/{bvid}?p={page_num}"
+
     def _attach_metadata(self, record: AudioRecord, video_info: dict,
                          page: dict, *, bvid: str, cid: int,
                          page_num: int, keyword: str,
                          subtitles: list[dict],
                          caption_inventory: dict | None = None) -> AudioRecord:
         owner = video_info.get("owner") or {}
-        record.webpage_url = f"https://www.bilibili.com/video/{bvid}?p={page_num}"
+        record.webpage_url = self._canonical_page_url(bvid, page_num)
         record.description = plain_text(video_info.get("desc", ""))
         record.author = owner.get("name", "")
         record.cover_url = video_info.get("pic", "") or page.get("first_frame", "")
@@ -303,6 +331,7 @@ class BilibiliSpider(BaseSpider):
                 "categories": [video_info.get("tname", ""), keyword],
             },
             source_data={
+                "artifact_kind": "video_bundle",
                 "bvid": bvid,
                 "aid": video_info.get("aid"),
                 "cid": cid,
@@ -322,6 +351,34 @@ class BilibiliSpider(BaseSpider):
                         "need_login_subtitle"
                     ),
                     "track_count": len(subtitles),
+                },
+                # Portable, signed-URL-free download contract.  Its field names
+                # intentionally mirror bilibili_dataset.validate_manifest so a
+                # downloader can recreate the exact part job at transfer time.
+                "download_task": {
+                    "artifact_kind": "video_bundle",
+                    "bvid": bvid,
+                    "cid": cid,
+                    "page": page_num,
+                    "canonical_url": record.webpage_url,
+                    "parts": [page_num],
+                    "max_parts": 1,
+                    "max_height": 720,
+                    "max_duration_seconds": 4 * 3600,
+                    "content_language": record.language or "zh",
+                    "caption_policy": {
+                        "mode": "all_matching_public_tracks",
+                        "languages": default_caption_languages(record.language or "und"),
+                        "require_caption": False,
+                    },
+                    "rights": {
+                        "status": "needs_review",
+                        "rights_cleared": False,
+                    },
+                    "ai_generation": {"status": "unknown", "evidence": []},
+                    "speaker_count": None,
+                    "speaker_count_status": "needs_review",
+                    "source_revision": "current",
                 },
             },
             assets={"transcripts": subtitles},
@@ -356,11 +413,19 @@ class BilibiliSpider(BaseSpider):
                 cid = page["cid"]
                 caption_inventory = await self._get_subtitle_inventory(session, bvid, cid)
                 subtitles = caption_inventory["assets"]
+                artifact_kind = row.get("artifact_kind") or "audio"
+                is_bundle = artifact_kind == "video_bundle"
                 record = AudioRecord(
-                    url=row["url"], source=self.name, title=row.get("title", ""),
-                    file_format=row.get("file_format", ""),
+                    url=(
+                        self._canonical_page_url(bvid, page_num)
+                        if is_bundle else row["url"]
+                    ),
+                    source=self.name, title=row.get("title", ""),
+                    file_format="mp4" if is_bundle else row.get("file_format", ""),
+                    artifact_kind=artifact_kind,
+                    job_key=row.get("job_key", ""),
                     file_size=row.get("file_size", 0), duration=row.get("duration", 0),
-                    language=row.get("language", ""), category=row.get("category", ""),
+                    language=row.get("language") or "zh", category=row.get("category", ""),
                     speaker=row.get("speaker", ""), source_id=row.get("source_id", ""),
                     published_at=row.get("published_at", ""),
                 )
@@ -411,7 +476,11 @@ class BilibiliSpider(BaseSpider):
                 for subtitle in subtitles:
                     normalized = sanitize_subtitle_track(subtitle)
                     if normalized["url"]:
-                        results.append(normalized)
+                        # 字幕 URL 可能带时效签名；队列只保留脱敏描述，
+                        # 真正下载时由 bundle worker 重新获取。
+                        results.append({
+                            key: value for key, value in normalized.items() if key != "url"
+                        })
                 return {
                     "status": inventory["status"],
                     "need_login_subtitle": inventory["need_login_subtitle"],
@@ -420,25 +489,6 @@ class BilibiliSpider(BaseSpider):
         except Exception as exc:
             self.logger.debug(f"获取公开视频字幕失败 {bvid} cid={cid}: {exc}")
             return {"status": "external_failure", "need_login_subtitle": None, "assets": []}
-
-    async def _get_audio_url(self, session: aiohttp.ClientSession,
-                              bvid: str, cid: int) -> str:
-        """获取单个分P的最高品质音频流 URL"""
-        try:
-            params = {"bvid": bvid, "cid": cid, "fnval": 16}
-            async with session.get(PLAYURL_URL, params=params,
-                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status != 200:
-                    return ""
-                data = await resp.json(content_type=None)
-                audios = data.get("data", {}).get("dash", {}).get("audio", [])
-                if not audios:
-                    return ""
-                best = max(audios, key=lambda a: a.get("bandwidth", 0))
-                return best.get("baseUrl", "") or best.get("base_url", "")
-        except Exception as e:
-            self.logger.debug(f"获取音频流失败 {bvid} cid={cid}: {e}")
-            return ""
 
     @staticmethod
     def _guess_category(keyword: str) -> str:

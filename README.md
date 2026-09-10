@@ -1,22 +1,30 @@
-# AudioSpider：面向语音数据采集的音频爬虫
+# AudioSpider：统一的音频与视频数据采集流水线
 
-AudioSpider 是一个使用 Python 编写的命令行工具。它可以发现播客 RSS、从多个公开来源收集音频地址、批量下载音频，并按统一目录保存音频和元信息。
+AudioSpider 是一个使用 Python 编写的命令行工具。正式路径用同一套
+`collect.py -> audiospider.db -> main.py` 编排普通音频、B站完整分P视频和
+YouTube 完整母视频，再按 artifact 类型生成不同文件闭包。
 
 如果你第一次接触 Python、Conda、SQLite 或爬虫，不用先读源码。按照本页的“十分钟上手”操作即可。
 
 > 使用前请确认你有权访问、下载和使用目标内容。代码采用 MIT License，并不代表爬取到的音频自动获得训练或商业使用授权。
 
-## 1. 先理解三个动作
+## 1. 先理解唯一主路径
 
-AudioSpider 把工作拆成三个独立步骤：
+AudioSpider 把正式工作拆成三个独立步骤，所有来源共享同一个数据库交接：
 
-```text
-发现播客源                    收集音频地址                    下载文件
-discover.py                  collect.py                    main.py
-Apple / Podcast Index   +    固定 RSS / 各平台 Spider  →   downloads/
-          \___________________________  _____________________/
-                                      \/
-                               audiospider.db
+```mermaid
+flowchart LR
+    S[RSS / 各平台]
+    C[collect.py\n采集元数据]
+    D[(audiospider.db)]
+    M[main.py\n领取与下载]
+    K{artifact kind}
+    A[普通音频]
+    V[B站/YouTube完整视频 bundle]
+    O[downloads/source/category]
+    S --> C --> D --> M --> K
+    K -->|audio| A --> O
+    K -->|video_bundle| V --> O
 ```
 
 ### 发现：`discover.py`
@@ -25,11 +33,15 @@ Apple / Podcast Index   +    固定 RSS / 各平台 Spider  →   downloads/
 
 ### 收集：`collect.py`
 
-运行仓库内置的五种适配器：固定 RSS、LibriVox、小宇宙、喜马拉雅和 B站。它只收集媒体 URL，不会自动下载音频。
+负责有界来源适配与元数据入库，不下载大媒体。当前实现包含固定 RSS、LibriVox、
+小宇宙、喜马拉雅、B站和 YouTube。B站新任务默认是完整分P `video_bundle`；
+YouTube 从受控 manifest 核验完整母视频及同语言字幕后入队。
 
 ### 下载：`main.py`
 
-从数据库领取 `pending` 任务，下载媒体文件，可选择保留原格式或转成 Opus。默认还会保存来源公开提供的简介、作者、网页、封面、章节、字幕/transcript 和公版原文。
+从数据库原子领取 `pending` 任务。普通音频使用 audio downloader；
+`video_bundle` 使用平台 handler 构建 MP4、WAV、字幕和 `metadata.json`，只有完整
+闭包通过验收才提交 `done`。
 
 最重要的规则是：
 
@@ -51,53 +63,37 @@ python main.py --limit 5000 --workers 4 --format original --background all
 每批结束后先审计覆盖率和失败原因，再增加下一批，避免来源临时异常时持续放大错误。
 可用 `--exclude-feed-host anchor.fm spreaker.com` 临时跳过已证实不可达的主机；feed 仍保留在数据库，以后可以单独重试。
 
-### YouTube 完整视频和平台字幕是独立流水线
+### B站和 YouTube 视频
 
-YouTube 不进入上面的 SQLite 音频 URL 队列，而由 `youtube_dataset.py` 单独管理。当前正式模式只保存完整父视频、WAV、平台字幕、纯文本和 sidecar，不生成短 clip。
+- B站新采集默认生成完整分 P `video_bundle`；数据库里的历史 B站 audio 记录保持兼容。
+- YouTube 只保存完整母视频，不默认生成 clip。
+- 两者都由 `collect.py` 入库、`main.py` 下载，输出位于
+  `downloads/<source>/<category>/`。
+- 视频 bundle 至少包含完整 MP4、16 kHz 单声道 WAV 和 `metadata.json`；有平台字幕
+  时再保存原始/标准化字幕与 TXT。
+- 字幕按 `manual/platform_manual`、`automatic/platform_auto`、
+  `unknown/platform_unknown` 分类；字幕来源不能推导媒体是否 AI 生成。
+- 字幕语言必须与内容语言同族；中文/粤语视频不能用英文字幕兜底。
+- B站匿名响应要求登录时保存 `auth_required`，不伪装成“无字幕”。
 
-最小安全流程如下：
-
-```bash
-# 1. 只看元数据和字幕是否存在，不下载大文件
-python youtube_dataset.py --output downloads/youtube-candidates inspect \
-  --manifest config/youtube_sources.example.json
-
-# 2. 下载清单中的父视频、16 kHz 单声道 WAV 和选中的平台字幕
-python youtube_dataset.py --output downloads/youtube-candidates download \
-  --manifest config/youtube_sources.example.json
-
-# 3. 重算哈希、调用 ffprobe 并审计所有父视频 bundle
-python youtube_dataset.py --output downloads/youtube-candidates audit
-```
-
-长访谈 profile 接受 25.5–60.6 分钟。人工平台字幕保存为 `platform_manual`，自动平台字幕保存为 `platform_auto`，两者永远不会混写。字幕语言必须与内容语言一致：英文视频只选英文字幕，中文/粤语视频只选中文或粤语字幕，日语、韩语同样只选本语言字幕。跨语言兜底会在 manifest 校验或 bundle 审计时失败。
-
-每个父视频和短片还带 `ai_generation`。没有来源声明或可复核证据时必须是 `unknown`；听起来机械、存在压缩伪影或模型给出高分都只能作为 `suspected` 线索，不能冒充“已确认 AI 生成”。
-
-第一次使用请完整阅读 [YouTube 视频与字幕数据集小白指南](docs/guides/youtube-datasets.md)；sidecar 字段见 [YouTube sidecar 参考](docs/reference/youtube-sidecars.md)。
-
-### B 站视频、WAV 和平台字幕也是独立流水线
-
-旧 B 站 Spider 继续服务纯音频队列；如果要保留画面，使用 `bilibili_dataset.py`：
+正式操作示例：
 
 ```bash
-# 只查分 P、CID、时长和字幕可用性
-python bilibili_dataset.py --output downloads/bilibili-video-candidates \
-  inspect --manifest config/bilibili_sources.example.json
+# B站：按 config.py 的有界搜索配置采集完整分P任务，再下载一条
+python collect.py --spiders bilibili
+python main.py --source bilibili --artifact-kind video_bundle --limit 1 --workers 1 --format original
 
-# 下载分离的 DASH 视频/音频并合并 MP4，同时抽取 16 kHz WAV
-python bilibili_dataset.py --output downloads/bilibili-video-candidates \
-  download --manifest config/bilibili_sources.example.json
-
-# 重算全部哈希、媒体流和字幕派生关系
-python bilibili_dataset.py --output downloads/bilibili-video-candidates audit
+# YouTube：默认读取 config/youtube_sources.initial.json；先限制一条
+AUDIOSPIDER_YOUTUBE_MAX_ITEMS=1 python collect.py --spiders youtube
+python main.py --source youtube --artifact-kind video_bundle --limit 1 --workers 1 --format original
 ```
 
-每个分 P 至少有 `source.mp4`、`audio.wav` 和 `metadata.json`。平台公开字幕时，每条轨道再保存原始 JSON、VTT 和 TXT；同一分 P 的多语言、多类型轨道全部保留。字幕分为 `manual/platform_manual`、`automatic/platform_auto` 和 `unknown/platform_unknown`，并保存判定规则和原始枚举。
+`--format` 只控制普通音频；视频包始终保存 MP4 和 WAV。`bilibili_dataset.py`、
+`youtube_dataset.py` 保留为兼容、修复和审计工具，不是新手正式下载入口。完整流程见
+[统一下载指南](docs/DOWNLOAD-GUIDE.md)和[统一媒体架构](docs/architecture.md)。
 
-匿名接口返回 `need_login_subtitle=true` 时会标为 `auth_required`，不会误写成“无字幕”。有合法访问权时可临时设置 `BILIBILI_COOKIE`，程序只在请求头中使用，不会写进数据、日志或 Git。自动字幕只说明文本轨的来源，不说明视频/声音由 AI 生成。
-
-详细步骤见 [B 站视频、WAV 和平台字幕小白指南](docs/guides/bilibili-video-datasets.md)，字段见 [B 站 sidecar 参考](docs/reference/bilibili-video-sidecars.md)。
+旧 standalone bundle 可先运行 `python scripts/migrate_video_bundles.py` 做默认 dry-run；
+确认报告后再显式加 `--apply`。apply 会先备份 SQLite，再移动、复验和登记 bundle。
 
 ## 2. 十分钟上手
 
@@ -296,7 +292,7 @@ python main.py --retry-failed --source bilibili --limit 100
 ```text
 AudioSpider-fork/
 ├── audiospider.db         SQLite 数据库
-├── downloads/             音频、YouTube/B站完整视频 bundle 与 JSON 元信息
+├── downloads/             所有正式音频和完整视频 artifact
 ├── logs/                  运行日志
 └── tmp/                   SQLite/程序临时文件
 ```
@@ -305,14 +301,20 @@ AudioSpider-fork/
 
 ```text
 downloads/
-├── bilibili-video-日期/    B站完整 MP4、WAV、字幕和 sidecar
-├── youtube-批次/           YouTube完整父视频、WAV、字幕和 sidecar
 ├── podcast_rss/
 │   └── 教育/
 │       ├── episode_xxx.mp3
 │       └── episode_xxx.json
-├── bilibili/
-│   └── 有声书/
+├── bilibili/               # 默认完整分P video_bundle
+│   └── 访谈/<source-id>/<job-key>/
+│       ├── source.mp4
+│       ├── audio.wav
+│       └── metadata.json
+├── youtube/                # 完整母视频，不默认 clip
+│   └── 访谈/<source-id>/<job-key>/
+│       ├── source.mp4
+│       ├── audio.wav
+│       └── metadata.json
 ├── xiaoyuzhou/
 │   └── 播客/
 └── ximalaya/
@@ -492,6 +494,8 @@ python main.py background --limit 10000 --workers 4 --background all
 ### 技术参考
 
 - [CLI 命令参考](docs/reference/cli.md)
+- [统一采集与下载指南](docs/DOWNLOAD-GUIDE.md)
+- [统一 Sidecar Schema](docs/SIDECAR-SCHEMA.md)
 - [配置与环境变量](docs/reference/configuration.md)
 - [数据库结构](docs/reference/database.md)
 - [来源适配器](docs/reference/spiders.md)
@@ -503,11 +507,15 @@ python main.py background --limit 10000 --workers 4 --background all
 
 ### 设计与开发
 
-- [系统架构](docs/design/architecture.md)
+- [统一媒体架构](docs/architecture.md)
+- [系统设计细节](docs/design/architecture.md)
 - [安全边界](docs/design/security.md)
 - [数据流与状态机](docs/design/data-flow.md)
 - [开发与测试](docs/design/development.md)
 - [ADR-001：背景信息混合存储](docs/design/adr-001-background-metadata.md)
+- [ADR-002：统一媒体 Artifact](docs/design/adr-002-unified-media-artifacts.md)
+- [统一媒体流水线设计](docs/plans/2026-09-10-unified-media-pipeline-design.md)
+- [统一媒体流水线实施计划](docs/plans/2026-09-10-unified-media-pipeline.md)
 - [安全问题报告](SECURITY.md)
 - [变更记录](CHANGELOG.md)
 - [dev_L4_1gpus 服务器验收报告](docs/reports/2026-09-08-dev-l4-validation.md)

@@ -4,6 +4,24 @@
 
 ## Unreleased
 
+### 统一媒体队列
+
+- 正式主路径统一为 `collect.py -> audiospider.db -> main.py -> downloads/<source>/<category>/`；
+  普通音频、B站完整分P和 YouTube 完整母视频共享 SQLite claim、lease、重试和统计。
+- `audio_urls` 加法式新增 `artifact_kind` 与 `bundle_path`；旧记录保持 `audio`，视频使用
+  `video_bundle`，统计按 artifact kind 分组。
+- `collect.py --spiders bilibili` 现在默认写入完整分P视频任务；历史 B站 audio 记录仍可
+  由普通音频 handler 完成。
+- 新增 `YoutubeSpider`；`collect.py --spiders youtube` 从受控 manifest 核验完整母视频和
+  同语言字幕后入队，不默认生成 clip。
+- `Downloader` 在统一领取后通过 `media_artifacts.py` 分派 B站/YouTube bundle，输出到
+  `downloads/<source>/<category>/<source_id>/<job_key>/`；`local_path` 指向 `source.mp4`，
+  `bundle_path` 指向完整目录。
+- 新增 `scripts/migrate_video_bundles.py`：默认 dry-run；显式 `--apply` 时先用 SQLite
+  backup API 备份数据库，再幂等移动、复验和登记旧 standalone bundle。
+- 新增统一架构、下载指南、sidecar schema、ADR-002、设计/实施记录和三份仓库 Skill
+  草案；standalone dataset CLI 调整为兼容、修复和审计定位。
+
 ### 纠偏
 
 - B 站完整视频从误建的 `datasets/` 迁移到 `downloads/bilibili-video-20260910/`；以后视频数据统一放在 `downloads/`。
@@ -25,10 +43,12 @@
 - `main.py background` 为既有物理音频补齐背景文件，无需重复下载音频。
 - RSS/Podcasting 2.0、小宇宙、喜马拉雅、LibriVox 和 B站的来源级元数据提取。
 - 在大规模采集前，按稳定来源 ID 审计并定向回填全部历史详细信息。
-- `youtube_dataset.py`：独立采集 YouTube 长访谈视频、16 kHz WAV、平台人工/自动字幕和完整 sidecar。
+- `youtube_dataset.py`：提供 YouTube 完整母视频、16 kHz WAV、平台人工/自动字幕和
+  sidecar 的底层兼容、修复与审计能力，并由统一 dispatcher 复用。
 - 字幕对齐影视短片：生成可追溯的 MP4/WAV/VTT/TXT/JSON 五件套，严格限制 0.418–29.888 秒。
 - YouTube 清单探测、稳定 job/clip ID、目录级 staging、SHA-256/ffprobe/VTT 全量审计。
-- `bilibili_dataset.py`：独立下载 B 站分 P 的 DASH 视频与音频、合并 MP4、抽取 16 kHz WAV，并保存所有可见平台字幕。
+- `bilibili_dataset.py`：提供 B站分P DASH、MP4/WAV、平台字幕和 bundle audit 的底层
+  兼容能力，并由统一 dispatcher 复用。
 - `bilibili_subtitles.py`：人工、自动、未知三态来源判定，独立翻译维度，以及平台 JSON 到 VTT/TXT 的严格转换。
 - B 站视频 bundle 使用表示层指纹断点续传、目录锁、原子提升、SHA-256/ffprobe/字幕重建审计。
 

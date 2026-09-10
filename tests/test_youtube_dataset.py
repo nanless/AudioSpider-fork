@@ -5,11 +5,38 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import youtube_dataset as dataset
 
 
 class YoutubeDatasetTests(unittest.TestCase):
+    def test_custom_destination_reuses_completed_bundle(self):
+        item = {
+            "profile": "youtube_interviews", "video_id": "dQw4w9WgXcQ",
+            "job_key": "dQw4w9WgXcQ-youtube_interviews-en-test",
+        }
+        caption = dataset.CaptionSelection(
+            language="en", kind="manual", text_source="platform_manual", ext="vtt"
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            destination = root / "dQw4w9WgXcQ" / item["job_key"]
+            destination.mkdir(parents=True)
+            sidecar = destination / "metadata.json"
+            sidecar.write_text("{}", encoding="utf-8")
+            with mock.patch("youtube_dataset._validate_bundle", return_value={
+                "metadata": {"job_key": item["job_key"]},
+            }) as validator, mock.patch(
+                "youtube_dataset._import_yt_dlp",
+                side_effect=AssertionError("completed destination must not redownload"),
+            ):
+                observed = dataset._download_item_locked(
+                    item, root, {}, caption, destination=destination
+                )
+        self.assertEqual(observed, destination)
+        validator.assert_called_once_with(sidecar)
+
     def test_caption_language_must_match_content_language(self):
         self.assertTrue(dataset.caption_language_matches_content("en", "en-US"))
         self.assertTrue(dataset.caption_language_matches_content("zh-Hans", "zh-CN"))

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Bilibili Video Dataset"
+  short_description: "通过统一队列采集、下载并审计 B站完整视频包"
+  default_prompt: "Use $bilibili-video-dataset to operate complete Bilibili video bundles through AudioSpider's shared SQLite pipeline."
+policy:
+  allow_implicit_invocation: true

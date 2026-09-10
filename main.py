@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Hao Yin. All rights reserved.
 
-"""音频下载器 — 从数据库取待下载 URL 并批量下载
+"""统一媒体下载器 — 从共享数据库认领任务并产出音频或视频包
 
 用法:
     python main.py                           # 下载 50 条
@@ -68,8 +68,14 @@ def _positive_int(value: str) -> int:
     return number
 
 
+def effective_artifact_kind(source: str | None, requested: str | None) -> str | None:
+    if requested:
+        return requested
+    return "video_bundle" if source in {"bilibili", "youtube"} else None
+
+
 def main():
-    parser = argparse.ArgumentParser(description="AudioSpider 音频下载器")
+    parser = argparse.ArgumentParser(description="AudioSpider 统一媒体下载器")
     parser.add_argument("action", nargs="?", default="download",
                         choices=["download", "stats", "fix-meta", "background"],
                         help="download=下载(默认), stats=统计, "
@@ -77,6 +83,10 @@ def main():
     parser.add_argument("--source", default=None, help="仅下载指定来源 (如 podcast_rss, bilibili)")
     parser.add_argument("--category", default=None, help="仅下载指定分类 (如 播客, 有声书)")
     parser.add_argument("--language", default=None, help="仅下载指定语种 (如 zh, en)")
+    parser.add_argument(
+        "--artifact-kind", choices=["audio", "video_bundle"], default=None,
+        help="仅处理指定产物类型；例如 video_bundle 可避免被历史音频 backlog 阻挡",
+    )
     grouping = parser.add_mutually_exclusive_group()
     grouping.add_argument("--per-source", action="store_true", help="每个来源各下载 --limit 条")
     grouping.add_argument("--per-category", action="store_true", help="每个分类各下载 --limit 条")
@@ -85,11 +95,15 @@ def main():
     parser.add_argument("--workers", type=_bounded_positive(MAX_DOWNLOAD_WORKERS), default=None,
                         help=f"并发下载数(默认4, 最大{MAX_DOWNLOAD_WORKERS})")
     parser.add_argument("--format", choices=["opus", "original"], default="opus",
-                        help="保存格式: opus=ffmpeg转opus(默认), original=保留原始格式(省CPU)")
+                        help="普通音频格式: opus=转换(默认), original=保留原格式；视频包始终保留 MP4+WAV")
     parser.add_argument(
         "--background", choices=["none", "metadata", "all"], default="all",
         help="背景信息: none=不保存, metadata=仅JSON/描述, "
              "all=再下载公开封面/字幕/章节/原文(默认)",
+    )
+    parser.add_argument(
+        "--allow-bilibili-cookie", action="store_true",
+        help="明确授权本次 B站视频任务使用环境中 BILIBILI_COOKIE；默认强制匿名",
     )
     parser.add_argument("--retry-failed", action="store_true",
                         help="将所有 failed 状态重置为 pending 并重新下载")
@@ -103,6 +117,9 @@ def main():
     args = parser.parse_args()
     setup_logging()
     storage = Storage()
+    # 平台新默认是视频；历史 B站 audio 行只在显式
+    # ``--artifact-kind audio`` 时消费。
+    artifact_kind = effective_artifact_kind(args.source, args.artifact_kind)
 
     if args.action == "stats":
         storage.show_stats()
@@ -117,6 +134,7 @@ def main():
         downloader = Downloader(
             storage, max_workers=args.workers, convert=False,
             background_mode=args.background,
+            allow_bilibili_cookie=args.allow_bilibili_cookie,
         )
         asyncio.run(downloader.refresh_background(args.limit, args.source))
         return
@@ -125,12 +143,14 @@ def main():
         logger = logging.getLogger("download")
         dl = Downloader(storage, max_workers=args.workers,
                         convert=args.format == "opus",
-                        background_mode=args.background)
+                        background_mode=args.background,
+                        allow_bilibili_cookie=args.allow_bilibili_cookie)
         failed_items = storage.claim_failed(
             limit=args.limit,
             source=args.source,
             worker_id=dl.worker_id,
             lease_seconds=DOWNLOAD_LEASE_SECONDS,
+            artifact_kind=artifact_kind,
         )
         if not failed_items:
             scope = f"来源={args.source}" if args.source else "全部来源"
@@ -154,6 +174,7 @@ def main():
         per_category=args.per_category,
         published_since=args.since,
         published_before=args.before,
+        artifact_kind=artifact_kind,
     )
 
     convert = args.format == "opus"
@@ -162,6 +183,7 @@ def main():
         dl = Downloader(
             storage, max_workers=args.workers, convert=convert,
             background_mode=args.background,
+            allow_bilibili_cookie=args.allow_bilibili_cookie,
         )
         return await dl.download_all(**dl_kwargs)
 
@@ -174,6 +196,7 @@ def main():
             dl = Downloader(
                 storage, max_workers=args.workers, convert=convert,
                 background_mode=args.background,
+                allow_bilibili_cookie=args.allow_bilibili_cookie,
             )
             stats = await dl.download_all(**dl_kwargs)
             storage.show_stats()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Hao Yin. All rights reserved.
 
-"""URL 搜集器 — 负责发现和扩充待下载的语音 URL 池
+"""媒体任务搜集器 — 发现并扩充共享 SQLite 队列
 
 每次需要扩充时直接运行：
     python collect.py                         # 运行全部爬虫
@@ -24,6 +24,7 @@ from spiders.ximalaya import XimalayaSpider
 from spiders.librivox import LibriVoxSpider
 from spiders.podcast_rss import PodcastRSSSpider
 from spiders.bilibili import BilibiliSpider
+from spiders.youtube import YoutubeSpider
 
 ALL_SPIDERS = [
     XiaoyuzhouSpider,
@@ -31,6 +32,7 @@ ALL_SPIDERS = [
     XimalayaSpider,
     LibriVoxSpider,
     BilibiliSpider,
+    YoutubeSpider,
 ]
 
 
@@ -59,7 +61,7 @@ def _flush_records(storage: Storage, records: list, logger: logging.Logger) -> t
 async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
     logger = logging.getLogger("collect")
     logger.info("=" * 60)
-    logger.info("开始搜集语音 URL...")
+    logger.info("开始搜集媒体任务...")
     logger.info("=" * 60)
 
     total_new = 0
@@ -115,7 +117,7 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
                 else:
                     logger.info(f"<<< {spider.name}: 发现 {len(records)} 个, 全部已存在")
             else:
-                logger.info(f"<<< {spider.name}: 未发现音频")
+                logger.info(f"<<< {spider.name}: 未发现媒体任务")
         except Exception as e:
             logger.error(f"<<< {spider.name} 异常: {e}", exc_info=True)
 
@@ -135,9 +137,9 @@ def main():
     parser = argparse.ArgumentParser(description="AudioSpider URL 搜集器")
     parser.add_argument("--spiders", nargs="*", default=None,
                         choices=["xiaoyuzhou", "ximalaya", "librivox",
-                                 "podcast_rss", "bilibili"],
+                                 "podcast_rss", "bilibili", "youtube"],
                         help="指定爬虫：xiaoyuzhou ximalaya librivox "
-                             "podcast_rss bilibili")
+                             "podcast_rss bilibili youtube")
     parser.add_argument("--loop", action="store_true", help="持续循环搜集")
     parser.add_argument("--interval", type=_positive_int, default=3600, help="循环间隔(秒)")
 

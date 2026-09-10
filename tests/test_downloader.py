@@ -7,6 +7,8 @@ import struct
 import tempfile
 import unittest
 import wave
+from unittest import mock
+from unittest import mock
 
 from aiohttp import web
 
@@ -161,6 +163,44 @@ class DownloaderTests(unittest.IsolatedAsyncioTestCase):
             sidecar = json.load(source)
         self.assertEqual(sidecar["background_files"]["assets"][0]["status"], "failed")
 
+    async def test_video_bundle_uses_shared_queue_and_source_category_root(self):
+        storage = self.storage()
+        url = "https://www.youtube.com/watch?v=u7TwqpWiY5s"
+        storage.add_url(AudioRecord(
+            url=url, source="youtube", title="Interview", file_format="mp4",
+            source_id="u7TwqpWiY5s", category="访谈",
+            artifact_kind="video_bundle", metadata_json="{}",
+        ))
+        bundle = os.path.join(
+            downloader.DOWNLOAD_DIR, "youtube", "访谈", "u7TwqpWiY5s", "job"
+        )
+        result = {
+            "local_path": os.path.join(bundle, "source.mp4"),
+            "bundle_path": bundle,
+            "file_format": "mp4", "file_size": 123,
+            "content_hash": "a" * 64, "reused": False,
+        }
+        with mock.patch(
+            "downloader.download_video_bundle",
+            new=mock.AsyncMock(return_value=result),
+        ) as worker:
+            stats = await Downloader(
+                storage, max_workers=1, convert=True, min_disk_free_bytes=0,
+            ).download_all(limit=1)
+
+        self.assertEqual(stats["success"], 1)
+        output_root = worker.await_args.args[2]
+        self.assertEqual(
+            output_root,
+            os.path.join(downloader.DOWNLOAD_DIR, "youtube", "访谈"),
+        )
+        row = storage._get_conn().execute(
+            "SELECT * FROM audio_urls WHERE url=?", (url,),
+        ).fetchone()
+        self.assertEqual(row["status"], "done")
+        self.assertEqual(row["artifact_kind"], "video_bundle")
+        self.assertEqual(row["bundle_path"], bundle)
+        self.assertEqual(row["local_path"], result["local_path"])
 
 if __name__ == "__main__":
     unittest.main()

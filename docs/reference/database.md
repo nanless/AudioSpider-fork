@@ -7,8 +7,10 @@ AudioSpider 使用仓库根目录下的 `audiospider.db` SQLite 数据库。数�
 | 字段 | 类型 | 含义 |
 |---|---|---|
 | `id` | INTEGER | 自增主键 |
-| `url` | TEXT | 媒体 URL，全表唯一 |
+| `url` | TEXT | 稳定公开页面或媒体 URL；视频多任务可共用 |
 | `source` | TEXT | 来源名，如 `podcast_rss` |
+| `artifact_kind` | TEXT | `audio` 或 `video_bundle` |
+| `job_key` | TEXT | 视频的不可变策略/修订任务键；旧音频为空 |
 | `title` | TEXT | 标题 |
 | `file_format` | TEXT | 当前格式，如 `mp3`/`m4a`/`opus` |
 | `file_size` | INTEGER | 字节数，未知为 0 |
@@ -23,6 +25,7 @@ AudioSpider 使用仓库根目录下的 `audiospider.db` SQLite 数据库。数�
 | `metadata_json` | TEXT | 版本化来源背景信息与资产声明 |
 | `status` | TEXT | `pending`/`downloading`/`done`/`failed` |
 | `local_path` | TEXT | 完成文件路径或 `dup:<sha256>` |
+| `bundle_path` | TEXT | 视频 bundle 完整目录；普通音频为空 |
 | `content_hash` | TEXT | 最终物理内容 SHA-256 |
 | `source_id` | TEXT | 来源稳定 ID |
 | `published_at` | TEXT | 发布时间，ISO 形式字符串 |
@@ -69,9 +72,10 @@ pending  ──原子领取──> downloading ───────────
 
 ## 去重语义
 
-1. `url` 唯一约束阻止重复 URL。
-2. 适配器入库前使用 `(source, source_id)` 过滤稳定 ID。
-3. 下载完成后使用 `content_hash` 识别实际内容重复。
+1. `job_key=''` 的历史/普通音频使用 URL partial unique。
+2. 视频使用 `(source, artifact_kind, job_key)` partial unique，同一 URL 的不同画质、字幕或修订任务可共存。
+3. 无 `job_key` 的适配器仍用 `(source, source_id, artifact_kind)` 做应用层去重。
+4. 普通音频下载完成后使用 `content_hash` 识别实际内容重复；视频 bundle 哈希只用于闭包审计，不会删除主文件。
 
 对第 3 种，记录仍然是 done，但 `local_path` 是 `dup:<sha256>`，不应把它当作文件路径打开。
 
@@ -102,7 +106,9 @@ sqlite3 -readonly audiospider.db \
 
 ## 自动迁移
 
-`Storage` 初始化会创建缺失表和索引，并对旧表添加发布时间、领取/lease 和背景信息列。迁移是增量的，不删除用户数据。
+`Storage` 初始化会创建缺失表和索引，并对旧表添加媒体任务、发布时间、
+领取/lease 和背景信息列。为去掉旧的全局 URL unique，表会在单个事务中重建，
+原 ID、状态和数据全部复制后才删除事务内临时旧表。
 
 即使如此，升级前仍应停止写入并使用 SQLite backup API 备份。
 

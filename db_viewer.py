@@ -40,10 +40,12 @@ def connect():
     columns = {row[1] for row in conn.execute("PRAGMA table_info(audio_urls)")}
     for column in (
         "published_at", "webpage_url", "description", "author",
-        "cover_url", "metadata_json",
+        "cover_url", "metadata_json", "bundle_path", "job_key",
     ):
         if column not in columns:
             conn.execute(f"ALTER TABLE audio_urls ADD COLUMN {column} TEXT DEFAULT ''")
+    if "artifact_kind" not in columns:
+        conn.execute("ALTER TABLE audio_urls ADD COLUMN artifact_kind TEXT NOT NULL DEFAULT 'audio'")
     conn.commit()
     return conn
 
@@ -71,6 +73,15 @@ def show_overview(conn: sqlite3.Connection):
         print("\n  按来源统计:")
         for r in rows:
             print(f"    {r['source']:16s}  {r['cnt']}")
+
+    rows = conn.execute(
+        "SELECT artifact_kind, COUNT(*) AS cnt FROM audio_urls "
+        "GROUP BY artifact_kind ORDER BY cnt DESC"
+    ).fetchall()
+    if rows:
+        print("\n  按产物类型统计:")
+        for r in rows:
+            print(f"    {r['artifact_kind']:16s}  {r['cnt']}")
 
     rows = conn.execute(
         "SELECT category, COUNT(*) AS cnt FROM audio_urls WHERE category != '' GROUP BY category ORDER BY cnt DESC"
@@ -290,6 +301,8 @@ def _print_record(r: sqlite3.Row, index: int | None = None):
     print(f"  标题:       {r['title'] or '-'}")
     print(f"  来源:       {r['source']}")
     print(f"  状态:       {r['status']}")
+    print(f"  产物类型:   {r['artifact_kind']}")
+    print(f"  任务键:     {r['job_key'] or '-'}")
     print(f"  URL:        {r['url']}")
     print(f"  格式:       {r['file_format'] or '-'}")
     print(f"  大小:       {fmt_size(r['file_size'])}")
@@ -303,6 +316,7 @@ def _print_record(r: sqlite3.Row, index: int | None = None):
     description = (r["description"] or "").replace("\n", " ")
     print(f"  描述:       {description[:160] or '-'}")
     print(f"  本地路径:   {r['local_path'] or '-'}")
+    print(f"  Bundle路径: {r['bundle_path'] or '-'}")
     print(f"  内容哈希:   {r['content_hash'] or '-'}")
     print(f"  源站 ID:    {r['source_id'] or '-'}")
     print(f"  发布时间:   {r['published_at'] or '-'}")

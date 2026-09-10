@@ -31,6 +31,7 @@ from config import (
     RETRY_BACKOFF,
 )
 from network_safety import UnsafeURLError, safe_get
+from media_artifacts import download_video_bundle
 from storage import Storage
 
 logger = logging.getLogger(__name__)
@@ -184,7 +185,8 @@ class Downloader:
                  convert: bool = True, *, allow_private_network: bool = False,
                  max_download_bytes: int = MAX_DOWNLOAD_BYTES,
                  min_disk_free_bytes: int = MIN_FREE_DISK_BYTES,
-                 background_mode: str = "all"):
+                 background_mode: str = "all",
+                 allow_bilibili_cookie: bool = False):
         self.storage = storage
         self.max_workers = max_workers or MAX_CONCURRENT_DOWNLOADS
         if self.max_workers <= 0:
@@ -196,6 +198,7 @@ class Downloader:
         if background_mode not in {"none", "metadata", "all"}:
             raise ValueError("background_mode must be none, metadata, or all")
         self.background_mode = background_mode
+        self.allow_bilibili_cookie = allow_bilibili_cookie
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:12]}"
         self.semaphore = asyncio.Semaphore(self.max_workers)
         self.stats = {"success": 0, "failed": 0, "skipped": 0, "dup": 0}
@@ -211,6 +214,7 @@ class Downloader:
         per_category: bool = False,
         published_since: str | None = None,
         published_before: str | None = None,
+        artifact_kind: str | None = None,
         items: list[dict] | None = None,
     ):
         pending = items if items is not None else self.storage.claim_pending(
@@ -224,14 +228,19 @@ class Downloader:
             per_category=per_category,
             published_since=published_since,
             published_before=published_before,
+            artifact_kind=artifact_kind,
         )
         if not pending:
-            logger.info("没有待下载的音频")
+            logger.info("没有待下载的媒体任务")
             return self.stats
 
         total = len(pending)
         fmt_hint = "opus" if self.convert else "原始格式"
-        logger.info(f"开始下载 {total} 个音频文件 (并发={self.max_workers}, 保存={fmt_hint})...")
+        bundle_count = sum(item.get("artifact_kind", "audio") == "video_bundle" for item in pending)
+        logger.info(
+            f"开始处理 {total} 个媒体任务 (并发={self.max_workers}, "
+            f"视频包={bundle_count}, 音频保存={fmt_hint})..."
+        )
 
         self._connector = aiohttp.TCPConnector(limit=self.max_workers, limit_per_host=3)
         async with aiohttp.ClientSession(connector=self._connector) as session:
@@ -273,6 +282,11 @@ class Downloader:
                 source_id = item.get("source_id", "")
                 category = item.get("category", "")
 
+                if item.get("artifact_kind", "audio") == "video_bundle":
+                    await self._download_video_bundle(session, item, progress)
+                    return
+
+                # 仅兼容历史 B 站 audio 记录；新记录默认走 video_bundle。
                 if source == "bilibili" and source_id:
                     fresh_url = await _resolve_bilibili_url(session, source_id)
                     if not fresh_url:
@@ -345,11 +359,42 @@ class Downloader:
                 if (part_path and isinstance(e, (UnsafeURLError, DownloadValidationError))
                         and os.path.exists(part_path)):
                     os.remove(part_path)
-                self.storage.update_status(item["url"], "failed")
+                self.storage.update_status(
+                    item["url"], "failed", job_key=item.get("job_key") or None
+                )
                 self.stats["failed"] += 1
                 parsed = urlparse(url)
                 safe_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path[:80]}"
                 logger.error(f"{progress} ✗ {filename} | {safe_url} | {e}")
+
+    async def _download_video_bundle(
+        self, session: aiohttp.ClientSession, item: dict, progress: str
+    ) -> None:
+        """Download a video bundle while keeping queue/lease/status semantics shared."""
+
+        source = item.get("source", "")
+        category = item.get("category", "")
+        output_root = self._build_subdir(source, category)
+        result = await download_video_bundle(
+            item, session, output_root,
+            allow_bilibili_cookie=self.allow_bilibili_cookie,
+        )
+        self.storage.finalize_artifact(
+            item["url"],
+            local_path=result["local_path"],
+            bundle_path=result["bundle_path"],
+            file_format=result["file_format"],
+            file_size=result["file_size"],
+            content_hash=result["content_hash"],
+            artifact_kind="video_bundle",
+            job_key=item.get("job_key") or None,
+        )
+        key = "skipped" if result["reused"] else "success"
+        self.stats[key] += 1
+        logger.info(
+            "%s ✓ 视频包 %s → %s（--format 仅影响普通音频）",
+            progress, item.get("source_id", ""), result["bundle_path"],
+        )
 
     async def _save_background(self, session: aiohttp.ClientSession,
                                filepath: str, item: dict,
@@ -372,12 +417,15 @@ class Downloader:
     async def refresh_background(self, limit: int = 10_000,
                                  source: str | None = None) -> dict:
         rows = self.storage.get_done_records(limit, source)
-        stats = {"processed": 0, "missing_audio": 0, "failed": 0}
+        stats = {"processed": 0, "missing_audio": 0, "skipped_bundles": 0, "failed": 0}
         connector = aiohttp.TCPConnector(limit=self.max_workers, limit_per_host=3)
         async with aiohttp.ClientSession(connector=connector) as session:
             async def refresh(item):
                 async with self.semaphore:
                     filepath = item["local_path"]
+                    if item.get("artifact_kind", "audio") == "video_bundle":
+                        stats["skipped_bundles"] += 1
+                        return
                     if not os.path.isfile(filepath):
                         stats["missing_audio"] += 1
                         return
@@ -390,7 +438,8 @@ class Downloader:
             await asyncio.gather(*(refresh(item) for item in rows))
         logger.info(
             f"背景信息刷新完成: {stats['processed']} 条, "
-            f"失败 {stats['failed']}, 音频缺失 {stats['missing_audio']}"
+            f"失败 {stats['failed']}, 音频缺失 {stats['missing_audio']}, "
+            f"视频包跳过 {stats['skipped_bundles']}"
         )
         return stats
 
@@ -503,6 +552,9 @@ def fix_meta(storage: Storage):
 
     fixed = 0
     for r in rows:
+        if r["artifact_kind"] == "video_bundle":
+            # bundle 自带 metadata.json，不生成音频式同名 sidecar。
+            continue
         filepath = r["local_path"]
         if not os.path.exists(filepath):
             continue

@@ -2,9 +2,16 @@
 
 这套文档按读者经验分成四层。第一次使用时从上往下读，不需要一次看完全部内容。
 
+> 正式架构只有一条主路径：
+> `collect.py -> audiospider.db -> main.py -> downloads/<source>/<category>/`。
+> 普通音频、B站完整分P和 YouTube 完整母视频现在都进入同一队列；standalone
+> dataset CLI 只保留兼容、修复和审计用途。
+
 ## 第 0 层：项目入口
 
 - [根目录 README](../README.md)：项目是什么、十分钟上手、常用命令、安全限制。
+- [统一媒体架构](architecture.md)：唯一正式编排、artifact 类型、状态与迁移边界。
+- [统一采集与下载指南](DOWNLOAD-GUIDE.md)：当前可运行命令和目标视频行为。
 
 ## 第 1 层：新手教程
 
@@ -23,8 +30,9 @@
 - [下载与转码](guides/download-and-convert.md)
 - [运行与维护](guides/operations.md)
 - [故障排查](guides/troubleshooting.md)
-- [YouTube 视频、平台字幕与影视短片小白指南](guides/youtube-datasets.md)
-- [B 站视频、WAV 与平台字幕小白指南](guides/bilibili-video-datasets.md)
+- [统一采集与下载指南](DOWNLOAD-GUIDE.md)
+- [YouTube 完整母视频兼容工具说明](guides/youtube-datasets.md)
+- [B站视频 bundle 兼容工具说明](guides/bilibili-video-datasets.md)
 
 ## 第 3 层：接口参考
 
@@ -35,6 +43,7 @@
 - [数据库结构](reference/database.md)
 - [来源适配器](reference/spiders.md)
 - [背景信息与文本资产](reference/background-metadata.md)
+- [统一 Sidecar Schema](SIDECAR-SCHEMA.md)
 - [YouTube 数据集 sidecar](reference/youtube-sidecars.md)
 - [B 站视频 bundle 与 sidecar](reference/bilibili-video-sidecars.md)
 
@@ -42,11 +51,15 @@
 
 目标是“修改代码或评审系统设计”。
 
-- [系统架构](design/architecture.md)
+- [统一媒体架构](architecture.md)
+- [系统设计细节](design/architecture.md)
 - [安全边界](design/security.md)
 - [数据流与状态机](design/data-flow.md)
 - [开发与测试](design/development.md)
 - [ADR-001：背景信息混合存储](design/adr-001-background-metadata.md)
+- [ADR-002：统一媒体 Artifact](design/adr-002-unified-media-artifacts.md)
+- [统一媒体流水线设计](plans/2026-09-10-unified-media-pipeline-design.md)
+- [统一媒体流水线实施计划](plans/2026-09-10-unified-media-pipeline.md)
 - [安全问题报告](../SECURITY.md)
 - [变更记录](../CHANGELOG.md)
 
@@ -73,7 +86,7 @@
 
 1. [从零安装](getting-started/installation.md)
 2. [第一次运行](getting-started/first-run.md)
-3. [下载与转码](guides/download-and-convert.md)
+3. [统一采集与下载指南](DOWNLOAD-GUIDE.md)
 
 ### 我要长期跑任务
 
@@ -89,11 +102,12 @@
 3. [数据流与状态机](design/data-flow.md)
 4. [开发与测试](design/development.md)
 
-### 我要下载带平台字幕的 YouTube 视频
+### 我要采集普通音频或完整视频
 
-1. [YouTube 视频、平台字幕与影视短片小白指南](guides/youtube-datasets.md)
-2. [YouTube 数据集 sidecar](reference/youtube-sidecars.md)
-3. [安全边界](design/security.md)
+1. [统一采集与下载指南](DOWNLOAD-GUIDE.md)
+2. [统一 Sidecar Schema](SIDECAR-SCHEMA.md)
+3. [统一媒体架构](architecture.md)
+4. [安全边界](design/security.md)
 
 ## 文档验证
 
