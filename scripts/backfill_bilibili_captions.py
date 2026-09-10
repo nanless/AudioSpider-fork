@@ -58,6 +58,59 @@ DEFAULT_DB_PATH = REPO_ROOT / "audiospider.db"
 DEFAULT_DOWNLOAD_DIR = REPO_ROOT / "downloads"
 
 
+class CaptionBackfillFailure(RuntimeError):
+    """Carry only a bounded, non-secret diagnostic across one repair phase."""
+
+    def __init__(self, phase: str, cause: Exception):
+        super().__init__(f"caption backfill failed during {phase}")
+        self.phase = phase
+        self.error_type = type(cause).__name__
+        self.reason = _safe_failure_reason(cause)
+
+
+def _safe_failure_reason(exc: Exception) -> str:
+    """Map controlled failures to stable codes without serializing raw messages."""
+
+    message = str(exc)
+    exact = {
+        "selected caption language does not match video content language":
+            "caption_language_mismatch",
+        "subtitle JSON must contain a body array": "subtitle_body_missing",
+        "caption summary does not match its final inventory evidence":
+            "inventory_summary_mismatch",
+        "caption track is absent from final inventory evidence":
+            "inventory_track_mismatch",
+        "bundle files map has an unexpected closure": "bundle_file_closure_mismatch",
+        "bundle contains unrecorded or missing regular files":
+            "bundle_regular_file_closure_mismatch",
+    }
+    if message in exact:
+        return exact[message]
+    prefixes = (
+        ("subtitle cue count must be", "subtitle_cue_count_invalid"),
+        ("subtitle cue ", "subtitle_cue_invalid"),
+        ("caption track ", "caption_track_validation_failed"),
+        ("caption inventory ", "inventory_diagnostics_invalid"),
+        ("bundle closure ", "bundle_closure_changed"),
+        ("completed SQLite row ", "database_row_changed"),
+        ("exact SQLite artifact update ", "database_compare_and_swap_failed"),
+    )
+    for prefix, reason in prefixes:
+        if message.startswith(prefix):
+            return reason
+    if isinstance(exc, FileExistsError):
+        return "caption_destination_exists"
+    if isinstance(exc, (aiohttp.ClientError, asyncio.TimeoutError)):
+        return "network_or_timeout"
+    if isinstance(exc, (OSError, sqlite3.Error)):
+        return "storage_or_database_error"
+    return "validation_or_runtime_error"
+
+
+def _phase_failure(phase: str, exc: Exception) -> CaptionBackfillFailure:
+    return CaptionBackfillFailure(phase, exc)
+
+
 def positive_int(value: str) -> int:
     number = int(value)
     if number <= 0:
@@ -229,7 +282,7 @@ def _atomic_write_bytes(path: Path, payload: bytes) -> None:
 def _job_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     caption = metadata.get("caption") or {}
     languages = caption.get("requested_languages")
-    if not isinstance(languages, list) or not all(
+    if not isinstance(languages, list) or not languages or not all(
         isinstance(value, str) and value for value in languages
     ):
         languages = default_caption_languages(str(metadata.get("content_language") or ""))
@@ -417,27 +470,39 @@ async def repair_candidate(
     bundle = candidate["bundle"]
     output_root = bundle.parents[1]
     with job_lock(output_root, candidate["job_key"]):
-        result = _verify_pre_mutation(db_path, candidate)
+        try:
+            result = _verify_pre_mutation(db_path, candidate)
+        except Exception as exc:
+            raise _phase_failure("preflight", exc) from exc
         metadata = copy.deepcopy(result["metadata"])
         job = _job_from_metadata(metadata)
-        inventory, tracks, status, attempts = await resolve_caption_inventory(
-            client, job,
-            strict_refresh=bool(
-                (metadata.get("acquisition_policy") or {}).get("require_caption")
-            ),
-        )
+        try:
+            inventory, tracks, status, attempts = await resolve_caption_inventory(
+                client, job,
+                strict_refresh=bool(
+                    (metadata.get("acquisition_policy") or {}).get("require_caption")
+                ),
+            )
+        except Exception as exc:
+            raise _phase_failure("inventory", exc) from exc
         if any(
             not caption_language_matches_content(
                 str(metadata.get("content_language") or ""), track["language"]
             )
             for track in tracks
         ):
-            raise ValueError("selected caption language does not match video content language")
+            cause = ValueError(
+                "selected caption language does not match video content language"
+            )
+            raise _phase_failure("language_policy", cause) from cause
         stage = Path(tempfile.mkdtemp(
             prefix=f".{candidate['job_key']}.captions-", dir=output_root
         ))
         try:
-            prepared = await _prepare_captions(client, tracks, stage)
+            try:
+                prepared = await _prepare_captions(client, tracks, stage)
+            except Exception as exc:
+                raise _phase_failure("caption_payload", exc) from exc
             metadata["caption"].update({
                 "status": "downloaded" if prepared else status,
                 "need_login_subtitle": inventory.get("need_login_subtitle"),
@@ -446,9 +511,12 @@ async def repair_candidate(
                 "inventory_attempt_count": len(attempts),
                 "inventory_attempts": attempts,
             })
-            total, _ = _commit_sidecar_and_database(
-                db_path, candidate, metadata, prepared
-            )
+            try:
+                total, _ = _commit_sidecar_and_database(
+                    db_path, candidate, metadata, prepared
+                )
+            except Exception as exc:
+                raise _phase_failure("commit", exc) from exc
         finally:
             shutil.rmtree(stage, ignore_errors=True)
     return {
@@ -499,12 +567,27 @@ async def async_main(args: argparse.Namespace) -> int:
             try:
                 completed.append(await repair_candidate(client, args.db, candidate))
             except Exception as exc:
-                failures.append({
+                failure = {
                     "id": candidate["id"],
                     "source_id": candidate["source_id"],
                     "job_key": candidate["job_key"],
-                    "error_type": type(exc).__name__,
-                })
+                    "error_type": (
+                        exc.error_type
+                        if isinstance(exc, CaptionBackfillFailure)
+                        else type(exc).__name__
+                    ),
+                    "phase": (
+                        exc.phase
+                        if isinstance(exc, CaptionBackfillFailure)
+                        else "unclassified"
+                    ),
+                    "reason": (
+                        exc.reason
+                        if isinstance(exc, CaptionBackfillFailure)
+                        else _safe_failure_reason(exc)
+                    ),
+                }
+                failures.append(failure)
     print(json.dumps({
         "mode": "apply",
         "backup": str(backup),

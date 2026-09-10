@@ -51,6 +51,27 @@ class CaptionBackfillTests(unittest.TestCase):
         self.assertFalse(args.apply)
         self.assertFalse(args.allow_bilibili_cookie)
 
+    def test_old_empty_requested_languages_fall_back_to_content_language(self):
+        job = backfill._job_from_metadata({
+            "bvid": "BV1xx411c7mD",
+            "cid": 1,
+            "content_language": "zh",
+            "caption": {"requested_languages": []},
+        })
+        self.assertIn("zh", job["languages"])
+        self.assertIn("ai-zh", job["languages"])
+        self.assertNotEqual(job["languages"], [])
+
+    def test_failure_reason_is_bounded_and_does_not_echo_raw_message(self):
+        secretish = ValueError(
+            "unexpected https://example.invalid/path?token=do-not-print"
+        )
+        failure = backfill.CaptionBackfillFailure("inventory", secretish)
+        self.assertEqual(failure.phase, "inventory")
+        self.assertEqual(failure.error_type, "ValueError")
+        self.assertEqual(failure.reason, "validation_or_runtime_error")
+        self.assertNotIn("token", str(failure))
+
     def test_dry_run_does_not_construct_network_client(self):
         args = backfill.build_parser().parse_args([])
         candidate = {

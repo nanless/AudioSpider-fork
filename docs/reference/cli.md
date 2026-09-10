@@ -176,6 +176,9 @@ python bilibili_dataset.py --output downloads/bilibili-video-candidates repair-m
 只有显式 `--apply` 才会在 SQLite 备份、精确 job lock 和事务回滚保护下写字幕/
 sidecar/DB 闭包指纹。工具不下载或改写 MP4/WAV。
 文件恢复和 SQLite 回滚可覆盖可捕获异常，但不能承诺 `SIGKILL`/断电时的跨文件系统与数据库原子性。
+旧 sidecar 若把 `requested_languages` 留为空数组，会按
+`content_language` 重建同语言候选，避免误选其他语言字幕。失败报告只输出
+`phase`/`reason` 等固定诊断码，不回显平台 URL、查询串或登录信息。
 
 ```bash
 python scripts/backfill_bilibili_captions.py --limit 20

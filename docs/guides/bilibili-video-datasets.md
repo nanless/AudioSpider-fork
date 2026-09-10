@@ -250,6 +250,11 @@ python scripts/backfill_bilibili_captions.py --limit 20 --apply \
 不会下载或改写 `source.mp4`/`audio.wav`。任一验收或数据库步骤失败，当前任务的
 sidecar、新字幕文件和 SQLite 事务会回滚。
 
+兼容旧数据时，`requested_languages: []` 不会被理解为“任意语言都可以”；
+工具会根据 `content_language` 恢复中文或其他同语言候选。单条失败时，
+报告会给出 `phase` （例如 `inventory`/`caption_payload`/`commit`）和固定
+`reason` 码，不记录平台签名地址、Cookie 或原始异常文本。
+
 回填会保存发现时 SQLite 的旧 `file_size/content_hash`，并在修改前重新计算磁盘闭包；两者
 不一致就拒绝操作。ffprobe/多 GB 哈希、字幕验收都在 job lock 内但在 SQLite 写事务外完成。
 最后只开一个短 `BEGIN IMMEDIATE`，复核完整旧行并用旧闭包值作为 CAS 条件更新。
