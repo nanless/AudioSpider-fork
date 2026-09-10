@@ -86,10 +86,26 @@ def _safe_failure_reason(exc: Exception) -> str:
     }
     if message in exact:
         return exact[message]
+    if message.startswith("caption track "):
+        caption_failures = (
+            (" has inconsistent provenance", "caption_provenance_mismatch"),
+            (" language does not match media content", "caption_language_mismatch"),
+            (" does not match classifier", "caption_classifier_mismatch"),
+            (" has invalid file references", "caption_file_reference_invalid"),
+            (" references a missing file", "caption_file_missing"),
+            (" identity is incomplete", "caption_identity_incomplete"),
+            (" cue count mismatch", "caption_cue_count_mismatch"),
+            (" VTT is not derived from JSON", "caption_vtt_derivation_mismatch"),
+            (" TXT is not derived from JSON", "caption_txt_derivation_mismatch"),
+            (" extends too far beyond the media", "caption_exceeds_media_duration"),
+        )
+        for suffix, reason in caption_failures:
+            if message.endswith(suffix):
+                return reason
+        return "caption_track_validation_failed"
     prefixes = (
         ("subtitle cue count must be", "subtitle_cue_count_invalid"),
         ("subtitle cue ", "subtitle_cue_invalid"),
-        ("caption track ", "caption_track_validation_failed"),
         ("caption inventory ", "inventory_diagnostics_invalid"),
         ("bundle closure ", "bundle_closure_changed"),
         ("completed SQLite row ", "database_row_changed"),

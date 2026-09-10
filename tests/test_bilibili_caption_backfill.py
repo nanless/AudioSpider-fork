@@ -72,6 +72,13 @@ class CaptionBackfillTests(unittest.TestCase):
         self.assertEqual(failure.reason, "validation_or_runtime_error")
         self.assertNotIn("token", str(failure))
 
+    def test_failure_reason_distinguishes_caption_timeline_overrun(self):
+        failure = backfill.CaptionBackfillFailure(
+            "commit",
+            ValueError("caption track 0 extends too far beyond the media"),
+        )
+        self.assertEqual(failure.reason, "caption_exceeds_media_duration")
+
     def test_dry_run_does_not_construct_network_client(self):
         args = backfill.build_parser().parse_args([])
         candidate = {
