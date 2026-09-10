@@ -322,6 +322,11 @@ python main.py --retry-failed --source youtube \
 `--retry-failed` 当前只按 source/artifact 过滤，可能领取历史失败行。运行前用只读 SQL
 检查全部 failed；不要为“只重试本批”而手工批量改数据库状态。
 
+B站 handler 默认会先在单任务内部最多尝试 3 次，按 10、20 秒退避刷新 API 与签名 URL；
+只有这层有限重试仍失败后，SQLite 才标为 `failed`。可用
+`AUDIOSPIDER_BILIBILI_JOB_ATTEMPTS` 和
+`AUDIOSPIDER_BILIBILI_RETRY_BACKOFF_SECONDS` 调整，但不得设成无界循环。
+
 ## 11. 字幕与 sidecar 验收
 
 有字幕时：

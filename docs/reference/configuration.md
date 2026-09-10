@@ -51,6 +51,8 @@ python discover.py --source podcastindex --keywords news --pi-max-pages 1
 | `AUDIOSPIDER_BILIBILI_MAX_NEW_RECORDS` | `0` | 本轮真实新增任务上限；`0` 表示不额外限制 |
 | `AUDIOSPIDER_BILIBILI_MIN_DURATION_SECONDS` | `0` | 单分 P 最短时长 |
 | `AUDIOSPIDER_BILIBILI_MAX_DURATION_SECONDS` | `14400` | 单分 P 最长时长 |
+| `AUDIOSPIDER_BILIBILI_JOB_ATTEMPTS` | `3` | 单个 B站 bundle 的临时 API/CDN 故障最多尝试次数（1–10） |
+| `AUDIOSPIDER_BILIBILI_RETRY_BACKOFF_SECONDS` | `10` | B站单任务线性重试退避基数秒数（0–600） |
 
 所有值必须是正整数字节或秒数。例如：
 

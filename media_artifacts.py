@@ -17,6 +17,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+import aiohttp
+
 from background import decode_metadata
 from bilibili_dataset import (
     BilibiliClient,
@@ -36,6 +38,14 @@ SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9._-]+$")
 YOUTUBE_DOWNLOAD_TIMEOUT = int(os.environ.get("AUDIOSPIDER_YOUTUBE_DOWNLOAD_TIMEOUT", "14400"))
 if YOUTUBE_DOWNLOAD_TIMEOUT <= 0:
     raise ValueError("AUDIOSPIDER_YOUTUBE_DOWNLOAD_TIMEOUT must be positive")
+BILIBILI_JOB_ATTEMPTS = int(os.environ.get("AUDIOSPIDER_BILIBILI_JOB_ATTEMPTS", "3"))
+BILIBILI_RETRY_BACKOFF_SECONDS = float(
+    os.environ.get("AUDIOSPIDER_BILIBILI_RETRY_BACKOFF_SECONDS", "10")
+)
+if not 1 <= BILIBILI_JOB_ATTEMPTS <= 10:
+    raise ValueError("AUDIOSPIDER_BILIBILI_JOB_ATTEMPTS must be between 1 and 10")
+if not 0 <= BILIBILI_RETRY_BACKOFF_SECONDS <= 600:
+    raise ValueError("AUDIOSPIDER_BILIBILI_RETRY_BACKOFF_SECONDS must be in [0, 600]")
 
 
 def _safe_component(value: str, label: str) -> str:
@@ -242,8 +252,32 @@ async def download_video_bundle(
     if source == "youtube":
         return await _download_youtube(item, root)
     if source == "bilibili":
-        return await _download_bilibili(
-            item, session, root,
-            allow_bilibili_cookie=allow_bilibili_cookie,
-        )
+        for attempt in range(1, BILIBILI_JOB_ATTEMPTS + 1):
+            try:
+                return await _download_bilibili(
+                    item, session, root,
+                    allow_bilibili_cookie=allow_bilibili_cookie,
+                )
+            except Exception as exc:
+                if attempt >= BILIBILI_JOB_ATTEMPTS or not _retryable_bilibili_error(exc):
+                    raise
+                await asyncio.sleep(BILIBILI_RETRY_BACKOFF_SECONDS * attempt)
     raise ValueError(f"video_bundle is unsupported for source {source!r}")
+
+
+def _retryable_bilibili_error(exc: Exception) -> bool:
+    """Retry only transient transport/rate-limit failures, never policy errors."""
+    if isinstance(exc, (asyncio.TimeoutError, aiohttp.ClientError)):
+        return True
+    if not isinstance(exc, RuntimeError):
+        return False
+    message = str(exc)
+    return any(marker in message for marker in (
+        "all DASH CDN candidates failed",
+        "Bilibili HTTP 429",
+        "Bilibili HTTP 500",
+        "Bilibili HTTP 502",
+        "Bilibili HTTP 503",
+        "Bilibili HTTP 504",
+        "code=-412",
+    ))

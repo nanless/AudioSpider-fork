@@ -70,6 +70,8 @@ B站来源不是读取 standalone manifest，而是由 `collect.py` 使用受控
 | `AUDIOSPIDER_BILIBILI_MAX_NEW_RECORDS` | 本轮最多**真实新增**多少条数据库任务；`0` 表示不设此上限 |
 | `AUDIOSPIDER_BILIBILI_MIN_DURATION_SECONDS` | 单分 P 最短时长 |
 | `AUDIOSPIDER_BILIBILI_MAX_DURATION_SECONDS` | 单分 P 最长时长 |
+| `AUDIOSPIDER_BILIBILI_JOB_ATTEMPTS` | 单任务遇到临时 API/CDN 故障时最多尝试次数；默认 `3` |
+| `AUDIOSPIDER_BILIBILI_RETRY_BACKOFF_SECONDS` | 重试线性退避基数秒数；默认 `10` |
 
 `MAX_NEW_RECORDS` 按 SQLite 去重后的真实新增父 BV 数计数；数据库中已有任一分 P 的父
 BV 不会重复进入本批，也不会消耗新增配额。所有上限只控制 `collect.py`；采集阶段只写
@@ -180,6 +182,9 @@ ASR。自动字幕也不能证明视频声音或画面本身由 AI 生成。
 - HTTP 200 会重新写入；HTTP 416 不会被误判为已完成。
 - 同一 `job_key` 的已完成 bundle 会复用，不重复下载。
 - Cookie 不持久化，因此需要登录态的重试必须再次进行内存注入。
+- API 超时、HTTP 429/5xx、`code=-412` 和所有 DASH CDN 候选暂时失败会在同一任务内
+  有限退避重试；每轮刷新平台 API/签名 URL，并复用安全 `.part`。
+- CID 变化、语言/时长/路径策略错误不会重试，避免把永久错误变成无界循环。
 
 先分类失败，再做小批重试：
 

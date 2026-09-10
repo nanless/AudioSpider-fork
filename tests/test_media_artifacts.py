@@ -83,6 +83,52 @@ class MediaArtifactTests(unittest.IsolatedAsyncioTestCase):
                 await media_artifacts.download_video_bundle(item, object(), Path(temp))
         downloader_worker.assert_not_awaited()
 
+    async def test_bilibili_transient_failure_refreshes_job_and_retries(self):
+        expected = {
+            "bundle_path": "/tmp/bundle",
+            "local_path": "/tmp/bundle/source.mp4",
+            "file_size": 1,
+            "content_hash": "hash",
+            "reused": False,
+        }
+        with (
+            tempfile.TemporaryDirectory() as temp,
+            mock.patch.object(media_artifacts, "BILIBILI_JOB_ATTEMPTS", 3),
+            mock.patch.object(media_artifacts, "BILIBILI_RETRY_BACKOFF_SECONDS", 0),
+            mock.patch(
+                "media_artifacts._download_bilibili",
+                new=mock.AsyncMock(side_effect=[
+                    asyncio.TimeoutError(),
+                    RuntimeError("all DASH CDN candidates failed: timeout"),
+                    expected,
+                ]),
+            ) as worker,
+            mock.patch("media_artifacts.asyncio.sleep", new=mock.AsyncMock()) as sleep,
+        ):
+            result = await media_artifacts.download_video_bundle(
+                {"source": "bilibili"}, object(), Path(temp),
+                allow_bilibili_cookie=True,
+            )
+
+        self.assertEqual(result, expected)
+        self.assertEqual(worker.await_count, 3)
+        self.assertEqual(sleep.await_count, 2)
+
+    async def test_bilibili_policy_failure_is_not_retried(self):
+        with (
+            tempfile.TemporaryDirectory() as temp,
+            mock.patch.object(media_artifacts, "BILIBILI_JOB_ATTEMPTS", 3),
+            mock.patch(
+                "media_artifacts._download_bilibili",
+                new=mock.AsyncMock(side_effect=ValueError("stored CID changed")),
+            ) as worker,
+        ):
+            with self.assertRaisesRegex(ValueError, "stored CID"):
+                await media_artifacts.download_video_bundle(
+                    {"source": "bilibili"}, object(), Path(temp),
+                )
+        worker.assert_awaited_once()
+
     async def test_bundle_fingerprint_is_path_and_content_deterministic(self):
         with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
             for root in (Path(first), Path(second)):
