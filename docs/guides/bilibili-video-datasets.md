@@ -186,12 +186,25 @@ ASR。自动字幕也不能证明视频声音或画面本身由 AI 生成。
 | `auth_required` | 平台明确提示需要登录，匿名状态不能判断“真的没有” |
 | `not_provided_publicly` | 公开接口成功，且明确没有轨道 |
 | `no_matching_language` | 有字幕，但没有与 `content_language` 同族的轨道 |
-| `external_failure` | 平台请求失败，不能得出字幕不存在的结论 |
+| `invalid_track_inventory` | 平台曾返回轨道，但 URL/字段不符合安全规则；不等于没有字幕 |
 | `unknown` | 证据不足 |
 | `downloaded` | 至少一条同语言轨已保存并进入文件闭包 |
 
 中文内容只接受中文/普通话/粤语同族字幕，不拿英文字幕兜底。画面上的烧录字幕只是
 像素，不等于平台提供了可下载字幕轨。
+
+### 6.1 为什么 sidecar 会有 `inventory_attempts`
+
+B 站 player 字幕列表可能在短时间内波动。每次查询只保存原始轨道数、已选轨道数、
+语言、人工/自动类型字段、URL 值类型、scheme 形式、host 以及拒绝原因。不会保存完整
+URL、path、query、fragment、Cookie 或代理地址。
+
+只有第一次是 `provided`，但没有任何可选轨道时，程序才短暂等待并刷新 **1 次**。
+第一次是 `invalid_track_inventory`、第二次又变成空列表时，最终仍保留该状态，
+不会把曾观测到的异常证据降级成“公开无字幕”。
+如果第二次查询本身抛出网络/API 异常，`require_caption=false` 会回退到第一次证据，
+并只记录 `inventory_status=refresh_failed` 与异常类名 `error_type`，不记录异常消息。
+`require_caption=true` 属于 strict 路径，该刷新失败会直接使任务失败。
 
 ## 7. 断点续跑与失败重试
 
@@ -213,6 +226,38 @@ python main.py --retry-failed --source bilibili \
 ```
 
 不要无边界地反复重试下架、地区限制、权利受限或长期不可访问的视频。
+
+### 7.1 只回填字幕，不重下 MP4/WAV
+
+已完成 bundle 的字幕状态可用下列工具重新查询。第一次必须省略 `--apply`：
+
+```bash
+python scripts/backfill_bilibili_captions.py --limit 20
+```
+
+预览仅列出 SQLite 中状态为 `done` 、且路径/身份/文件闭包都匹配的 B 站任务；不请求
+平台、不备份、不写 sidecar 或 SQLite。人工确认后才执行：
+
+```bash
+AUDIOSPIDER_BILIBILI_PROXY=http://127.0.0.1:18443 \
+python scripts/backfill_bilibili_captions.py --limit 20 --apply \
+  --allow-bilibili-cookie
+```
+
+`--apply` 会先用 SQLite backup API 在数据库旁创建
+`audiospider.db.caption-backfill-<UTC>.bak`，然后按精确 `job_key` 获取排他锁。每条任务只可
+新增字幕 JSON/VTT/TXT、原子替换 `metadata.json`、并同步 SQLite 闭包大小与哈希；
+不会下载或改写 `source.mp4`/`audio.wav`。任一验收或数据库步骤失败，当前任务的
+sidecar、新字幕文件和 SQLite 事务会回滚。
+
+回填会保存发现时 SQLite 的旧 `file_size/content_hash`，并在修改前重新计算磁盘闭包；两者
+不一致就拒绝操作。ffprobe/多 GB 哈希、字幕验收都在 job lock 内但在 SQLite 写事务外完成。
+最后只开一个短 `BEGIN IMMEDIATE`，复核完整旧行并用旧闭包值作为 CAS 条件更新。
+
+程序可捕获正常异常以及 `KeyboardInterrupt`/`SystemExit` 等 `BaseException`，并幂等恢复当前 bundle。
+但文件系统和 SQLite 是两个提交域，该工具**无法保证** `SIGKILL`、断电、内核崩溃时的跨文件系统/
+数据库原子性。中断后应先保留 backup，运行 `scripts/audit_media_queue.py`，再根据 sidecar 闭包与
+SQLite 指纹决定恢复数据库或重跑单个 job，不要盲目删文件。
 
 ## 8. 审计正式产物
 

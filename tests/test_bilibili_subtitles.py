@@ -7,6 +7,7 @@ from bilibili_subtitles import (
     render_subtitle_text,
     render_subtitle_vtt,
     sanitize_subtitle_track,
+    subtitle_track_diagnostic,
 )
 
 
@@ -91,6 +92,45 @@ class SubtitleProvenanceTests(unittest.TestCase):
         })
         self.assertEqual(auth["status"], "auth_required")
         self.assertEqual(missing["status"], "not_provided_publicly")
+        malformed = classify_subtitle_inventory({
+            "need_login_subtitle": {"token": "must-not-persist"},
+            "subtitle": {"subtitles": []},
+        })
+        self.assertEqual(malformed["status"], "unknown")
+        self.assertIsNone(malformed["need_login_subtitle"])
+
+    def test_track_diagnostic_never_retains_signed_url_components(self):
+        diagnostic = subtitle_track_diagnostic({
+            "id_str": "7", "lan": "ai-zh", "type": 1,
+            "subtitle_url": (
+                "http://aisubtitle.hdslb.com/bfs/ai_subtitle/file.json"
+                "?auth_key=secret#fragment"
+            ),
+        }, 0)
+        self.assertEqual(diagnostic["url_form"], "http")
+        self.assertEqual(diagnostic["url_host"], "aisubtitle.hdslb.com")
+        self.assertEqual(diagnostic["rejection_reason"], "unsupported_scheme")
+        rendered = str(diagnostic).lower()
+        self.assertNotIn("auth_key", rendered)
+        self.assertNotIn("/bfs/", rendered)
+        self.assertNotIn("secret", rendered)
+
+    def test_non_string_track_url_is_safely_diagnosed(self):
+        diagnostic = subtitle_track_diagnostic({
+            "lan": "ai-zh", "subtitle_url": {"unexpected": "shape"},
+        }, 0)
+        self.assertEqual(diagnostic["rejection_reason"], "url_not_string")
+        self.assertEqual(diagnostic["url_value_type"], "dict")
+
+    def test_track_identity_diagnostic_rejects_url_like_tokens(self):
+        diagnostic = subtitle_track_diagnostic({
+            "id_str": "https://evil.example/path?token=secret",
+            "lan": "zh/Hans?token=secret",
+            "subtitle_url": "//aisubtitle.hdslb.com/subtitle.json",
+        }, 0)
+        self.assertEqual(diagnostic["id_str"], "")
+        self.assertEqual(diagnostic["language"], "")
+        self.assertNotIn("token", str(diagnostic).lower())
 
 
 class SubtitleDocumentTests(unittest.TestCase):

@@ -30,6 +30,7 @@ from bilibili_subtitles import (
     render_subtitle_vtt,
     safe_caption_component,
     sanitize_subtitle_track,
+    subtitle_track_diagnostic,
     redact_url,
 )
 from bilibili_proxy import get_bilibili_proxy, proxy_request_kwargs
@@ -58,6 +59,7 @@ CLEARED_RIGHTS = {
     "licensed", "permission_granted", "public_domain", "creative_commons",
 }
 AI_GENERATION_STATUSES = {"declared", "not_declared", "suspected", "unknown"}
+CAPTION_INVENTORY_RETRY_SECONDS = 1.0
 
 
 def utc_now() -> str:
@@ -360,6 +362,72 @@ def caption_selection_status(
     return "no_matching_language" if list(preferred_languages) else "invalid_track_inventory"
 
 
+def _inventory_attempt_summary(
+    inventory: dict[str, Any], selected: list[dict[str, Any]], attempt: int,
+    preferred_languages: Iterable[str],
+) -> dict[str, Any]:
+    raw_tracks = inventory.get("tracks") or []
+    selection_status = (
+        "downloadable" if selected
+        else caption_selection_status(inventory, selected, preferred_languages)
+    )
+    return {
+        "attempt": attempt,
+        "inventory_status": str(inventory.get("status") or "unknown"),
+        "need_login_subtitle": inventory.get("need_login_subtitle"),
+        "raw_track_count": len(raw_tracks),
+        "selected_track_count": len(selected),
+        "selection_status": selection_status,
+        "tracks": [
+            subtitle_track_diagnostic(track, index)
+            for index, track in enumerate(raw_tracks)
+        ],
+    }
+
+
+async def resolve_caption_inventory(
+    client: Any, job: dict[str, Any], *, retry_seconds: float = CAPTION_INVENTORY_RETRY_SECONDS,
+    strict_refresh: bool = False,
+) -> tuple[dict[str, Any], list[dict[str, Any]], str, list[dict[str, Any]]]:
+    """Resolve captions with one bounded refresh after an unusable provided list."""
+
+    first_inventory = await client.caption_inventory(job["bvid"], job["cid"])
+    first_selected = select_caption_tracks(
+        first_inventory.get("tracks") or [], job["languages"]
+    )
+    first_summary = _inventory_attempt_summary(
+        first_inventory, first_selected, 1, job["languages"]
+    )
+    attempts = [first_summary]
+    if first_selected:
+        return first_inventory, first_selected, "downloaded", attempts
+    first_status = first_summary["selection_status"]
+    if first_inventory.get("status") != "provided":
+        return first_inventory, [], first_status, attempts
+
+    await asyncio.sleep(retry_seconds)
+    try:
+        second_inventory = await client.caption_inventory(job["bvid"], job["cid"])
+    except Exception as exc:
+        if strict_refresh:
+            raise
+        attempts.append({
+            "attempt": 2,
+            "inventory_status": "refresh_failed",
+            "error_type": type(exc).__name__,
+        })
+        return first_inventory, [], first_status, attempts
+    second_selected = select_caption_tracks(
+        second_inventory.get("tracks") or [], job["languages"]
+    )
+    attempts.append(_inventory_attempt_summary(
+        second_inventory, second_selected, 2, job["languages"]
+    ))
+    if second_selected:
+        return second_inventory, second_selected, "downloaded", attempts
+    return second_inventory, [], first_status, attempts
+
+
 def _caption_basename(track: dict[str, Any], index: int) -> str:
     language = safe_caption_component(track.get("language") or "und")
     identity = safe_caption_component(track.get("id_str") or str(index + 1))
@@ -468,6 +536,7 @@ def _subprocess_env() -> dict[str, str]:
 
     environment = dict(os.environ)
     environment.pop("BILIBILI_COOKIE", None)
+    environment.pop("AUDIOSPIDER_BILIBILI_PROXY", None)
     return environment
 
 
@@ -804,14 +873,16 @@ async def download_job(
         stage = Path(output_root).resolve() / ".staging" / job["job_key"]
         stage.mkdir(parents=True, exist_ok=True)
         try:
-            inventory = await client.caption_inventory(job["bvid"], job["cid"])
-            tracks = select_caption_tracks(inventory["tracks"], job["languages"])
+            inventory, tracks, caption_status, inventory_attempts = (
+                await resolve_caption_inventory(
+                    client, job, strict_refresh=job["require_caption"]
+                )
+            )
             if any(
                 not caption_language_matches_content(job["content_language"], track["language"])
                 for track in tracks
             ):
                 raise ValueError("selected caption language does not match video content language")
-            caption_status = caption_selection_status(inventory, tracks, job["languages"])
             if job["require_caption"] and not tracks:
                 raise ValueError("no acceptable Bilibili platform caption is available")
 
@@ -892,6 +963,8 @@ async def download_job(
                     "requested_languages": job["languages"],
                     "track_count": len(captions),
                     "tracks": captions,
+                    "inventory_attempt_count": len(inventory_attempts),
+                    "inventory_attempts": inventory_attempts,
                 },
                 "source_metadata": _metadata_view(view),
                 "source_streams": {
@@ -948,6 +1021,184 @@ def _safe_file(bundle: Path, record: dict[str, Any], name: str) -> Path:
     if sha256_file(path) != record.get("sha256"):
         raise ValueError(f"{name} SHA-256 mismatch")
     return path
+
+
+def _validate_inventory_attempts(caption: dict[str, Any]) -> None:
+    attempts = caption.get("inventory_attempts")
+    count = caption.get("inventory_attempt_count")
+    if attempts is None and count is None:
+        return  # schema-v1 bundles written before diagnostic attempts remain valid.
+    if not isinstance(attempts, list) or type(count) is not int:
+        raise ValueError("caption inventory attempt diagnostics are incomplete")
+    if count != len(attempts) or not 1 <= count <= 2:
+        raise ValueError("caption inventory attempt count is invalid")
+    allowed_attempt_keys = {
+        "attempt", "inventory_status", "need_login_subtitle", "raw_track_count",
+        "selected_track_count", "selection_status", "tracks",
+    }
+    refresh_failed_keys = {"attempt", "inventory_status", "error_type"}
+    allowed_track_keys = {
+        "index", "track_value_type", "id_str", "language", "track_type",
+        "ai_type", "ai_status", "is_lock", "url_present", "url_value_type",
+        "url_form", "url_host", "url_port", "rejection_reason",
+    }
+    inventory_statuses = {
+        "provided", "auth_required", "not_provided_publicly", "unknown",
+    }
+    selection_statuses = {
+        "downloadable", "auth_required", "not_provided_publicly",
+        "no_matching_language", "invalid_track_inventory", "unknown",
+    }
+    value_types = {"str", "dict", "list", "int", "float", "bool", "NoneType"}
+    track_value_types = value_types - {"dict"}
+    url_forms = {"missing", "scheme_relative", "https", "http", "other_scheme", "relative"}
+    rejection_reasons = {
+        "accepted", "missing_url", "url_not_string", "invalid_port",
+        "unsupported_scheme", "credentials_not_allowed", "non_default_port",
+        "missing_host", "host_not_allowed", "track_not_object",
+    }
+    for index, attempt in enumerate(attempts, 1):
+        if not isinstance(attempt, dict):
+            raise ValueError("caption inventory attempt shape is invalid")
+        if attempt.get("attempt") != index:
+            raise ValueError("caption inventory attempt order is invalid")
+        if set(attempt) == refresh_failed_keys:
+            if (
+                index != 2
+                or attempt.get("inventory_status") != "refresh_failed"
+                or not isinstance(attempt.get("error_type"), str)
+                or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,79}", attempt["error_type"])
+            ):
+                raise ValueError("caption inventory refresh failure is invalid")
+            continue
+        if set(attempt) != allowed_attempt_keys:
+            raise ValueError("caption inventory attempt shape is invalid")
+        raw_count = attempt.get("raw_track_count")
+        selected_count = attempt.get("selected_track_count")
+        diagnostics = attempt.get("tracks")
+        inventory_status = attempt.get("inventory_status")
+        selection_status = attempt.get("selection_status")
+        need_login = attempt.get("need_login_subtitle")
+        if (
+            not isinstance(inventory_status, str) or inventory_status not in inventory_statuses
+            or not isinstance(selection_status, str) or selection_status not in selection_statuses
+            or need_login is not True and need_login is not False and need_login is not None
+            or type(raw_count) is not int or raw_count < 0
+            or type(selected_count) is not int or selected_count < 0
+            or selected_count > raw_count
+            or not isinstance(diagnostics, list) or len(diagnostics) != raw_count
+            or (attempt["selection_status"] == "downloadable") != (selected_count > 0)
+            or (attempt["inventory_status"] == "provided") != (raw_count > 0)
+        ):
+            raise ValueError("caption inventory track counts are invalid")
+        for track_index, diagnostic in enumerate(diagnostics):
+            if not isinstance(diagnostic, dict) or not set(diagnostic).issubset(allowed_track_keys):
+                raise ValueError("caption inventory track diagnostic shape is invalid")
+            if diagnostic.get("index") != track_index:
+                raise ValueError("caption inventory track diagnostic order is invalid")
+            track_value_type = diagnostic.get("track_value_type")
+            if not isinstance(track_value_type, str):
+                raise ValueError("caption inventory diagnostic value type is invalid")
+            if track_value_type == "dict":
+                if set(diagnostic) != allowed_track_keys:
+                    raise ValueError("caption inventory object diagnostic is incomplete")
+                url_value_type = diagnostic.get("url_value_type")
+                url_form = diagnostic.get("url_form")
+                rejection_reason = diagnostic.get("rejection_reason")
+                url_port = diagnostic.get("url_port")
+                host = diagnostic.get("url_host")
+                if (
+                    type(diagnostic.get("url_present")) is not bool
+                    or not isinstance(url_value_type, str) or url_value_type not in value_types
+                    or not isinstance(url_form, str) or url_form not in url_forms
+                    or not isinstance(rejection_reason, str)
+                    or rejection_reason not in rejection_reasons - {"track_not_object"}
+                    or not isinstance(diagnostic.get("id_str"), str)
+                    or not re.fullmatch(r"[A-Za-z0-9._-]{0,80}", diagnostic["id_str"])
+                    or not isinstance(diagnostic.get("language"), str)
+                    or not re.fullmatch(r"[A-Za-z0-9._-]{0,40}", diagnostic["language"])
+                    or any(
+                        value is not None and (type(value) is not int or abs(value) > 2**31)
+                        for value in (
+                            diagnostic.get("track_type"), diagnostic.get("ai_type"),
+                            diagnostic.get("ai_status"),
+                        )
+                    )
+                    or url_port is not None
+                    and (type(url_port) is not int or not 1 <= url_port <= 65_535)
+                    or diagnostic.get("is_lock") is not None
+                    and type(diagnostic.get("is_lock")) is not bool
+                    or rejection_reason == "accepted" and not (
+                        url_value_type == "str"
+                        and url_form in {"https", "scheme_relative"}
+                        and isinstance(host, str)
+                        and (host == "hdslb.com" or host.endswith(".hdslb.com"))
+                        and url_port in {None, 443}
+                    )
+                ):
+                    raise ValueError("caption inventory object diagnostic values are invalid")
+            elif (
+                set(diagnostic) != {"index", "track_value_type", "rejection_reason"}
+                or track_value_type not in track_value_types
+                or diagnostic.get("rejection_reason") != "track_not_object"
+            ):
+                raise ValueError("caption inventory non-object diagnostic values are invalid")
+            host = diagnostic.get("url_host", "")
+            if not isinstance(host, str) or not re.fullmatch(r"[a-z0-9.-]{0,253}", host):
+                raise ValueError("caption inventory diagnostic host is unsafe")
+    if count == 2 and not (
+        attempts[0]["inventory_status"] == "provided"
+        and attempts[0]["selected_track_count"] == 0
+    ):
+        raise ValueError("caption inventory refresh was not eligible")
+    if count == 1 and (
+        attempts[0]["inventory_status"] == "provided"
+        and attempts[0]["selected_track_count"] == 0
+    ):
+        raise ValueError("caption inventory omitted its eligible refresh")
+
+    top_status = caption.get("status")
+    top_need_login = caption.get("need_login_subtitle")
+    top_track_count = caption.get("track_count")
+    top_tracks = caption.get("tracks")
+    final_attempt = attempts[-1]
+    if final_attempt["inventory_status"] == "refresh_failed":
+        evidence_attempt = attempts[0]
+        expected_status = evidence_attempt["selection_status"]
+    else:
+        evidence_attempt = final_attempt
+        if evidence_attempt["selected_track_count"] > 0:
+            expected_status = "downloaded"
+        elif count == 2:
+            expected_status = attempts[0]["selection_status"]
+        else:
+            expected_status = evidence_attempt["selection_status"]
+    if (
+        top_status != expected_status
+        or top_need_login is not evidence_attempt["need_login_subtitle"]
+        or type(top_track_count) is not int
+        or not isinstance(top_tracks, list)
+        or top_track_count != len(top_tracks)
+        or top_track_count != evidence_attempt["selected_track_count"]
+    ):
+        raise ValueError("caption summary does not match its final inventory evidence")
+    if top_track_count:
+        available_identities = Counter(
+            (track.get("id_str"), track.get("language"))
+            for track in evidence_attempt["tracks"]
+            if track.get("track_value_type") == "dict"
+            and track.get("rejection_reason") == "accepted"
+        )
+        for track in top_tracks:
+            identity = (track.get("id_str"), track.get("language"))
+            if available_identities[identity] <= 0:
+                raise ValueError("caption track is absent from final inventory evidence")
+            available_identities[identity] -= 1
+    rendered = json.dumps(attempts, ensure_ascii=False).lower()
+    if any(marker in rendered for marker in (
+        "auth_key", "token=", "sessdata", "bili_jct",
+    )):
+        raise ValueError("caption inventory diagnostics contain a secret marker")
 
 
 def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[str, Any]:
@@ -1075,6 +1326,7 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
         raise ValueError("empty caption status cannot contain tracks")
     if caption["status"] == "downloaded" and not tracks:
         raise ValueError("downloaded caption status requires tracks")
+    _validate_inventory_attempts(caption)
     require_caption = policy.get("require_caption")
     if not isinstance(require_caption, bool):
         raise ValueError("bundle require_caption policy is invalid")

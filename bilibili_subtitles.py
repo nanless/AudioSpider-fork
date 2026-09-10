@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -16,6 +17,12 @@ PROVENANCE_RULE_VERSION = "bilibili-caption-provenance-v1"
 AUTO_MARKERS = (
     "自动生成", "自动字幕", "ai生成", "ai 字幕", "auto-generated", "automatic",
 )
+SAFE_DIAGNOSTIC_TOKEN = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def _safe_diagnostic_token(value: Any, maximum: int) -> str:
+    value = str(value or "")[:maximum]
+    return value if SAFE_DIAGNOSTIC_TOKEN.fullmatch(value) else ""
 
 
 def redact_url(value: str) -> str:
@@ -41,6 +48,88 @@ def normalize_subtitle_url(value: str) -> str:
     if not (host == "hdslb.com" or host.endswith(".hdslb.com")):
         return ""
     return value
+
+
+def subtitle_url_diagnostic(value: Any) -> dict[str, Any]:
+    """Describe URL acceptance without retaining a path, query, or fragment."""
+
+    diagnostic: dict[str, Any] = {
+        "url_present": value not in {None, ""} if isinstance(value, (str, type(None))) else True,
+        "url_value_type": type(value).__name__,
+        "url_form": "missing",
+        "url_host": "",
+        "url_port": None,
+        "rejection_reason": "missing_url",
+    }
+    if not isinstance(value, str):
+        diagnostic["rejection_reason"] = "url_not_string"
+        return diagnostic
+    stripped = value.strip()
+    if not stripped:
+        return diagnostic
+    if stripped.startswith("//"):
+        diagnostic["url_form"] = "scheme_relative"
+        candidate = "https:" + stripped
+    else:
+        parsed_initial = urlsplit(stripped)
+        scheme = parsed_initial.scheme.lower()
+        diagnostic["url_form"] = (
+            scheme if scheme in {"http", "https"}
+            else "other_scheme" if scheme else "relative"
+        )
+        candidate = stripped
+    try:
+        parsed = urlsplit(candidate)
+        port = parsed.port
+    except ValueError:
+        diagnostic["rejection_reason"] = "invalid_port"
+        return diagnostic
+    host = (parsed.hostname or "").lower().rstrip(".")
+    diagnostic["url_host"] = host
+    diagnostic["url_port"] = port
+    if parsed.scheme != "https":
+        diagnostic["rejection_reason"] = "unsupported_scheme"
+    elif parsed.username or parsed.password:
+        diagnostic["rejection_reason"] = "credentials_not_allowed"
+    elif port not in {None, 443}:
+        diagnostic["rejection_reason"] = "non_default_port"
+    elif not host:
+        diagnostic["rejection_reason"] = "missing_host"
+    elif not (host == "hdslb.com" or host.endswith(".hdslb.com")):
+        diagnostic["rejection_reason"] = "host_not_allowed"
+    else:
+        diagnostic["rejection_reason"] = "accepted"
+    return diagnostic
+
+
+def subtitle_track_diagnostic(track: Any, index: int) -> dict[str, Any]:
+    """Return a signed-URL-free explanation of one raw inventory entry."""
+
+    if not isinstance(track, dict):
+        return {
+            "index": index,
+            "track_value_type": type(track).__name__,
+            "rejection_reason": "track_not_object",
+        }
+    raw_url = track.get("subtitle_url")
+    if raw_url is None or raw_url == "":
+        raw_url = track.get("url")
+    result = {
+        "index": index,
+        "track_value_type": "dict",
+        "id_str": _safe_diagnostic_token(
+            track.get("id_str") or track.get("id"), 80
+        ),
+        "language": _safe_diagnostic_token(
+            track.get("lan") or track.get("language"), 40
+        ),
+        "track_type": track.get("type") if type(track.get("type")) is int else None,
+        "ai_type": track.get("ai_type") if type(track.get("ai_type")) is int else None,
+        "ai_status": track.get("ai_status") if type(track.get("ai_status")) is int else None,
+        "is_lock": track.get("is_lock") if type(track.get("is_lock")) is bool else None,
+    }
+    result.update(subtitle_url_diagnostic(raw_url))
+    return result
 
 
 def _has_author(track: dict[str, Any]) -> bool:
@@ -142,7 +231,8 @@ def classify_subtitle_inventory(data: Any) -> dict[str, Any]:
 
     if not isinstance(data, dict):
         return {"status": "unknown", "need_login_subtitle": None, "tracks": []}
-    need_login = data.get("need_login_subtitle")
+    raw_need_login = data.get("need_login_subtitle")
+    need_login = raw_need_login if type(raw_need_login) is bool else None
     subtitle = data.get("subtitle")
     if not isinstance(subtitle, dict) or not isinstance(subtitle.get("subtitles"), list):
         return {"status": "unknown", "need_login_subtitle": need_login, "tracks": []}

@@ -170,6 +170,19 @@ python bilibili_dataset.py --output downloads/bilibili-video-candidates repair-m
 
 可选 `BILIBILI_COOKIE` 环境变量用于当前进程的合法登录态；不得写入 manifest。字幕必需性、分 P、语言、清晰度、时长、权利和 AI 状态都在 JSON 清单逐项声明。
 
+### `scripts/backfill_bilibili_captions.py`
+
+对统一下载树中已 `done` 的 B 站 bundle 执行字幕-only 回填。默认 dry-run；
+只有显式 `--apply` 才会在 SQLite 备份、精确 job lock 和事务回滚保护下写字幕/
+sidecar/DB 闭包指纹。工具不下载或改写 MP4/WAV。
+文件恢复和 SQLite 回滚可覆盖可捕获异常，但不能承诺 `SIGKILL`/断电时的跨文件系统与数据库原子性。
+
+```bash
+python scripts/backfill_bilibili_captions.py --limit 20
+python scripts/backfill_bilibili_captions.py --limit 20 --apply \
+  --allow-bilibili-cookie
+```
+
 已有音频补齐示例：
 
 ```bash

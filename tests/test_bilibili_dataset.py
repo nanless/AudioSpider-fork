@@ -14,10 +14,12 @@ from bilibili_dataset import (
     _file_record,
     _media_summary,
     _subprocess_env,
+    _validate_inventory_attempts,
     audit_dataset,
     bilibili_video_id,
     caption_language_matches_content,
     build_jobs,
+    resolve_caption_inventory,
     select_dash_streams,
     select_caption_tracks,
     validate_bundle,
@@ -157,7 +159,206 @@ class JobAndCaptionTests(unittest.TestCase):
         self.assertIsNone(_content_range_start("garbage"))
 
 
+class CaptionInventoryRetryTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def job():
+        return {
+            "bvid": "BV1xx411c7mD", "cid": 1,
+            "languages": ["zh", "ai-zh"],
+        }
+
+    async def test_invalid_first_inventory_refreshes_once_and_can_recover(self):
+        invalid = {
+            "status": "provided", "need_login_subtitle": False,
+            "tracks": [{
+                "id": 1, "lan": "ai-zh", "type": 1,
+                "subtitle_url": (
+                    "http://aisubtitle.hdslb.com/private/path.json?auth_key=secret"
+                ),
+            }],
+        }
+        valid = {
+            "status": "provided", "need_login_subtitle": False,
+            "tracks": [{
+                "id": 1, "lan": "ai-zh", "type": 1,
+                "subtitle_url": "//aisubtitle.hdslb.com/valid.json?auth_key=secret",
+            }],
+        }
+        client = mock.Mock()
+        client.caption_inventory = mock.AsyncMock(side_effect=[invalid, valid])
+        inventory, selected, status, attempts = await resolve_caption_inventory(
+            client, self.job(), retry_seconds=0
+        )
+        self.assertIs(inventory, valid)
+        self.assertEqual(status, "downloaded")
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(client.caption_inventory.await_count, 2)
+        self.assertEqual([row["raw_track_count"] for row in attempts], [1, 1])
+        self.assertNotIn("auth_key", json.dumps(attempts).lower())
+        self.assertNotIn("private/path", json.dumps(attempts).lower())
+
+    async def test_invalid_first_then_empty_stays_invalid(self):
+        invalid = {
+            "status": "provided", "need_login_subtitle": False,
+            "tracks": [{
+                "lan": "ai-zh", "type": 1,
+                "subtitle_url": "http://aisubtitle.hdslb.com/one.json",
+            }],
+        }
+        empty = {
+            "status": "not_provided_publicly", "need_login_subtitle": False,
+            "tracks": [],
+        }
+        client = mock.Mock()
+        client.caption_inventory = mock.AsyncMock(side_effect=[invalid, empty])
+        _, selected, status, attempts = await resolve_caption_inventory(
+            client, self.job(), retry_seconds=0
+        )
+        self.assertEqual(selected, [])
+        self.assertEqual(status, "invalid_track_inventory")
+        self.assertEqual([row["raw_track_count"] for row in attempts], [1, 0])
+        self.assertEqual(client.caption_inventory.await_count, 2)
+
+    async def test_empty_first_inventory_is_not_retried(self):
+        empty = {
+            "status": "not_provided_publicly", "need_login_subtitle": False,
+            "tracks": [],
+        }
+        client = mock.Mock()
+        client.caption_inventory = mock.AsyncMock(return_value=empty)
+        _, selected, status, attempts = await resolve_caption_inventory(
+            client, self.job(), retry_seconds=0
+        )
+        self.assertEqual(selected, [])
+        self.assertEqual(status, "not_provided_publicly")
+        self.assertEqual(len(attempts), 1)
+        client.caption_inventory.assert_awaited_once()
+
+    async def test_best_effort_refresh_failure_keeps_first_safe_evidence(self):
+        invalid = {
+            "status": "provided", "need_login_subtitle": False,
+            "tracks": [{
+                "lan": "ai-zh", "type": 1,
+                "subtitle_url": "http://aisubtitle.hdslb.com/one.json?token=secret",
+            }],
+        }
+        client = mock.Mock()
+        client.caption_inventory = mock.AsyncMock(side_effect=[
+            invalid,
+            RuntimeError("https://secret.example/path?SESSDATA=secret via proxy"),
+        ])
+        inventory, selected, status, attempts = await resolve_caption_inventory(
+            client, self.job(), retry_seconds=0
+        )
+        self.assertIs(inventory, invalid)
+        self.assertEqual(selected, [])
+        self.assertEqual(status, "invalid_track_inventory")
+        self.assertEqual(attempts[-1], {
+            "attempt": 2,
+            "inventory_status": "refresh_failed",
+            "error_type": "RuntimeError",
+        })
+        self.assertNotIn("secret", json.dumps(attempts).lower())
+        _validate_inventory_attempts({
+            "status": status,
+            "need_login_subtitle": False,
+            "track_count": 0,
+            "tracks": [],
+            "inventory_attempt_count": 2,
+            "inventory_attempts": attempts,
+        })
+
+    async def test_strict_refresh_failure_is_not_downgraded(self):
+        invalid = {
+            "status": "provided", "need_login_subtitle": False,
+            "tracks": [{
+                "lan": "ai-zh", "type": 1,
+                "subtitle_url": "http://aisubtitle.hdslb.com/one.json",
+            }],
+        }
+        client = mock.Mock()
+        client.caption_inventory = mock.AsyncMock(
+            side_effect=[invalid, RuntimeError("refresh failed")]
+        )
+        with self.assertRaises(RuntimeError):
+            await resolve_caption_inventory(
+                client, self.job(), retry_seconds=0, strict_refresh=True
+            )
+
+
 class AuditTests(unittest.TestCase):
+    def test_legacy_schema_v1_caption_without_attempts_remains_valid(self):
+        _validate_inventory_attempts({"status": "not_provided_publicly"})
+
+    def test_inventory_diagnostic_text_fields_are_strict_enums(self):
+        diagnostic = {
+            "index": 0, "track_value_type": "dict", "id_str": "1",
+            "language": "ai-zh", "track_type": 1, "ai_type": 0,
+            "ai_status": 0, "is_lock": False, "url_present": True,
+            "url_value_type": "str", "url_form": "scheme_relative",
+            "url_host": "aisubtitle.hdslb.com", "url_port": None,
+            "rejection_reason": "accepted",
+        }
+        base = {
+            "status": "downloaded",
+            "need_login_subtitle": False,
+            "track_count": 1,
+            "tracks": [{"id_str": "1", "language": "ai-zh"}],
+            "inventory_attempt_count": 1,
+            "inventory_attempts": [{
+                "attempt": 1, "inventory_status": "provided",
+                "need_login_subtitle": False, "raw_track_count": 1,
+                "selected_track_count": 1, "selection_status": "downloadable",
+                "tracks": [diagnostic],
+            }],
+        }
+        _validate_inventory_attempts(base)
+        for field in (
+            "track_value_type", "url_value_type", "url_form", "rejection_reason",
+        ):
+            changed = json.loads(json.dumps(base))
+            changed["inventory_attempts"][0]["tracks"][0][field] = "arbitrary/path?token=x"
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                _validate_inventory_attempts(changed)
+
+    def test_inventory_diagnostics_cross_check_top_level_caption(self):
+        caption = {
+            "status": "invalid_track_inventory",
+            "need_login_subtitle": False,
+            "track_count": 0,
+            "tracks": [],
+            "inventory_attempt_count": 2,
+            "inventory_attempts": [{
+                "attempt": 1, "inventory_status": "provided",
+                "need_login_subtitle": False, "raw_track_count": 1,
+                "selected_track_count": 0,
+                "selection_status": "invalid_track_inventory",
+                "tracks": [{
+                    "index": 0, "track_value_type": "dict", "id_str": "1",
+                    "language": "ai-zh", "track_type": 1, "ai_type": 0,
+                    "ai_status": 0, "is_lock": False, "url_present": True,
+                    "url_value_type": "str", "url_form": "http",
+                    "url_host": "aisubtitle.hdslb.com", "url_port": None,
+                    "rejection_reason": "unsupported_scheme",
+                }],
+            }, {
+                "attempt": 2, "inventory_status": "not_provided_publicly",
+                "need_login_subtitle": False, "raw_track_count": 0,
+                "selected_track_count": 0,
+                "selection_status": "not_provided_publicly", "tracks": [],
+            }],
+        }
+        _validate_inventory_attempts(caption)
+        for field, value in (
+            ("status", "not_provided_publicly"),
+            ("need_login_subtitle", True),
+            ("track_count", 1),
+        ):
+            changed = json.loads(json.dumps(caption))
+            changed[field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                _validate_inventory_attempts(changed)
+
     def test_empty_dataset_is_a_failure(self):
         with tempfile.TemporaryDirectory() as temporary:
             report = audit_dataset(Path(temporary))
@@ -233,6 +434,32 @@ class AuditTests(unittest.TestCase):
                 "speaker_count_status": "needs_review",
                 "caption": {
                     "status": "downloaded", "track_count": 1,
+                    "need_login_subtitle": False,
+                    "inventory_attempt_count": 1,
+                    "inventory_attempts": [{
+                        "attempt": 1,
+                        "inventory_status": "provided",
+                        "need_login_subtitle": False,
+                        "raw_track_count": 1,
+                        "selected_track_count": 1,
+                        "selection_status": "downloadable",
+                        "tracks": [{
+                            "index": 0,
+                            "track_value_type": "dict",
+                            "id_str": "1",
+                            "language": "zh-Hans",
+                            "track_type": 0,
+                            "ai_type": 0,
+                            "ai_status": 0,
+                            "is_lock": False,
+                            "url_present": True,
+                            "url_value_type": "str",
+                            "url_form": "scheme_relative",
+                            "url_host": "aisubtitle.hdslb.com",
+                            "url_port": None,
+                            "rejection_reason": "accepted",
+                        }],
+                    }],
                     "tracks": [{
                         "id_str": "1", "track_type": 0,
                         "language": "zh-Hans", "label": "中文",
@@ -253,6 +480,17 @@ class AuditTests(unittest.TestCase):
                 "toolchain": {"encoding_profile": "bilibili-mp4-wav16k-v1"},
             })
             validate_bundle(bundle / "metadata.json")
+            metadata = json.loads((bundle / "metadata.json").read_text(encoding="utf-8"))
+            metadata["caption"]["inventory_attempts"][0]["tracks"][0]["url_host"] = (
+                "aisubtitle.hdslb.com/private?token=secret"
+            )
+            write_json_atomic(bundle / "metadata.json", metadata)
+            with self.assertRaises(ValueError):
+                validate_bundle(bundle / "metadata.json")
+            metadata["caption"]["inventory_attempts"][0]["tracks"][0]["url_host"] = (
+                "aisubtitle.hdslb.com"
+            )
+            write_json_atomic(bundle / "metadata.json", metadata)
             txt.write_text("tampered\n", encoding="utf-8")
             with self.assertRaises(ValueError):
                 validate_bundle(bundle / "metadata.json")
@@ -261,14 +499,21 @@ class AuditTests(unittest.TestCase):
 class AuthenticationBoundaryTests(unittest.IsolatedAsyncioTestCase):
     def test_subprocess_environment_drops_bilibili_cookie(self):
         previous = os.environ.get("BILIBILI_COOKIE")
+        previous_proxy = os.environ.get("AUDIOSPIDER_BILIBILI_PROXY")
         os.environ["BILIBILI_COOKIE"] = "SESSDATA=secret"
+        os.environ["AUDIOSPIDER_BILIBILI_PROXY"] = "http://127.0.0.1:18443"
         try:
             self.assertNotIn("BILIBILI_COOKIE", _subprocess_env())
+            self.assertNotIn("AUDIOSPIDER_BILIBILI_PROXY", _subprocess_env())
         finally:
             if previous is None:
                 os.environ.pop("BILIBILI_COOKIE", None)
             else:
                 os.environ["BILIBILI_COOKIE"] = previous
+            if previous_proxy is None:
+                os.environ.pop("AUDIOSPIDER_BILIBILI_PROXY", None)
+            else:
+                os.environ["AUDIOSPIDER_BILIBILI_PROXY"] = previous_proxy
     async def test_cookie_is_sent_only_to_api_bilibili_com(self):
         class Response:
             status = 200

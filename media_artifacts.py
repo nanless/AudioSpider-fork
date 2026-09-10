@@ -111,7 +111,10 @@ def _result(bundle: Path, *, reused: bool) -> dict[str, Any]:
 
 def _youtube_download_worker(job: dict, output_root: str, destination: str, result_queue) -> None:
     try:
-        for name in ("BILIBILI_COOKIE", "PODCAST_INDEX_KEY", "PODCAST_INDEX_SECRET"):
+        for name in (
+            "BILIBILI_COOKIE", "AUDIOSPIDER_BILIBILI_PROXY",
+            "PODCAST_INDEX_KEY", "PODCAST_INDEX_SECRET",
+        ):
             os.environ.pop(name, None)
         bundle = download_youtube_item(
             job, Path(output_root), destination=Path(destination)

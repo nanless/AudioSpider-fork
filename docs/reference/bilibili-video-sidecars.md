@@ -41,9 +41,30 @@ parents/<bvid>/p<page>/<job_key>/
 | `not_provided_publicly` | 成功响应、明确无需登录、轨道为空 | `require_caption=false` 时允许 |
 | `auth_required` | 成功响应且 `need_login_subtitle=true`、轨道为空 | `require_caption=false` 时允许 |
 | `no_matching_language` | 平台有轨道，但没有清单允许的语言 | `require_caption=false` 时允许 |
+| `invalid_track_inventory` | 曾观测到轨道，但 URL/字段无法安全接受 | `require_caption=false` 时允许，建议字幕-only 回填 |
 | `unknown` | 响应成功但字段不足 | `require_caption=false` 时允许并报警统计 |
 
 HTTP/API 失败不会被写成上述“空字幕”状态，也不会提升正式 bundle。
+
+## `caption.inventory_attempts`
+
+新 sidecar 记录 1–2 次有界 player inventory 尝试。旧 schema-v1 sidecar 没有该字段时仍可验收。
+
+| 字段 | 含义 |
+|---|---|
+| `attempt` | 从 1 开始的尝试序号 |
+| `inventory_status` | 本次原始列表分类 |
+| `raw_track_count/selected_track_count` | 原始轨道数/安全且同语言的已选轨道数 |
+| `selection_status` | `downloadable`、`invalid_track_inventory`、`no_matching_language` 等选择结果 |
+| `tracks[]` | 轨道索引、语言、type/ai_type/is_lock、URL 类型/形式/host/拒绝原因 |
+
+`tracks[]` 永不保存 URL path/query/fragment，也不允许 Cookie、代理值或签名参数。
+只有“首次 `provided` 但选不出轨道”才刷新一次；两次尝试的证据均保留。
+如果 best-effort 的第二次查询失败，第二条尝试只包含 `attempt`、
+`inventory_status=refresh_failed` 和 SAFE token 形式的 `error_type`，顶层结果仍与第一次证据一致。
+
+验收器会交叉校验最终有效 attempt 与顶层 `caption.status`、`need_login_subtitle`、
+`track_count` 及 `tracks`；仅修改其中一份会导致 bundle 验收失败。
 
 ## 单条 caption track
 

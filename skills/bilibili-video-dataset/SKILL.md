@@ -53,6 +53,22 @@ mutates only with `--apply`. Then run `python scripts/audit_media_queue.py`.
 - Keep not-provided, auth-required, no-matching-language, unknown and external failure distinct.
 - Platform manual describes the CC channel and author evidence, not guaranteed human verification.
 - Automatic captions do not imply AI-generated media.
+- Persist `caption.inventory_attempts` only as sanitized evidence: counts,
+  classification fields, URL value/form/host and rejection reason. Never retain
+  URL path/query/fragment, credentials, Cookie, proxy values or signatures.
+- Refresh player inventory at most once, and only when the first response is
+  `provided` but yields no usable selected track. Preserve the first invalid
+  result if the refresh is empty.
+
+For completed integrated bundles, use `scripts/backfill_bilibili_captions.py`
+for caption-only repair. Preview without `--apply` first. Applying requires its
+SQLite backup, exact job lock, atomic sidecar and rollback guards, and must never
+redownload or rewrite MP4/WAV.
+Before mutation, recompute the existing disk closure and require it to equal the
+saved SQLite size/hash. Keep ffprobe and large hashing outside the SQLite writer
+transaction; use a short compare-and-swap update with all old identity/closure
+values. BaseException recovery is best effort and cannot make SIGKILL or power
+loss atomic across the filesystem and SQLite.
 
 ## Credentials and rights
 
