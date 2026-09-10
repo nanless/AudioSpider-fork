@@ -50,6 +50,7 @@ class CaptionBackfillTests(unittest.TestCase):
         args = backfill.build_parser().parse_args([])
         self.assertFalse(args.apply)
         self.assertFalse(args.allow_bilibili_cookie)
+        self.assertFalse(args.retry_invalid_timeline)
 
     def test_old_empty_requested_languages_fall_back_to_content_language(self):
         job = backfill._job_from_metadata({
@@ -78,6 +79,61 @@ class CaptionBackfillTests(unittest.TestCase):
             ValueError("caption track 0 extends too far beyond the media"),
         )
         self.assertEqual(failure.reason, "caption_exceeds_media_duration")
+
+    def test_prepare_rejects_mismatched_timeline_without_persisted_payloads(self):
+        track = {
+            "url": "https://aisubtitle.hdslb.com/test.json",
+            "selection_rank": 0,
+            "id_str": "1",
+            "language": "ai-zh",
+            "kind": "automatic",
+        }
+        client = mock.Mock()
+        client.subtitle = mock.AsyncMock(return_value={"body": [
+            {"from": 0.0, "to": 210.4, "content": "错配字幕"},
+        ]})
+        with tempfile.TemporaryDirectory() as temporary:
+            stage = Path(temporary)
+            prepared, rejected = __import__("asyncio").run(
+                backfill._prepare_captions(client, [track], stage, 8.576)
+            )
+            self.assertEqual(len(list(stage.glob("*.rejected.json"))), 1)
+            self.assertEqual(len(list(stage.glob("*.vtt"))), 0)
+            self.assertEqual(len(list(stage.glob("*.txt"))), 0)
+        self.assertEqual(prepared, [])
+        self.assertEqual(len(rejected), 1)
+        rejection = rejected[0]["track"]["timeline_rejection"]
+        self.assertEqual(rejection["reason"], "caption_exceeds_media_duration")
+        self.assertAlmostEqual(rejection["overrun_seconds"], 201.824)
+
+    def test_prepare_keeps_valid_track_and_quarantines_only_bad_track(self):
+        tracks = [{
+            "url": "https://aisubtitle.hdslb.com/manual.json",
+            "selection_rank": 0, "id_str": "1", "language": "zh-Hans",
+            "kind": "manual",
+        }, {
+            "url": "https://aisubtitle.hdslb.com/auto.json",
+            "selection_rank": 1, "id_str": "2", "language": "ai-zh",
+            "kind": "automatic",
+        }]
+        client = mock.Mock()
+        client.subtitle = mock.AsyncMock(side_effect=[
+            {"body": [{"from": 0.0, "to": 8.0, "content": "人工"}]},
+            {"body": [{"from": 0.0, "to": 50.0, "content": "错配自动"}]},
+        ])
+        with tempfile.TemporaryDirectory() as temporary:
+            stage = Path(temporary)
+            stale = stage / "captions.stale.automatic.9.vtt"
+            stale.write_text("stale", encoding="utf-8")
+            accepted, rejected = __import__("asyncio").run(
+                backfill._prepare_captions(client, tracks, stage, 10.0)
+            )
+            self.assertFalse(stale.exists())
+            self.assertEqual(len(list(stage.glob("*.vtt"))), 1)
+            self.assertEqual(len(list(stage.glob("*.txt"))), 1)
+            self.assertEqual(len(list(stage.glob("*.json"))), 2)
+        self.assertEqual([row["track"]["id_str"] for row in accepted], ["1"])
+        self.assertEqual([row["track"]["id_str"] for row in rejected], ["2"])
 
     def test_dry_run_does_not_construct_network_client(self):
         args = backfill.build_parser().parse_args([])
@@ -122,6 +178,34 @@ class CaptionBackfillTests(unittest.TestCase):
         self.assertEqual(candidates[0]["job_key"], bundle.name)
         self.assertEqual(candidates[0]["_old_file_size"], 12)
         self.assertEqual(candidates[0]["_old_content_hash"], "a" * 64)
+
+    def test_invalid_timeline_requires_explicit_retry_flag(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = (
+                root / "downloads" / "bilibili" / "访谈" / "BV1xx411c7mD_p1"
+                / "BV1xx411c7mD-p1-c1-test"
+            )
+            bundle.mkdir(parents=True)
+            (bundle / "metadata.json").write_text("{}", encoding="utf-8")
+            db_path, _ = self._database_row(root, bundle)
+            metadata = {
+                "job_key": bundle.name,
+                "source_id": bundle.parent.name,
+                "caption": {"status": "invalid_timeline"},
+            }
+            with mock.patch.object(
+                backfill, "validate_bundle", return_value={"metadata": metadata}
+            ):
+                default = backfill.discover_candidates(
+                    db_path, root / "downloads", 10
+                )
+                explicit = backfill.discover_candidates(
+                    db_path, root / "downloads", 10,
+                    include_invalid_timeline=True,
+                )
+        self.assertEqual(default, [])
+        self.assertEqual(len(explicit), 1)
 
     def test_pre_mutation_rejects_disk_closure_mismatch(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -179,6 +263,7 @@ class CaptionBackfillTests(unittest.TestCase):
             metadata = {
                 "bvid": "BV1xx411c7mD", "cid": 1,
                 "content_language": "zh", "files": {},
+                "media": {"duration_seconds": 10.0},
                 "caption": {"requested_languages": ["zh"]},
                 "acquisition_policy": {"require_caption": False},
             }
@@ -325,7 +410,11 @@ class CaptionBackfillTests(unittest.TestCase):
                 path = stage / f"captions.ai-zh.automatic.1.{extension}"
                 path.write_text(extension, encoding="utf-8")
                 paths[extension] = path
-            metadata = {"files": {}, "caption": {}}
+            metadata = {"files": {}, "caption": {
+                "payload_status": "rejected",
+                "rejected_track_count": 1,
+                "rejected_tracks": [{"stale": True}],
+            }}
             prepared = [{
                 "index": 0,
                 "paths": paths,
@@ -354,8 +443,217 @@ class CaptionBackfillTests(unittest.TestCase):
             connection.close()
             self.assertEqual(video.read_bytes(), b"video-original")
             self.assertEqual(audio.read_bytes(), b"audio-original")
+            persisted = json.loads(
+                (bundle / "metadata.json").read_text(encoding="utf-8")
+            )
         self.assertEqual((total, content_hash), (999, "new-hash"))
         self.assertEqual(row, (999, "new-hash"))
+        self.assertNotIn("payload_status", persisted["caption"])
+        self.assertNotIn("rejected_tracks", persisted["caption"])
+
+    def test_rejected_raw_caption_updates_closure_without_changing_media(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = (
+                root / "downloads" / "bilibili" / "访谈" / "BV1xx411c7mD_p1"
+                / "BV1xx411c7mD-p1-c1-test"
+            )
+            bundle.mkdir(parents=True)
+            video = bundle / "source.mp4"
+            audio = bundle / "audio.wav"
+            video.write_bytes(b"video-original")
+            audio.write_bytes(b"audio-original")
+            (bundle / "metadata.json").write_text("{}\n", encoding="utf-8")
+            db_path, row_id = self._database_row(root, bundle)
+            stage = root / "stage"
+            stage.mkdir()
+            raw = stage / "captions.ai-zh.automatic.1.rejected.json"
+            raw.write_text('{"body":[]}\n', encoding="utf-8")
+            rejected = [{
+                "index": 0,
+                "paths": {"json": raw},
+                "track": {
+                    "id_str": "1", "language": "ai-zh", "status": "rejected",
+                    "files": {"json": "caption_rejected_0_json"},
+                },
+            }]
+            metadata = {"files": {}, "caption": {"status": "invalid_timeline"}}
+            with mock.patch.object(
+                backfill, "_verify_pre_mutation", return_value={}
+            ), mock.patch.object(
+                backfill, "validate_bundle", return_value={}
+            ), mock.patch.object(
+                backfill, "bundle_fingerprint", return_value=(123, "new-hash")
+            ):
+                backfill._commit_sidecar_and_database(
+                    db_path, self._candidate(bundle, row_id), metadata, [], rejected
+                )
+            persisted = json.loads(
+                (bundle / "metadata.json").read_text(encoding="utf-8")
+            )
+            connection = sqlite3.connect(db_path)
+            row = connection.execute(
+                "SELECT file_size, content_hash FROM audio_urls WHERE id=?", (row_id,)
+            ).fetchone()
+            connection.close()
+            video_bytes = video.read_bytes()
+            audio_bytes = audio.read_bytes()
+        self.assertEqual(video_bytes, b"video-original")
+        self.assertEqual(audio_bytes, b"audio-original")
+        self.assertEqual(persisted["caption"]["track_count"], 0)
+        self.assertEqual(persisted["caption"]["rejected_track_count"], 1)
+        self.assertEqual(persisted["caption"]["payload_status"], "rejected")
+        self.assertEqual(row, (123, "new-hash"))
+
+    def test_retry_invalid_timeline_to_valid_replaces_old_caption_closure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = root / "downloads" / "bilibili" / "访谈" / "source" / "job"
+            bundle.mkdir(parents=True)
+            (bundle / "source.mp4").write_bytes(b"video")
+            (bundle / "audio.wav").write_bytes(b"audio")
+            old = bundle / "captions.ai-zh.automatic.same.1.rejected.json"
+            old.write_bytes(b"old-rejected")
+            (bundle / "metadata.json").write_text("{}\n", encoding="utf-8")
+            db_path, row_id = self._database_row(root, bundle)
+            candidate = self._candidate(bundle, row_id)
+            stage = root / "stage"
+            stage.mkdir()
+            paths = {}
+            for extension in ("json", "vtt", "txt"):
+                path = stage / f"captions.ai-zh.automatic.same.1.{extension}"
+                path.write_text(f"new-{extension}", encoding="utf-8")
+                paths[extension] = path
+            metadata = {
+                "files": {
+                    "video": {"path": "source.mp4"},
+                    "audio": {"path": "audio.wav"},
+                    "caption_rejected_0_json": {"path": old.name},
+                },
+                "caption": {
+                    "payload_status": "rejected", "rejected_track_count": 1,
+                    "rejected_tracks": [{"files": {"json": "caption_rejected_0_json"}}],
+                },
+            }
+            prepared = [{
+                "index": 0, "paths": paths,
+                "track": {"id_str": "same", "language": "ai-zh"},
+            }]
+            with mock.patch.object(backfill, "_verify_pre_mutation", return_value={}), \
+                 mock.patch.object(backfill, "validate_bundle", return_value={}), \
+                 mock.patch.object(
+                     backfill, "bundle_fingerprint", return_value=(321, "valid-hash")
+                 ):
+                backfill._commit_sidecar_and_database(
+                    db_path, candidate, metadata, prepared
+                )
+            persisted = json.loads(
+                (bundle / "metadata.json").read_text(encoding="utf-8")
+            )
+            self.assertFalse(old.exists())
+            self.assertNotIn("caption_rejected_0_json", persisted["files"])
+            self.assertEqual(
+                set(persisted["files"]),
+                {"video", "audio", "caption_0_json", "caption_0_vtt", "caption_0_txt"},
+            )
+            self.assertEqual(list(bundle.parent.glob(".*.caption-rollback-*")), [])
+
+    def test_retry_invalid_timeline_to_rejected_replaces_same_name(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = root / "downloads" / "bilibili" / "访谈" / "source" / "job"
+            bundle.mkdir(parents=True)
+            (bundle / "source.mp4").write_bytes(b"video")
+            (bundle / "audio.wav").write_bytes(b"audio")
+            name = "captions.ai-zh.automatic.same.1.rejected.json"
+            old = bundle / name
+            old.write_bytes(b"old-rejected")
+            (bundle / "metadata.json").write_text("{}\n", encoding="utf-8")
+            db_path, row_id = self._database_row(root, bundle)
+            stage = root / "stage"
+            stage.mkdir()
+            replacement = stage / name
+            replacement.write_bytes(b"new-rejected")
+            metadata = {
+                "files": {
+                    "video": {"path": "source.mp4"},
+                    "audio": {"path": "audio.wav"},
+                    "caption_rejected_0_json": {"path": name},
+                },
+                "caption": {},
+            }
+            rejected = [{
+                "index": 0, "paths": {"json": replacement},
+                "track": {
+                    "id_str": "same", "language": "ai-zh", "status": "rejected",
+                    "files": {"json": "caption_rejected_0_json"},
+                },
+            }]
+            with mock.patch.object(backfill, "_verify_pre_mutation", return_value={}), \
+                 mock.patch.object(backfill, "validate_bundle", return_value={}), \
+                 mock.patch.object(
+                     backfill, "bundle_fingerprint", return_value=(322, "rejected-hash")
+                 ):
+                backfill._commit_sidecar_and_database(
+                    db_path, self._candidate(bundle, row_id), metadata, [], rejected
+                )
+            self.assertEqual(old.read_bytes(), b"new-rejected")
+            self.assertEqual(list(bundle.parent.glob(".*.caption-rollback-*")), [])
+
+    def test_retry_failure_restores_displaced_caption_sidecar_and_database(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = root / "downloads" / "bilibili" / "访谈" / "source" / "job"
+            bundle.mkdir(parents=True)
+            (bundle / "source.mp4").write_bytes(b"video")
+            (bundle / "audio.wav").write_bytes(b"audio")
+            name = "captions.ai-zh.automatic.same.1.rejected.json"
+            old = bundle / name
+            old.write_bytes(b"old-rejected")
+            original_sidecar = b'{"original":true}\n'
+            (bundle / "metadata.json").write_bytes(original_sidecar)
+            db_path, row_id = self._database_row(root, bundle)
+            stage = root / "stage"
+            stage.mkdir()
+            replacement = stage / name
+            replacement.write_bytes(b"new-rejected")
+            metadata = {
+                "files": {
+                    "video": {"path": "source.mp4"},
+                    "audio": {"path": "audio.wav"},
+                    "caption_rejected_0_json": {"path": name},
+                },
+                "caption": {},
+            }
+            rejected = [{
+                "index": 0, "paths": {"json": replacement},
+                "track": {
+                    "id_str": "same", "language": "ai-zh", "status": "rejected",
+                    "files": {"json": "caption_rejected_0_json"},
+                },
+            }]
+            with mock.patch.object(backfill, "_verify_pre_mutation", return_value={}), \
+                 mock.patch.object(
+                     backfill, "validate_bundle",
+                     side_effect=[ValueError("synthetic validation failure"), {}],
+                 ), mock.patch.object(
+                     backfill, "bundle_fingerprint", return_value=(323, "new-hash")
+                 ):
+                with self.assertRaises(ValueError):
+                    backfill._commit_sidecar_and_database(
+                        db_path, self._candidate(bundle, row_id), metadata, [], rejected
+                    )
+            self.assertEqual(old.read_bytes(), b"old-rejected")
+            self.assertEqual(
+                (bundle / "metadata.json").read_bytes(), original_sidecar
+            )
+            self.assertEqual(list(bundle.parent.glob(".*.caption-rollback-*")), [])
+            connection = sqlite3.connect(db_path)
+            row = connection.execute(
+                "SELECT file_size, content_hash FROM audio_urls WHERE id=?", (row_id,)
+            ).fetchone()
+            connection.close()
+            self.assertEqual(row, (12, "a" * 64))
 
     def test_database_compare_and_swap_failure_restores_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:

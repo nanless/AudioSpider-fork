@@ -18,6 +18,23 @@ AUTO_MARKERS = (
     "自动生成", "自动字幕", "ai生成", "ai 字幕", "auto-generated", "automatic",
 )
 SAFE_DIAGNOSTIC_TOKEN = re.compile(r"^[A-Za-z0-9._-]+$")
+SENSITIVE_SUBTITLE_KEYS = {
+    "accesskey", "apikey", "authkey", "authorization", "bilijct",
+    "clientsecret", "cookie", "credential", "csrf", "jwt", "password",
+    "proxyauthorization", "secret", "sessdata", "setcookie", "sign",
+    "signature", "token",
+}
+TRANSPORT_URL_RE = re.compile(r"(?i)(?:https?:)?//[^\s'\"<>]+")
+AUTH_HEADER_RE = re.compile(
+    r"(?i)\b(authorization|proxy[-_ ]authorization|set[-_ ]cookie|cookie)"
+    r"\s*:\s*[^\r\n,;]+"
+)
+BEARER_TOKEN_RE = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+")
+CREDENTIAL_MARKER_RE = re.compile(
+    r"(?i)\b(access[_-]?key|api[_-]?key|auth[_-]?key|bili[_-]?jct|"
+    r"client[_-]?secret|credential|csrf|jwt|password|secret|sessdata|"
+    r"sign(?:ature)?|token)\s*[=:]\s*(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
+)
 
 
 def _safe_diagnostic_token(value: Any, maximum: int) -> str:
@@ -33,6 +50,70 @@ def redact_url(value: str) -> str:
         return ""
     port = f":{parsed.port}" if parsed.port else ""
     return urlunsplit(("https", parsed.hostname + port, parsed.path, "", ""))
+
+
+def sanitize_subtitle_document(document: dict[str, Any]) -> dict[str, Any]:
+    """Preserve platform subtitle data while removing transport credentials.
+
+    Cue text is content and is kept verbatim.  Outside that field, signed URLs
+    lose credentials/query/fragment and explicitly sensitive fields retain
+    their key but store ``null``.  The result is deterministic and idempotent,
+    which lets the bundle validator prove that persisted JSON is safe.
+    """
+
+    if not isinstance(document, dict):
+        raise ValueError("subtitle JSON must be an object")
+
+    def clean_transport_text(value: str) -> str:
+        def replace_url(match: re.Match[str]) -> str:
+            raw = match.group(0)
+            candidate = "https:" + raw if raw.startswith("//") else raw
+            redacted = redact_url(candidate)
+            return redacted or "[redacted-transport-url]"
+
+        redacted = TRANSPORT_URL_RE.sub(replace_url, value)
+        redacted = AUTH_HEADER_RE.sub(
+            lambda match: f"{match.group(1)}:[redacted]", redacted
+        )
+        redacted = BEARER_TOKEN_RE.sub("Bearer [redacted]", redacted)
+        return CREDENTIAL_MARKER_RE.sub(
+            lambda match: f"{match.group(1)}:[redacted]", redacted
+        )
+
+    def clean(
+        value: Any, *, key: str = "", path: tuple[Any, ...] = (), depth: int = 0
+    ) -> Any:
+        if depth > 32:
+            raise ValueError("subtitle JSON nesting is too deep")
+        normalized_key = re.sub(r"[^a-z0-9]", "", key.lower())
+        if normalized_key in SENSITIVE_SUBTITLE_KEYS:
+            return None
+        if isinstance(value, dict):
+            result = {}
+            for child_key, child_value in value.items():
+                original_key = str(child_key)
+                safe_key = clean_transport_text(original_key)
+                if safe_key in result:
+                    raise ValueError("subtitle JSON keys collide after sanitization")
+                result[safe_key] = clean(
+                    child_value, key=original_key,
+                    path=(*path, original_key), depth=depth + 1
+                )
+            return result
+        if isinstance(value, list):
+            return [
+                clean(item, path=(*path, index), depth=depth + 1)
+                for index, item in enumerate(value)
+            ]
+        is_cue_content = (
+            len(path) == 3 and path[0] == "body"
+            and type(path[1]) is int and path[2] == "content"
+        )
+        if isinstance(value, str) and not is_cue_content:
+            return clean_transport_text(value)
+        return value
+
+    return clean(document)
 
 
 def normalize_subtitle_url(value: str) -> str:
@@ -263,6 +344,8 @@ def parse_subtitle_document(
     for index, entry in enumerate(body, 1):
         if not isinstance(entry, dict):
             raise ValueError(f"subtitle cue {index} must be an object")
+        if isinstance(entry.get("from"), bool) or isinstance(entry.get("to"), bool):
+            raise ValueError(f"subtitle cue {index} has invalid timing")
         try:
             start = float(entry.get("from"))
             end = float(entry.get("to"))

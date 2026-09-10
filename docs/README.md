@@ -61,6 +61,8 @@
 - [ADR-002：统一媒体 Artifact](design/adr-002-unified-media-artifacts.md)
 - [统一媒体流水线设计](plans/2026-09-10-unified-media-pipeline-design.md)
 - [统一媒体流水线实施计划](plans/2026-09-10-unified-media-pipeline.md)
+- [B 站错配字幕时间轴设计](plans/2026-09-10-bilibili-invalid-caption-timeline-design.md)
+- [B 站错配字幕时间轴实施计划](plans/2026-09-10-bilibili-invalid-caption-timeline.md)
 - [安全问题报告](../SECURITY.md)
 - [变更记录](../CHANGELOG.md)
 

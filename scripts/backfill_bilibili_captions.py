@@ -32,19 +32,16 @@ if str(REPO_ROOT) not in sys.path:
 
 from bilibili_dataset import (
     BilibiliClient,
-    _caption_basename,
     _file_record,
     caption_language_matches_content,
     default_caption_languages,
     job_lock,
-    parse_subtitle_document,
-    render_subtitle_text,
-    render_subtitle_vtt,
+    prepare_caption_payloads,
     resolve_caption_inventory,
     validate_bundle,
 )
 from bilibili_proxy import get_bilibili_proxy
-from youtube_dataset import write_json_atomic, write_text_atomic
+from youtube_dataset import write_json_atomic
 
 
 REFRESHABLE_STATUSES = {
@@ -149,6 +146,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-bilibili-cookie", action="store_true",
         help="仅在已明确授权时从当前进程 BILIBILI_COOKIE 读取登录态",
     )
+    parser.add_argument(
+        "--retry-invalid-timeline", action="store_true",
+        help="显式重查已标记 invalid_timeline 的平台轨道",
+    )
     return parser
 
 
@@ -195,6 +196,7 @@ def bundle_fingerprint(bundle: Path) -> tuple[int, str]:
 
 def discover_candidates(
     db_path: Path, download_root: Path, limit: int,
+    *, include_invalid_timeline: bool = False,
 ) -> list[dict[str, Any]]:
     """Return exact completed Bilibili bundle rows whose captions can refresh."""
 
@@ -221,7 +223,10 @@ def discover_candidates(
             continue
         metadata = result["metadata"]
         caption_status = str((metadata.get("caption") or {}).get("status") or "")
-        if caption_status not in REFRESHABLE_STATUSES:
+        refreshable = REFRESHABLE_STATUSES | (
+            {"invalid_timeline"} if include_invalid_timeline else set()
+        )
+        if caption_status not in refreshable:
             continue
         old_file_size = row["file_size"]
         old_content_hash = row["content_hash"]
@@ -311,27 +316,11 @@ def _job_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
 
 async def _prepare_captions(
     client: BilibiliClient, tracks: list[dict[str, Any]], stage: Path,
-) -> list[dict[str, Any]]:
-    prepared = []
-    for index, track in enumerate(tracks):
-        document = await client.subtitle(track["url"])
-        cues = parse_subtitle_document(document)
-        base = _caption_basename(track, index)
-        paths = {
-            "json": stage / f"{base}.json",
-            "vtt": stage / f"{base}.vtt",
-            "txt": stage / f"{base}.txt",
-        }
-        write_json_atomic(paths["json"], document)
-        write_text_atomic(paths["vtt"], render_subtitle_vtt(cues))
-        write_text_atomic(paths["txt"], render_subtitle_text(cues))
-        persisted = {
-            key: value for key, value in track.items()
-            if key not in {"url", "selection_rank"}
-        }
-        persisted.update({"status": "downloaded", "cue_count": len(cues)})
-        prepared.append({"index": index, "paths": paths, "track": persisted})
-    return prepared
+    media_duration_seconds: float,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    return await prepare_caption_payloads(
+        client, tracks, stage, media_duration_seconds
+    )
 
 
 def _verify_exact_row(
@@ -379,14 +368,47 @@ def _verify_pre_mutation(
     return result
 
 
-def _restore_bundle(sidecar: Path, original_sidecar: bytes, moved: list[Path]) -> None:
-    """Idempotently restore one bundle after an interrupted mutation window."""
+def _restore_bundle(
+    sidecar: Path,
+    original_sidecar: bytes,
+    moved: list[Path],
+    displaced: list[tuple[Path, Path]] | None = None,
+    rollback_dir: Path | None = None,
+) -> None:
+    """Restore new and displaced caption files plus the original sidecar.
 
+    ``displaced`` contains ``(rollback_copy, original_path)`` pairs.  Cleanup
+    happens only after every state domain validates, so an incomplete recovery
+    keeps its same-filesystem rollback directory for manual inspection.
+    """
+
+    errors: list[BaseException] = []
     for path in reversed(moved):
-        path.unlink(missing_ok=True)
-    if not sidecar.is_file() or sidecar.read_bytes() != original_sidecar:
-        _atomic_write_bytes(sidecar, original_sidecar)
-    validate_bundle(sidecar)
+        try:
+            path.unlink(missing_ok=True)
+        except BaseException as exc:
+            errors.append(exc)
+    for backup, original in reversed(displaced or []):
+        try:
+            if backup.exists():
+                os.replace(backup, original)
+        except BaseException as exc:
+            errors.append(exc)
+    try:
+        if not sidecar.is_file() or sidecar.read_bytes() != original_sidecar:
+            _atomic_write_bytes(sidecar, original_sidecar)
+    except BaseException as exc:
+        errors.append(exc)
+    try:
+        validate_bundle(sidecar)
+    except BaseException as exc:
+        errors.append(exc)
+    if errors:
+        raise RuntimeError(
+            "caption repair rollback could not restore every state domain"
+        ) from errors[0]
+    if rollback_dir is not None:
+        shutil.rmtree(rollback_dir, ignore_errors=True)
 
 
 def _commit_sidecar_and_database(
@@ -394,6 +416,7 @@ def _commit_sidecar_and_database(
     candidate: dict[str, Any],
     metadata: dict[str, Any],
     prepared: list[dict[str, Any]],
+    rejected: list[dict[str, Any]] | None = None,
 ) -> tuple[int, str]:
     """Exception-safely promote captions and CAS-update the matching DB row."""
 
@@ -404,16 +427,45 @@ def _commit_sidecar_and_database(
     sidecar = bundle / "metadata.json"
     original_sidecar = sidecar.read_bytes()
     moved: list[Path] = []
+    displaced: list[tuple[Path, Path]] = []
+    rollback_dir: Path | None = None
     connection: sqlite3.Connection | None = None
     transaction_started = False
     database_committed = False
     try:
         files = metadata["files"]
+        old_caption_keys = sorted(set(files) - {"video", "audio"})
+        if old_caption_keys:
+            rollback_dir = Path(tempfile.mkdtemp(
+                prefix=f".{candidate['job_key']}.caption-rollback-",
+                dir=bundle.parent,
+            ))
+        for ordinal, key in enumerate(old_caption_keys):
+            record = files[key]
+            relative = Path(str(record.get("path") or ""))
+            unresolved = bundle / relative
+            original = unresolved.resolve()
+            if (
+                relative.is_absolute() or ".." in relative.parts
+                or bundle not in original.parents
+                or unresolved.is_symlink() or not original.is_file()
+            ):
+                raise ValueError("old caption file is unsafe or missing")
+            backup = rollback_dir / f"{ordinal:04d}.{original.name}"
+            os.replace(original, backup)
+            displaced.append((backup, original))
+            files.pop(key)
+        rejected = rejected or []
         captions = []
-        for item in prepared:
-            keys = {
+        rejected_captions = []
+        outcomes = (
+            [("downloaded", value) for value in prepared]
+            + [("rejected", value) for value in rejected]
+        )
+        for outcome, item in outcomes:
+            keys = item["track"].get("files") or {
                 extension: f"caption_{item['index']}_{extension}"
-                for extension in ("json", "vtt", "txt")
+                for extension in item["paths"]
             }
             for extension, source in item["paths"].items():
                 destination = bundle / source.name
@@ -422,11 +474,25 @@ def _commit_sidecar_and_database(
                 os.replace(source, destination)
                 moved.append(destination)
                 files[keys[extension]] = _file_record(destination, bundle)
-            persisted = item["track"]
+            persisted = dict(item["track"])
             persisted["files"] = keys
-            captions.append(persisted)
+            if outcome == "downloaded":
+                captions.append(persisted)
+            else:
+                rejected_captions.append(persisted)
         metadata["caption"]["tracks"] = captions
         metadata["caption"]["track_count"] = len(captions)
+        if rejected_captions:
+            metadata["caption"].update({
+                "payload_status": "partial" if captions else "rejected",
+                "rejected_track_count": len(rejected_captions),
+                "rejected_tracks": rejected_captions,
+            })
+        else:
+            for key in (
+                "payload_status", "rejected_track_count", "rejected_tracks",
+            ):
+                metadata["caption"].pop(key, None)
         write_json_atomic(sidecar, metadata)
         validate_bundle(sidecar)
         total, content_hash = bundle_fingerprint(bundle)
@@ -451,6 +517,8 @@ def _commit_sidecar_and_database(
             raise RuntimeError("exact SQLite artifact update did not match one row")
         connection.commit()
         database_committed = True
+        if rollback_dir is not None:
+            shutil.rmtree(rollback_dir, ignore_errors=True)
         return total, content_hash
     except BaseException:
         if (
@@ -467,7 +535,9 @@ def _commit_sidecar_and_database(
                 except BaseException as rollback_error:
                     recovery_errors.append(rollback_error)
             try:
-                _restore_bundle(sidecar, original_sidecar, moved)
+                _restore_bundle(
+                    sidecar, original_sidecar, moved, displaced, rollback_dir
+                )
             except BaseException as restore_error:
                 recovery_errors.append(restore_error)
             if recovery_errors:
@@ -516,11 +586,25 @@ async def repair_candidate(
         ))
         try:
             try:
-                prepared = await _prepare_captions(client, tracks, stage)
+                prepared, rejected = await _prepare_captions(
+                    client, tracks, stage,
+                    float(metadata["media"]["duration_seconds"]),
+                )
             except Exception as exc:
                 raise _phase_failure("caption_payload", exc) from exc
+            require_caption = bool(
+                (metadata.get("acquisition_policy") or {}).get("require_caption")
+            )
+            if rejected and not prepared and require_caption:
+                cause = ValueError(
+                    "no acceptable Bilibili platform caption is available"
+                )
+                raise _phase_failure("caption_payload", cause) from cause
             metadata["caption"].update({
-                "status": "downloaded" if prepared else status,
+                "status": (
+                    "invalid_timeline" if rejected and not prepared
+                    else "downloaded" if prepared else status
+                ),
                 "need_login_subtitle": inventory.get("need_login_subtitle"),
                 "response_authenticated": client.authenticated,
                 "requested_languages": job["languages"],
@@ -529,7 +613,7 @@ async def repair_candidate(
             })
             try:
                 total, _ = _commit_sidecar_and_database(
-                    db_path, candidate, metadata, prepared
+                    db_path, candidate, metadata, prepared, rejected
                 )
             except Exception as exc:
                 raise _phase_failure("commit", exc) from exc
@@ -542,12 +626,18 @@ async def repair_candidate(
         "before": candidate["caption_status"],
         "after": metadata["caption"]["status"],
         "track_count": metadata["caption"]["track_count"],
+        "rejected_track_count": metadata["caption"].get(
+            "rejected_track_count", 0
+        ),
         "bundle_bytes": total,
     }
 
 
 async def async_main(args: argparse.Namespace) -> int:
-    candidates = discover_candidates(args.db, args.downloads, args.limit)
+    candidates = discover_candidates(
+        args.db, args.downloads, args.limit,
+        include_invalid_timeline=args.retry_invalid_timeline,
+    )
     if not args.apply:
         print(json.dumps({
             "mode": "dry-run",

@@ -331,7 +331,7 @@ B站 handler 默认会先在单任务内部最多尝试 3 次，按 10、20 秒�
 
 有字幕时：
 
-- B站可保存多条中文同族轨，每条有原始 JSON、VTT、TXT；
+- B站可保存多条中文同族轨，每条有净化平台 JSON、VTT、TXT；
 - YouTube 保存选择的一条英文轨和 TXT；
 - `manual + platform_manual`、`automatic + platform_auto` 必须配对；
 - `unknown + platform_unknown` 只用于证据不足；

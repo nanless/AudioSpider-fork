@@ -45,7 +45,7 @@ flowchart LR
 - `youtube_vtt.py`：WebVTT 解析、自动滚动字幕消重和确定性 cue 分组。
 - `bilibili_dataset.py`：兼容/修复工具；其 DASH、字幕和 bundle audit 能力由
   `media_artifacts.py` 复用。
-- `bilibili_subtitles.py`：B 站字幕三态来源判定和原始 JSON→VTT/TXT 转换。
+- `bilibili_subtitles.py`：B 站字幕三态来源判定、传输凭据净化和平台 JSON→VTT/TXT 转换。
 - `media_artifacts.py`：`Downloader` 领取 `video_bundle` 后的固定来源 dispatcher；
   输出到 source/category/source_id/job_key 并回传 bundle fingerprint。
 

@@ -27,7 +27,7 @@ downloads/bilibili/访谈/BVxxxx_p1/<job_key>/
 
 - `source.mp4`：该分 P 的完整视频和音频，不截 clip。
 - `audio.wav`：由完整视频抽取的 16 kHz、单声道、PCM16 WAV。
-- `captions.*.json`：B站返回的原始字幕结构。
+- `captions.*.json`：B站返回的字幕结构；保留 cue 内容与平台字段，但会移除签名 URL 查询参数和传输凭据。
 - `captions.*.vtt/.txt`：确定性派生的时间轴字幕和纯文本。
 - `metadata.json`：BV、CID、分 P、作者、统计、字幕 provenance、rights、AI 状态、
   文件大小及 SHA-256 闭包。
@@ -187,6 +187,7 @@ ASR。自动字幕也不能证明视频声音或画面本身由 AI 生成。
 | `not_provided_publicly` | 公开接口成功，且明确没有轨道 |
 | `no_matching_language` | 有字幕，但没有与 `content_language` 同族的轨道 |
 | `invalid_track_inventory` | 平台曾返回轨道，但 URL/字段不符合安全规则；不等于没有字幕 |
+| `invalid_timeline` | 同语言轨道全部错配当前分 P；保留视频、数值证据和隔离的净化平台 JSON，不生成 VTT/TXT |
 | `unknown` | 证据不足 |
 | `downloaded` | 至少一条同语言轨已保存并进入文件闭包 |
 
@@ -205,6 +206,13 @@ URL、path、query、fragment、Cookie 或代理地址。
 如果第二次查询本身抛出网络/API 异常，`require_caption=false` 会回退到第一次证据，
 并只记录 `inventory_status=refresh_failed` 与异常类名 `error_type`，不记录异常消息。
 `require_caption=true` 属于 strict 路径，该刷新失败会直接使任务失败。
+
+平台偶尔会把整段或其他分 P 的字幕返回给极短分 P。程序使用
+ffprobe 实际视频时长与最后 cue 对比；超出 2 秒以上就标为
+`invalid_timeline`。这时 best-effort 任务仍保留完整 MP4/WAV，并把平台原始
+净化后的平台 JSON 放在 `.rejected.json` 隔离文件中；cue 内容不截断、不伪造，传输凭据会移除，并且不生成误导性
+VTT/TXT。若一条错配而另一条合法，合法轨仍保留，整体标为
+`downloaded` + `payload_status=partial`。strict 任务至少有一条合法轨才成功。
 
 ## 7. 断点续跑与失败重试
 
@@ -243,6 +251,10 @@ AUDIOSPIDER_BILIBILI_PROXY=http://127.0.0.1:18443 \
 python scripts/backfill_bilibili_captions.py --limit 20 --apply \
   --allow-bilibili-cookie
 ```
+
+`invalid_timeline` 默认不再被每次回填重复选中，避免稳定错配的低 ID 样本
+占满 `--limit` 并饿死后续任务。只有确认平台轨道可能已更新时，才加
+`--retry-invalid-timeline`。
 
 `--apply` 会先用 SQLite backup API 在数据库旁创建
 `audiospider.db.caption-backfill-<UTC>.bak`，然后按精确 `job_key` 获取排他锁。每条任务只可

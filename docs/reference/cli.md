@@ -179,11 +179,17 @@ sidecar/DB 闭包指纹。工具不下载或改写 MP4/WAV。
 旧 sidecar 若把 `requested_languages` 留为空数组，会按
 `content_language` 重建同语言候选，避免误选其他语言字幕。失败报告只输出
 `phase`/`reason` 等固定诊断码，不回显平台 URL、查询串或登录信息。
+若平台轨道的最大 cue 超出当前媒体 2 秒以上，best-effort bundle 会逐轨
+隔离保留 `.rejected.json` 和数值证据，不生成错配 VTT/TXT；全部轨道都错配时
+整体状态为 `invalid_timeline`。
 
 ```bash
 python scripts/backfill_bilibili_captions.py --limit 20
 python scripts/backfill_bilibili_captions.py --limit 20 --apply \
   --allow-bilibili-cookie
+# 平台轨道可能已变化时，显式重查时间轴无效样本
+python scripts/backfill_bilibili_captions.py --limit 20 --apply \
+  --allow-bilibili-cookie --retry-invalid-timeline
 ```
 
 已有音频补齐示例：

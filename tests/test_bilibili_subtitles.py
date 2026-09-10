@@ -6,12 +6,50 @@ from bilibili_subtitles import (
     parse_subtitle_document,
     render_subtitle_text,
     render_subtitle_vtt,
+    sanitize_subtitle_document,
     sanitize_subtitle_track,
     subtitle_track_diagnostic,
 )
 
 
 class SubtitleProvenanceTests(unittest.TestCase):
+    def test_subtitle_document_redacts_transport_secrets_but_keeps_cue_text(self):
+        document = {
+            "https://x.invalid/a?token=SECRET_KEY": "kept-value",
+            "authKey": "SECRET_A",
+            "set-cookie": "SECRET_B",
+            "note": "auth_key=SECRET_C https://example.com/x?token=SECRET_D",
+            "header": "Authorization: Bearer SYNTHETIC_SECRET",
+            "more": "api_key=SECRET_E password=SECRET_F jwt=SECRET_G",
+            "content": "Authorization: Bearer TOP_LEVEL_SECRET",
+            "body": [{
+                "from": 0.0, "to": 1.0,
+                "content": "口述内容 token=不是传输凭据",
+            }],
+        }
+        sanitized = sanitize_subtitle_document(document)
+        self.assertIn("https://x.invalid/a", sanitized)
+        self.assertNotIn("SECRET_KEY", str(sanitized))
+        self.assertIsNone(sanitized["authKey"])
+        self.assertIsNone(sanitized["set-cookie"])
+        self.assertNotIn("SECRET_C", sanitized["note"])
+        self.assertNotIn("SECRET_D", sanitized["note"])
+        self.assertNotIn("SYNTHETIC_SECRET", sanitized["header"])
+        self.assertNotIn("SECRET_E", sanitized["more"])
+        self.assertNotIn("SECRET_F", sanitized["more"])
+        self.assertNotIn("SECRET_G", sanitized["more"])
+        self.assertNotIn("TOP_LEVEL_SECRET", sanitized["content"])
+        self.assertEqual(
+            sanitized["body"][0]["content"], "口述内容 token=不是传输凭据"
+        )
+        self.assertEqual(sanitize_subtitle_document(sanitized), sanitized)
+
+    def test_boolean_subtitle_timing_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid timing"):
+            parse_subtitle_document({
+                "body": [{"from": False, "to": True, "content": "错误"}],
+            })
+
     def test_type_one_is_platform_automatic(self):
         result = classify_subtitle_track({
             "type": 1,

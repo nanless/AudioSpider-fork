@@ -17,6 +17,9 @@ from bilibili_dataset import (
     _validate_inventory_attempts,
     audit_dataset,
     bilibili_video_id,
+    caption_timeline_rejection,
+    prepare_caption_payloads,
+    download_job,
     caption_language_matches_content,
     build_jobs,
     resolve_caption_inventory,
@@ -104,6 +107,38 @@ class ManifestTests(unittest.TestCase):
 
 
 class JobAndCaptionTests(unittest.TestCase):
+    def test_caption_timeline_rejection_is_numeric_and_bounded(self):
+        valid = [mock.Mock(end=8.0), mock.Mock(end=12.0)]
+        invalid = [mock.Mock(end=12.25), mock.Mock(end=25.0)]
+        self.assertIsNone(caption_timeline_rejection(valid, 10.0))
+        self.assertEqual(caption_timeline_rejection(invalid, 10.0), {
+            "reason": "caption_exceeds_media_duration",
+            "media_duration_seconds": 10.0,
+            "maximum_cue_end_seconds": 25.0,
+            "overrun_seconds": 15.0,
+            "tolerance_seconds": 2.0,
+            "rule_version": "bilibili-caption-timeline-v1",
+        })
+
+    def test_caption_timeline_exact_tolerance_is_accepted(self):
+        self.assertIsNone(
+            caption_timeline_rejection([mock.Mock(end=12.0)], 10.0)
+        )
+        self.assertIsNotNone(
+            caption_timeline_rejection([mock.Mock(end=12.000001)], 10.0)
+        )
+        self.assertIsNone(
+            caption_timeline_rejection([mock.Mock(end=12.0000001)], 10.0)
+        )
+
+    def test_caption_timeline_rejects_non_finite_bool_and_extreme_values(self):
+        for duration, end in (
+            (True, 3.0), (10.0, True), (float("nan"), 3.0),
+            (10.0, float("inf")), (10.0, 700000.0),
+        ):
+            with self.subTest(duration=duration, end=end), self.assertRaises(ValueError):
+                caption_timeline_rejection([mock.Mock(end=end)], duration)
+
     def test_build_jobs_selects_parts_and_stable_keys(self):
         item = validate_manifest({"items": [{
             "bvid": "BV1xx411c7mD", "parts": [2],
@@ -286,6 +321,188 @@ class CaptionInventoryRetryTests(unittest.IsolatedAsyncioTestCase):
             )
 
 
+class CaptionTimelineDownloadTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def _job(require_caption: bool) -> dict:
+        return {
+            "bvid": "BV1xx411c7mD", "aid": 2, "cid": 1, "part": 1,
+            "part_title": "synthetic", "duration_seconds": 10.0,
+            "job_key": "BV1xx411c7mD-p1-c1-timeline",
+            "content_language": "zh", "program": "test",
+            "speaker_count": None, "speaker_count_status": "needs_review",
+            "rights": {"status": "needs_review"},
+            "ai_generation": {"status": "unknown", "evidence": []},
+            "languages": ["zh", "ai-zh"], "max_height": 720,
+            "max_duration_seconds": 3600.0,
+            "require_caption": require_caption, "source_revision": "test",
+        }
+
+    async def _run(
+        self, root: Path, require_caption: bool, *, mixed: bool = False,
+    ) -> Path:
+        track = {
+            "url": "https://aisubtitle.hdslb.com/auto.json",
+            "url_redacted": "https://aisubtitle.hdslb.com/auto.json",
+            "selection_rank": 0, "id": 1, "id_str": "1",
+            "track_type": 1, "language": "ai-zh", "label": "中文自动",
+            "label_brief": "", "ai_type": 0, "ai_status": 0,
+            "author": None, "kind": "automatic",
+            "text_source": "platform_auto", "translation_kind": "normal",
+            "selected_by_rule": "bilibili_type_ai",
+            "rule_version": "bilibili-caption-provenance-v1",
+        }
+        tracks = [track]
+        documents = [{"body": [{
+            "from": 0.0, "to": 50.0, "content": "错配原始字幕",
+        }]}]
+        if mixed:
+            valid = dict(track)
+            valid.update({
+                "url": "https://aisubtitle.hdslb.com/manual.json",
+                "url_redacted": "https://aisubtitle.hdslb.com/manual.json",
+                "id": 2, "id_str": "2", "track_type": 0,
+                "language": "zh-Hans", "label": "中文人工",
+                "author": {"mid": 9, "name": "UP"}, "kind": "manual",
+                "text_source": "platform_manual",
+                "selected_by_rule": "bilibili_cc_with_author",
+            })
+            tracks.insert(0, valid)
+            documents.insert(0, {"body": [{
+                "from": 0.0, "to": 8.0, "content": "有效人工字幕",
+            }]})
+        inventory = {
+            "status": "provided", "need_login_subtitle": False,
+            "tracks": [],
+        }
+        diagnostics = [{
+            "index": index, "track_value_type": "dict",
+            "id_str": selected["id_str"], "language": selected["language"],
+            "track_type": selected["track_type"],
+            "ai_type": selected["ai_type"],
+            "ai_status": selected["ai_status"], "is_lock": None,
+            "url_present": True, "url_value_type": "str",
+            "url_form": "https", "url_host": "aisubtitle.hdslb.com",
+            "url_port": None, "rejection_reason": "accepted",
+        } for index, selected in enumerate(tracks)]
+        attempts = [{
+            "attempt": 1, "inventory_status": "provided",
+            "need_login_subtitle": False, "raw_track_count": len(tracks),
+            "selected_track_count": len(tracks), "selection_status": "downloadable",
+            "tracks": diagnostics,
+        }]
+        client = mock.Mock(authenticated=True, session=mock.Mock())
+        client.dash = mock.AsyncMock(return_value={})
+        client.subtitle = mock.AsyncMock(side_effect=documents)
+
+        async def fake_stream(_session, _stream, path, **_kwargs):
+            path.write_bytes(b"representation")
+
+        def fake_merge(_video, _audio, output):
+            output.write_bytes(b"video")
+            return "copy"
+
+        def fake_extract(_video, output):
+            output.write_bytes(b"audio")
+
+        video_summary = {
+            "duration_seconds": 10.0, "video_stream_count": 1,
+            "audio_stream_count": 1, "video_codec": "h264",
+            "width": 320, "height": 240, "audio_codec": "aac",
+            "sample_rate": 48000, "channels": 2,
+        }
+        audio_summary = {
+            "duration_seconds": 10.0, "video_stream_count": 0,
+            "audio_stream_count": 1, "video_codec": None,
+            "width": None, "height": None, "audio_codec": "pcm_s16le",
+            "sample_rate": 16000, "channels": 1,
+        }
+        with mock.patch(
+            "bilibili_dataset.resolve_caption_inventory",
+            mock.AsyncMock(return_value=(inventory, tracks, "downloaded", attempts)),
+        ), mock.patch(
+            "bilibili_dataset.select_dash_streams",
+            return_value=({"id": 64, "height": 240}, {"id": 30216}),
+        ), mock.patch(
+            "bilibili_dataset._download_stream", side_effect=fake_stream,
+        ), mock.patch(
+            "bilibili_dataset._merge_dash", side_effect=fake_merge,
+        ), mock.patch(
+            "bilibili_dataset._extract_wav", side_effect=fake_extract,
+        ), mock.patch(
+            "bilibili_dataset._media_summary",
+            side_effect=lambda path: (
+                audio_summary if path.name == "audio.wav" else video_summary
+            ),
+        ):
+            return await download_job(
+                client, self._job(require_caption), {"title": "synthetic"}, root,
+                destination=(
+                    root / "BV1xx411c7mD_p1"
+                    / "BV1xx411c7mD-p1-c1-timeline"
+                ),
+            )
+
+    async def test_best_effort_keeps_video_and_quarantines_bad_raw_caption(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = await self._run(Path(temporary), False)
+            metadata = json.loads(
+                (destination / "metadata.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(metadata["caption"]["status"], "invalid_timeline")
+            self.assertEqual(metadata["caption"]["payload_status"], "rejected")
+            self.assertEqual(metadata["caption"]["tracks"], [])
+            self.assertEqual(len(list(destination.glob("*.rejected.json"))), 1)
+            self.assertEqual(len(list(destination.glob("*.vtt"))), 0)
+
+    async def test_strict_rejects_bundle_with_only_bad_timeline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaisesRegex(ValueError, "no acceptable"):
+                await self._run(root, True)
+            self.assertFalse(
+                (root / "BV1xx411c7mD_p1" / "BV1xx411c7mD-p1-c1-timeline").exists()
+            )
+            self.assertTrue(
+                (root / ".staging" / "BV1xx411c7mD-p1-c1-timeline" / "failure.json").is_file()
+            )
+
+    async def test_strict_mixed_tracks_keeps_valid_and_quarantines_bad(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = await self._run(Path(temporary), True, mixed=True)
+            metadata = json.loads(
+                (destination / "metadata.json").read_text(encoding="utf-8")
+            )
+        self.assertEqual(metadata["caption"]["status"], "downloaded")
+        self.assertEqual(metadata["caption"]["payload_status"], "partial")
+        self.assertEqual(metadata["caption"]["track_count"], 1)
+        self.assertEqual(metadata["caption"]["rejected_track_count"], 1)
+        self.assertEqual(metadata["caption"]["tracks"][0]["status"], "downloaded")
+        self.assertEqual(
+            metadata["caption"]["rejected_tracks"][0]["status"], "rejected"
+        )
+
+    async def test_duplicate_platform_track_identity_uses_unique_filenames(self):
+        track = {
+            "url": "https://aisubtitle.hdslb.com/a.json",
+            "url_redacted": "https://aisubtitle.hdslb.com/a.json",
+            "id_str": "same", "language": "ai-zh", "kind": "automatic",
+        }
+        client = mock.Mock()
+        client.subtitle = mock.AsyncMock(side_effect=[
+            {"body": [{"from": 0.0, "to": 1.0, "content": "一"}]},
+            {"body": [{"from": 0.0, "to": 2.0, "content": "二"}]},
+        ])
+        with tempfile.TemporaryDirectory() as temporary:
+            accepted, rejected = await prepare_caption_payloads(
+                client, [track, dict(track)], Path(temporary), 10.0
+            )
+            names = [
+                path.name for item in accepted for path in item["paths"].values()
+            ]
+        self.assertEqual(rejected, [])
+        self.assertEqual(len(names), len(set(names)))
+
+
 class AuditTests(unittest.TestCase):
     def test_legacy_schema_v1_caption_without_attempts_remains_valid(self):
         _validate_inventory_attempts({"status": "not_provided_publicly"})
@@ -358,6 +575,49 @@ class AuditTests(unittest.TestCase):
             changed[field] = value
             with self.subTest(field=field), self.assertRaises(ValueError):
                 _validate_inventory_attempts(changed)
+
+    def test_invalid_timeline_cross_checks_selected_inventory(self):
+        caption = {
+            "status": "invalid_timeline",
+            "need_login_subtitle": False,
+            "track_count": 0,
+            "tracks": [],
+            "payload_status": "rejected",
+            "rejected_track_count": 1,
+            "rejected_tracks": [{"id_str": "1", "language": "ai-zh"}],
+            "inventory_attempt_count": 1,
+            "inventory_attempts": [{
+                "attempt": 1, "inventory_status": "provided",
+                "need_login_subtitle": False, "raw_track_count": 1,
+                "selected_track_count": 1, "selection_status": "downloadable",
+                "tracks": [{
+                    "index": 0, "track_value_type": "dict", "id_str": "1",
+                    "language": "ai-zh", "track_type": 1, "ai_type": 0,
+                    "ai_status": 0, "is_lock": False, "url_present": True,
+                    "url_value_type": "str", "url_form": "scheme_relative",
+                    "url_host": "aisubtitle.hdslb.com", "url_port": None,
+                    "rejection_reason": "accepted",
+                }],
+            }],
+        }
+        _validate_inventory_attempts(caption)
+        for field, value in (
+            ("track_count", 1),
+            ("payload_status", "partial"),
+            ("rejected_track_count", 2),
+        ):
+            changed = json.loads(json.dumps(caption))
+            changed[field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                _validate_inventory_attempts(changed)
+
+    def test_invalid_timeline_cannot_use_legacy_inventory_compatibility(self):
+        with self.assertRaisesRegex(ValueError, "rejection evidence"):
+            _validate_inventory_attempts({
+                "status": "invalid_timeline", "track_count": 0, "tracks": [],
+                "payload_status": "rejected", "rejected_track_count": 1,
+                "rejected_tracks": [{"id_str": "1", "language": "ai-zh"}],
+            })
 
     def test_empty_dataset_is_a_failure(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -462,6 +722,7 @@ class AuditTests(unittest.TestCase):
                     }],
                     "tracks": [{
                         "id_str": "1", "track_type": 0,
+                        "url_redacted": "https://aisubtitle.hdslb.com/manual.json",
                         "language": "zh-Hans", "label": "中文",
                         "label_brief": "", "ai_type": 0, "ai_status": 0,
                         "author": {"mid": 9, "name": "字幕作者"},
@@ -469,6 +730,7 @@ class AuditTests(unittest.TestCase):
                         "selected_by_rule": "bilibili_cc_with_author",
                         "translation_kind": "normal",
                         "rule_version": "bilibili-caption-provenance-v1",
+                        "status": "downloaded",
                         "cue_count": 1,
                         "files": {"json": "caption_0_json", "vtt": "caption_0_vtt", "txt": "caption_0_txt"},
                     }],
@@ -479,6 +741,36 @@ class AuditTests(unittest.TestCase):
                 "acquired_at": "2026-09-10T00:00:00+00:00",
                 "toolchain": {"encoding_profile": "bilibili-mp4-wav16k-v1"},
             })
+            validate_bundle(bundle / "metadata.json")
+            extra = bundle / "extra"
+            extra.mkdir()
+            (extra / "secret.bin").write_bytes(b"unrecorded")
+            with self.assertRaises(ValueError):
+                validate_bundle(bundle / "metadata.json")
+            (extra / "secret.bin").unlink()
+            extra.rmdir()
+            raw_real = raw.with_suffix(".real")
+            raw.rename(raw_real)
+            raw.symlink_to(raw_real.name)
+            with self.assertRaises(ValueError):
+                validate_bundle(bundle / "metadata.json")
+            raw.unlink()
+            raw_real.rename(raw)
+            validate_bundle(bundle / "metadata.json")
+            metadata = json.loads((bundle / "metadata.json").read_text(encoding="utf-8"))
+            metadata["caption"]["tracks"][0]["status"] = "rejected"
+            write_json_atomic(bundle / "metadata.json", metadata)
+            with self.assertRaises(ValueError):
+                validate_bundle(bundle / "metadata.json")
+            metadata["caption"]["tracks"][0]["status"] = "downloaded"
+            metadata["caption"]["tracks"][0]["timeline_rejection"] = {
+                "reason": "caption_exceeds_media_duration"
+            }
+            write_json_atomic(bundle / "metadata.json", metadata)
+            with self.assertRaises(ValueError):
+                validate_bundle(bundle / "metadata.json")
+            metadata["caption"]["tracks"][0].pop("timeline_rejection")
+            write_json_atomic(bundle / "metadata.json", metadata)
             validate_bundle(bundle / "metadata.json")
             metadata = json.loads((bundle / "metadata.json").read_text(encoding="utf-8"))
             metadata["caption"]["inventory_attempts"][0]["tracks"][0]["url_host"] = (
@@ -492,6 +784,48 @@ class AuditTests(unittest.TestCase):
             )
             write_json_atomic(bundle / "metadata.json", metadata)
             txt.write_text("tampered\n", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                validate_bundle(bundle / "metadata.json")
+
+            rejected_track = dict(metadata["caption"]["tracks"][0])
+            for path in (raw, vtt, txt):
+                path.unlink()
+            for key in ("caption_0_json", "caption_0_vtt", "caption_0_txt"):
+                metadata["files"].pop(key)
+            duration = metadata["media"]["duration_seconds"]
+            rejected_document = {"body": [{
+                "from": 0.0,
+                "to": duration + 10.0,
+                "content": "时间轴错配原始字幕",
+            }]}
+            rejected_raw = bundle / "captions.zh-Hans.manual.1.rejected.json"
+            write_json_atomic(rejected_raw, rejected_document)
+            metadata["files"]["caption_rejected_0_json"] = _file_record(
+                rejected_raw, bundle
+            )
+            rejected_track.update({
+                "status": "rejected",
+                "cue_count": 1,
+                "files": {"json": "caption_rejected_0_json"},
+                "timeline_rejection": caption_timeline_rejection(
+                    parse_subtitle_document(rejected_document), duration
+                ),
+            })
+            metadata["acquisition_policy"]["require_caption"] = False
+            metadata["caption"].update({
+                "status": "invalid_timeline",
+                "track_count": 0,
+                "tracks": [],
+                "payload_status": "rejected",
+                "rejected_track_count": 1,
+                "rejected_tracks": [rejected_track],
+            })
+            write_json_atomic(bundle / "metadata.json", metadata)
+            validate_bundle(bundle / "metadata.json")
+            metadata["caption"]["rejected_tracks"][0]["timeline_rejection"][
+                "media_duration_seconds"
+            ] += 1.0
+            write_json_atomic(bundle / "metadata.json", metadata)
             with self.assertRaises(ValueError):
                 validate_bundle(bundle / "metadata.json")
 

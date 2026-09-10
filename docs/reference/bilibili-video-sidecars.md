@@ -42,6 +42,7 @@ parents/<bvid>/p<page>/<job_key>/
 | `auth_required` | 成功响应且 `need_login_subtitle=true`、轨道为空 | `require_caption=false` 时允许 |
 | `no_matching_language` | 平台有轨道，但没有清单允许的语言 | `require_caption=false` 时允许 |
 | `invalid_track_inventory` | 曾观测到轨道，但 URL/字段无法安全接受 | `require_caption=false` 时允许，建议字幕-only 回填 |
+| `invalid_timeline` | 所有同语言轨道的最大 cue 都超出当前分 P 媒体 2 秒以上 | `require_caption=false` 时保留视频和隔离的净化平台 JSON |
 | `unknown` | 响应成功但字段不足 | `require_caption=false` 时允许并报警统计 |
 
 HTTP/API 失败不会被写成上述“空字幕”状态，也不会提升正式 bundle。
@@ -65,6 +66,17 @@ HTTP/API 失败不会被写成上述“空字幕”状态，也不会提升正�
 
 验收器会交叉校验最终有效 attempt 与顶层 `caption.status`、`need_login_subtitle`、
 `track_count` 及 `tracks`；仅修改其中一份会导致 bundle 验收失败。
+
+### `caption.rejected_tracks`
+
+存在错配轨道时，`payload_status` 为 `partial` 或 `rejected`，
+`rejected_track_count` 与 `rejected_tracks` 一致。每条拒收轨道保存平台原始
+`.rejected.json`，但没有 VTT/TXT；其 `timeline_rejection` 包含固定原因、
+实际媒体时长、最大 cue 结束时间、超出秒数、2 秒容差和
+`bilibili-caption-timeline-v1` 规则版本。验收器会从隔离 JSON 重新解析 cue，
+与 ffprobe 时长重新计算证据，并将轨道身份绑定到 inventory。
+若还有至少一条合法轨道，顶层仍为 `downloaded` 且 `payload_status=partial`；
+仅当全部已选轨道都错配时，顶层才为 `invalid_timeline`。
 
 ## 单条 caption track
 
@@ -97,10 +109,11 @@ HTTP/API 失败不会被写成上述“空字幕”状态，也不会提升正�
 ## 文件闭包
 
 无字幕 bundle 精确包含 `source.mp4`、`audio.wav`、`metadata.json`。
+`invalid_timeline` 还包含逐轨 `.rejected.json`，它们受同样的字节数和 SHA-256 闭包保护。
 
 每条已下载字幕增加三个文件：
 
-- 平台原始 JSON：可重建的事实源。
+- 净化后的平台 JSON：保留 cue 内容和平台结构、移除传输凭据，可重建派生文本。
 - VTT：毫秒时间戳，供播放器和切片工具使用。
 - TXT：按 cue 顺序展开的清洗文本。
 

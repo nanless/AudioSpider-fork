@@ -32,6 +32,7 @@ from bilibili_subtitles import (
     sanitize_subtitle_track,
     subtitle_track_diagnostic,
     redact_url,
+    sanitize_subtitle_document,
 )
 from bilibili_proxy import get_bilibili_proxy, proxy_request_kwargs
 from youtube_dataset import redact_urls_in_text, sha256_file, write_json_atomic, write_text_atomic
@@ -60,6 +61,9 @@ CLEARED_RIGHTS = {
 }
 AI_GENERATION_STATUSES = {"declared", "not_declared", "suspected", "unknown"}
 CAPTION_INVENTORY_RETRY_SECONDS = 1.0
+CAPTION_TIMELINE_TOLERANCE_SECONDS = 2.0
+CAPTION_TIMELINE_RULE_VERSION = "bilibili-caption-timeline-v1"
+MAX_CAPTION_TIMELINE_SECONDS = 7 * 24 * 3600
 
 
 def utc_now() -> str:
@@ -308,6 +312,46 @@ def default_caption_languages(content_language: str) -> list[str]:
     return [content_language] if family not in {"", "und"} else []
 
 
+def caption_timeline_rejection(
+    cues: Iterable[Any], media_duration_seconds: float,
+) -> dict[str, Any] | None:
+    """Describe one platform-caption track that cannot belong to this media."""
+
+    if isinstance(media_duration_seconds, bool):
+        raise ValueError("caption timeline comparison has invalid bounds")
+    media_duration = float(media_duration_seconds)
+    if not math.isfinite(media_duration) or media_duration <= 0:
+        raise ValueError("caption timeline comparison has invalid bounds")
+    cues = list(cues)
+    if not cues:
+        raise ValueError("caption timeline comparison has an empty track")
+    try:
+        raw_ends = [cue.end for cue in cues]
+        if any(isinstance(value, bool) for value in raw_ends):
+            raise ValueError
+        maximum = max(float(value) for value in raw_ends)
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError("caption timeline comparison has an invalid cue") from exc
+    if (
+        not math.isfinite(maximum) or maximum <= 0
+        or maximum > MAX_CAPTION_TIMELINE_SECONDS
+    ):
+        raise ValueError("caption timeline comparison has an invalid cue")
+    media_duration = round(media_duration, 6)
+    maximum = round(maximum, 6)
+    overrun = round(maximum - media_duration, 6)
+    if overrun <= CAPTION_TIMELINE_TOLERANCE_SECONDS:
+        return None
+    return {
+        "reason": "caption_exceeds_media_duration",
+        "media_duration_seconds": media_duration,
+        "maximum_cue_end_seconds": maximum,
+        "overrun_seconds": overrun,
+        "tolerance_seconds": CAPTION_TIMELINE_TOLERANCE_SECONDS,
+        "rule_version": CAPTION_TIMELINE_RULE_VERSION,
+    }
+
+
 def select_caption_tracks(
     tracks: Iterable[dict[str, Any]], preferred_languages: Iterable[str]
 ) -> list[dict[str, Any]]:
@@ -431,7 +475,66 @@ async def resolve_caption_inventory(
 def _caption_basename(track: dict[str, Any], index: int) -> str:
     language = safe_caption_component(track.get("language") or "und")
     identity = safe_caption_component(track.get("id_str") or str(index + 1))
-    return f"captions.{language}.{track['kind']}.{identity}"
+    return f"captions.{language}.{track['kind']}.{identity}.{index + 1}"
+
+
+def clear_caption_stage_files(stage: Path) -> None:
+    """Remove only pipeline-owned caption payloads from a retry staging root."""
+
+    for path in Path(stage).glob("captions.*"):
+        if path.parent == Path(stage) and (path.is_file() or path.is_symlink()):
+            path.unlink()
+
+
+async def prepare_caption_payloads(
+    client: Any, tracks: list[dict[str, Any]], stage: Path,
+    media_duration_seconds: float,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Fetch, classify and stage valid or quarantined caption payloads per track."""
+
+    clear_caption_stage_files(stage)
+    accepted = []
+    rejected = []
+    for index, track in enumerate(tracks):
+        document = sanitize_subtitle_document(await client.subtitle(track["url"]))
+        cues = parse_subtitle_document(document)
+        rejection = caption_timeline_rejection(cues, media_duration_seconds)
+        base = _caption_basename(track, index)
+        persisted = {
+            key: value for key, value in track.items()
+            if key not in {"url", "selection_rank"}
+        }
+        if rejection:
+            paths = {"json": stage / f"{base}.rejected.json"}
+            keys = {"json": f"caption_rejected_{index}_json"}
+            write_json_atomic(paths["json"], document)
+            persisted.update({
+                "status": "rejected",
+                "cue_count": len(cues),
+                "files": keys,
+                "timeline_rejection": rejection,
+            })
+            rejected.append({
+                "index": index, "paths": paths, "track": persisted,
+            })
+            continue
+        paths = {
+            "json": stage / f"{base}.json",
+            "vtt": stage / f"{base}.vtt",
+            "txt": stage / f"{base}.txt",
+        }
+        keys = {
+            extension: f"caption_{index}_{extension}"
+            for extension in ("json", "vtt", "txt")
+        }
+        write_json_atomic(paths["json"], document)
+        write_text_atomic(paths["vtt"], render_subtitle_vtt(cues))
+        write_text_atomic(paths["txt"], render_subtitle_text(cues))
+        persisted.update({
+            "status": "downloaded", "cue_count": len(cues), "files": keys,
+        })
+        accepted.append({"index": index, "paths": paths, "track": persisted})
+    return accepted, rejected
 
 
 def _media_url(value: str) -> str:
@@ -904,35 +1007,46 @@ async def download_job(
             audio = stage / "audio.wav"
             _extract_wav(video, audio)
 
+            media_summary = _media_summary(video)
+            audio_summary = _media_summary(audio)
             files = {
                 "video": _file_record(video, stage),
                 "audio": _file_record(audio, stage),
             }
-            captions = []
-            for index, track in enumerate(tracks):
-                document = await client.subtitle(track["url"])
-                cues = parse_subtitle_document(document)
-                base = _caption_basename(track, index)
-                json_path = stage / f"{base}.json"
-                vtt_path = stage / f"{base}.vtt"
-                txt_path = stage / f"{base}.txt"
-                write_json_atomic(json_path, document)
-                write_text_atomic(vtt_path, render_subtitle_vtt(cues))
-                write_text_atomic(txt_path, render_subtitle_text(cues))
-                keys = {
-                    "json": f"caption_{index}_json",
-                    "vtt": f"caption_{index}_vtt",
-                    "txt": f"caption_{index}_txt",
-                }
-                files[keys["json"]] = _file_record(json_path, stage)
-                files[keys["vtt"]] = _file_record(vtt_path, stage)
-                files[keys["txt"]] = _file_record(txt_path, stage)
-                persisted = {key: value for key, value in track.items() if key not in {"url", "selection_rank"}}
-                persisted.update({"status": "downloaded", "cue_count": len(cues), "files": keys})
-                captions.append(persisted)
+            accepted, rejected = await prepare_caption_payloads(
+                client, tracks, stage,
+                media_summary["duration_seconds"],
+            )
+            if rejected and not accepted and job["require_caption"]:
+                raise ValueError("no acceptable Bilibili platform caption is available")
+            for item in [*accepted, *rejected]:
+                for extension, path in item["paths"].items():
+                    key = item["track"]["files"][extension]
+                    files[key] = _file_record(path, stage)
+            captions = [item["track"] for item in accepted]
+            rejected_captions = [item["track"] for item in rejected]
 
             if sum(record["bytes"] for record in files.values()) > MAX_BUNDLE_BYTES:
                 raise ValueError("bundle exceeds the total byte limit")
+            caption = {
+                "status": (
+                    "invalid_timeline" if rejected and not captions
+                    else "downloaded" if captions else caption_status
+                ),
+                "need_login_subtitle": inventory["need_login_subtitle"],
+                "response_authenticated": client.authenticated,
+                "requested_languages": job["languages"],
+                "track_count": len(captions),
+                "tracks": captions,
+                "inventory_attempt_count": len(inventory_attempts),
+                "inventory_attempts": inventory_attempts,
+            }
+            if rejected_captions:
+                caption.update({
+                    "payload_status": "partial" if captions else "rejected",
+                    "rejected_track_count": len(rejected_captions),
+                    "rejected_tracks": rejected_captions,
+                })
             sidecar = {
                 "schema_version": SCHEMA_VERSION,
                 "asset_type": "bilibili_parent",
@@ -956,16 +1070,7 @@ async def download_job(
                 "rights": job["rights"],
                 "rights_cleared": _rights_cleared(job),
                 "ai_generation": job["ai_generation"],
-                "caption": {
-                    "status": "downloaded" if captions else caption_status,
-                    "need_login_subtitle": inventory["need_login_subtitle"],
-                    "response_authenticated": client.authenticated,
-                    "requested_languages": job["languages"],
-                    "track_count": len(captions),
-                    "tracks": captions,
-                    "inventory_attempt_count": len(inventory_attempts),
-                    "inventory_attempts": inventory_attempts,
-                },
+                "caption": caption,
                 "source_metadata": _metadata_view(view),
                 "source_streams": {
                     "video": stream_descriptor(video_stream),
@@ -978,8 +1083,8 @@ async def download_job(
                     "require_caption": job["require_caption"],
                     "source_revision": job["source_revision"],
                 },
-                "media": _media_summary(video),
-                "audio": _media_summary(audio),
+                "media": media_summary,
+                "audio": audio_summary,
                 "files": files,
                 "acquired_at": utc_now(),
                 "toolchain": {
@@ -1013,8 +1118,11 @@ def _safe_file(bundle: Path, record: dict[str, Any], name: str) -> Path:
     relative = Path(str(record.get("path") or ""))
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError(f"{name} path escapes its bundle")
-    path = (bundle / relative).resolve()
-    if bundle not in path.parents or path.is_symlink() or not path.is_file():
+    unresolved = bundle / relative
+    if unresolved.is_symlink():
+        raise ValueError(f"{name} file is missing, linked or outside its bundle")
+    path = unresolved.resolve()
+    if bundle not in path.parents or not path.is_file():
         raise ValueError(f"{name} file is missing, linked or outside its bundle")
     if path.stat().st_size != int(record.get("bytes", -1)):
         raise ValueError(f"{name} byte count mismatch")
@@ -1027,6 +1135,12 @@ def _validate_inventory_attempts(caption: dict[str, Any]) -> None:
     attempts = caption.get("inventory_attempts")
     count = caption.get("inventory_attempt_count")
     if attempts is None and count is None:
+        if caption.get("status") == "invalid_timeline" or any(
+            key in caption for key in (
+                "payload_status", "rejected_track_count", "rejected_tracks",
+            )
+        ):
+            raise ValueError("caption rejection evidence cannot use legacy compatibility")
         return  # schema-v1 bundles written before diagnostic attempts remain valid.
     if not isinstance(attempts, list) or type(count) is not int:
         raise ValueError("caption inventory attempt diagnostics are incomplete")
@@ -1161,6 +1275,27 @@ def _validate_inventory_attempts(caption: dict[str, Any]) -> None:
     top_need_login = caption.get("need_login_subtitle")
     top_track_count = caption.get("track_count")
     top_tracks = caption.get("tracks")
+    payload_status = caption.get("payload_status")
+    rejected_track_count = caption.get("rejected_track_count")
+    rejected_tracks = caption.get("rejected_tracks")
+    has_rejected_fields = any(
+        key in caption for key in (
+            "payload_status", "rejected_track_count", "rejected_tracks",
+        )
+    )
+    if has_rejected_fields:
+        if (
+            payload_status not in {"partial", "rejected"}
+            or type(rejected_track_count) is not int
+            or rejected_track_count <= 0
+            or not isinstance(rejected_tracks, list)
+            or rejected_track_count != len(rejected_tracks)
+            or any(not isinstance(track, dict) for track in rejected_tracks)
+        ):
+            raise ValueError("caption rejected-track summary is invalid")
+    else:
+        rejected_tracks = []
+        rejected_track_count = 0
     final_attempt = attempts[-1]
     if final_attempt["inventory_status"] == "refresh_failed":
         evidence_attempt = attempts[0]
@@ -1173,23 +1308,33 @@ def _validate_inventory_attempts(caption: dict[str, Any]) -> None:
             expected_status = attempts[0]["selection_status"]
         else:
             expected_status = evidence_attempt["selection_status"]
+    accepted_count = len(top_tracks) if isinstance(top_tracks, list) else -1
+    payload_count = accepted_count + rejected_track_count
+    if evidence_attempt["selected_track_count"] > 0:
+        expected_status = "downloaded" if accepted_count > 0 else "invalid_timeline"
+    if rejected_track_count:
+        expected_payload_status = "partial" if accepted_count > 0 else "rejected"
+        if payload_status != expected_payload_status:
+            raise ValueError("caption payload status is inconsistent")
+    expected_track_count = accepted_count
     if (
         top_status != expected_status
         or top_need_login is not evidence_attempt["need_login_subtitle"]
         or type(top_track_count) is not int
         or not isinstance(top_tracks, list)
         or top_track_count != len(top_tracks)
-        or top_track_count != evidence_attempt["selected_track_count"]
+        or top_track_count != expected_track_count
+        or payload_count != evidence_attempt["selected_track_count"]
     ):
         raise ValueError("caption summary does not match its final inventory evidence")
-    if top_track_count:
+    if payload_count:
         available_identities = Counter(
             (track.get("id_str"), track.get("language"))
             for track in evidence_attempt["tracks"]
             if track.get("track_value_type") == "dict"
             and track.get("rejection_reason") == "accepted"
         )
-        for track in top_tracks:
+        for track in [*top_tracks, *rejected_tracks]:
             identity = (track.get("id_str"), track.get("language"))
             if available_identities[identity] <= 0:
                 raise ValueError("caption track is absent from final inventory evidence")
@@ -1278,6 +1423,9 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
     if not isinstance(files, dict) or not {"video", "audio"}.issubset(files):
         raise ValueError("bundle files closure is incomplete")
     paths = {name: _safe_file(bundle, record, name) for name, record in files.items()}
+    recorded_paths = [str(record.get("path") or "") for record in files.values()]
+    if len(set(recorded_paths)) != len(recorded_paths):
+        raise ValueError("bundle files map contains duplicate paths")
     if sum(path.stat().st_size for path in paths.values()) > MAX_BUNDLE_BYTES:
         raise ValueError("bundle exceeds the total byte limit")
     video = _media_summary(paths["video"])
@@ -1315,7 +1463,7 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
     caption = metadata.get("caption")
     empty_statuses = {
         "auth_required", "not_provided_publicly", "no_matching_language",
-        "invalid_track_inventory", "unknown",
+        "invalid_track_inventory", "invalid_timeline", "unknown",
     }
     if not isinstance(caption, dict) or caption.get("status") not in {"downloaded", *empty_statuses}:
         raise ValueError("bundle caption status is invalid")
@@ -1345,8 +1493,25 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
             "manual": "platform_manual", "automatic": "platform_auto",
             "unknown": "platform_unknown",
         }.get(kind)
-        if source != expected:
+        if (
+            source != expected
+            or track.get("status") != "downloaded"
+            or "timeline_rejection" in track
+            or "url" in track
+            or "selection_rank" in track
+        ):
             raise ValueError(f"caption track {index} has inconsistent provenance")
+        redacted = urlsplit(str(track.get("url_redacted") or ""))
+        redacted_host = (redacted.hostname or "").lower().rstrip(".")
+        if (
+            redacted.scheme != "https" or redacted.username or redacted.password
+            or redacted.query or redacted.fragment or redacted.port not in {None, 443}
+            or not (
+                redacted_host == "hdslb.com"
+                or redacted_host.endswith(".hdslb.com")
+            )
+        ):
+            raise ValueError(f"caption track {index} has unsafe redacted URL")
         if not caption_language_matches_content(metadata["content_language"], track.get("language", "")):
             raise ValueError(f"caption track {index} language does not match media content")
         raw_track = {
@@ -1373,6 +1538,8 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
             raise ValueError(f"caption track {index} identity is incomplete")
         expected_file_keys.update(keys.values())
         document = json.loads(paths[keys["json"]].read_text(encoding="utf-8"))
+        if sanitize_subtitle_document(document) != document:
+            raise ValueError(f"caption track {index} JSON contains transport credentials")
         cues = parse_subtitle_document(document)
         if int(track.get("cue_count", -1)) != len(cues):
             raise ValueError(f"caption track {index} cue count mismatch")
@@ -1382,6 +1549,68 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
             raise ValueError(f"caption track {index} TXT is not derived from JSON")
         if max(cue.end for cue in cues) - video["duration_seconds"] > 2.0:
             raise ValueError(f"caption track {index} extends too far beyond the media")
+    for index, track in enumerate(caption.get("rejected_tracks") or []):
+        kind = track.get("kind")
+        source = track.get("text_source")
+        expected = {
+            "manual": "platform_manual", "automatic": "platform_auto",
+            "unknown": "platform_unknown",
+        }.get(kind)
+        if (
+            source != expected or track.get("status") != "rejected"
+            or "url" in track or "selection_rank" in track
+        ):
+            raise ValueError(f"rejected caption track {index} has inconsistent provenance")
+        redacted = urlsplit(str(track.get("url_redacted") or ""))
+        redacted_host = (redacted.hostname or "").lower().rstrip(".")
+        if (
+            redacted.scheme != "https" or redacted.username or redacted.password
+            or redacted.query or redacted.fragment or redacted.port not in {None, 443}
+            or not (
+                redacted_host == "hdslb.com"
+                or redacted_host.endswith(".hdslb.com")
+            )
+        ):
+            raise ValueError(f"rejected caption track {index} has unsafe redacted URL")
+        if not caption_language_matches_content(
+            metadata["content_language"], track.get("language", "")
+        ):
+            raise ValueError(f"rejected caption track {index} language does not match media")
+        raw_track = {
+            "type": track.get("track_type"),
+            "lan": track.get("language"),
+            "lan_doc": track.get("label"),
+            "lan_doc_brief": track.get("label_brief"),
+            "ai_type": track.get("ai_type"),
+            "ai_status": track.get("ai_status"),
+            "author": track.get("author"),
+        }
+        recomputed = classify_subtitle_track(raw_track)
+        for field in (
+            "kind", "text_source", "selected_by_rule", "translation_kind",
+            "rule_version",
+        ):
+            if track.get(field) != recomputed[field]:
+                raise ValueError(
+                    f"rejected caption track {index} {field} does not match classifier"
+                )
+        keys = track.get("files") or {}
+        if set(keys) != {"json"} or keys["json"] not in paths:
+            raise ValueError(f"rejected caption track {index} has invalid file reference")
+        if not str(track.get("id_str") or "") or not str(track.get("language") or ""):
+            raise ValueError(f"rejected caption track {index} identity is incomplete")
+        expected_file_keys.add(keys["json"])
+        document = json.loads(paths[keys["json"]].read_text(encoding="utf-8"))
+        if sanitize_subtitle_document(document) != document:
+            raise ValueError(
+                f"rejected caption track {index} JSON contains transport credentials"
+            )
+        cues = parse_subtitle_document(document)
+        if int(track.get("cue_count", -1)) != len(cues):
+            raise ValueError(f"rejected caption track {index} cue count mismatch")
+        rejection = caption_timeline_rejection(cues, video["duration_seconds"])
+        if rejection is None or track.get("timeline_rejection") != rejection:
+            raise ValueError(f"rejected caption track {index} timeline evidence mismatch")
     if set(files) != expected_file_keys:
         raise ValueError("bundle files map has an unexpected closure")
     serialized = json.dumps(metadata, ensure_ascii=False).lower()
@@ -1390,10 +1619,15 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
     )):
         raise ValueError("bundle sidecar contains a secret marker")
     recorded = {str(record["path"]) for record in files.values()}
-    actual = {
-        str(path.relative_to(bundle)) for path in bundle.iterdir()
-        if path.is_file() and path.name != "metadata.json"
-    }
+    actual = set()
+    for path in bundle.rglob("*"):
+        relative = str(path.relative_to(bundle))
+        if path.is_symlink():
+            raise ValueError("bundle contains a symbolic link")
+        if path.is_dir():
+            raise ValueError("bundle contains an unexpected nested directory")
+        if path.is_file() and relative != "metadata.json":
+            actual.add(relative)
     if actual != recorded:
         raise ValueError("bundle contains unrecorded or missing regular files")
     return {"metadata": metadata, "paths": paths, "video": video, "audio": audio}

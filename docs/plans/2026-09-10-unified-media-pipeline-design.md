@@ -158,7 +158,7 @@ YouTube 正式下载到完整母视频为止。历史 clip 只属于显式授权
 3. 下载到 `downloads/<source>/<category>/.staging/<job-key>/`；
 4. 合并完整 MP4；
 5. 抽取 16 kHz、单声道、PCM16 WAV；
-6. 保存平台原始字幕及确定性 VTT/TXT；
+6. 保存移除传输凭据后的平台字幕及确定性 VTT/TXT；
 7. 生成 `metadata.json` 和文件闭包；
 8. 完整 audit 后原子提升到正式 bundle；
 9. 数据库 `local_path` 指向 `source.mp4`、`bundle_path` 指向 bundle 根，随后提交
@@ -306,7 +306,7 @@ git diff --check
 | 字幕登录门禁 | 无法判断或下载字幕 | `auth_required`，不伪装无字幕 |
 | 字幕语言不匹配 | 训练标签错误 | manifest/选择/sidecar/audit 四层校验 |
 | 磁盘不足 | 半成品和大面积失败 | 预估、硬水位、staging 清点、有界批次 |
-| sidecar 与文件漂移 | 数据不可审计 | SHA-256 闭包、原始字幕可重建派生文本 |
+| sidecar 与文件漂移 | 数据不可审计 | SHA-256 闭包、净化平台字幕可重建派生文本 |
 | 迁移重复入库 | 重复下载 | 稳定唯一键、dry-run、计数对账 |
 
 ## 13. 迁移流程

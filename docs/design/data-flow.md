@@ -144,7 +144,7 @@ BV 清单 -> view API -> 分 P/CID
                                            |
                                ffmpeg 精确合并 MP4 + WAV
                                            |
-                          原始字幕 JSON -> VTT + TXT（有轨道时）
+                          净化平台字幕 JSON -> VTT + TXT（有有效轨道时）
                                            |
                                 全闭包校验后提升 parents/
 ```

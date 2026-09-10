@@ -519,6 +519,8 @@ python main.py background --limit 10000 --workers 4 --background all
 - [ADR-002：统一媒体 Artifact](docs/design/adr-002-unified-media-artifacts.md)
 - [统一媒体流水线设计](docs/plans/2026-09-10-unified-media-pipeline-design.md)
 - [统一媒体流水线实施计划](docs/plans/2026-09-10-unified-media-pipeline.md)
+- [B 站错配字幕时间轴设计](docs/plans/2026-09-10-bilibili-invalid-caption-timeline-design.md)
+- [B 站错配字幕时间轴实施计划](docs/plans/2026-09-10-bilibili-invalid-caption-timeline.md)
 - [安全问题报告](SECURITY.md)
 - [变更记录](CHANGELOG.md)
 - [dev_L4_1gpus 服务器验收报告](docs/reports/2026-09-08-dev-l4-validation.md)

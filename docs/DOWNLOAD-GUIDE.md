@@ -162,7 +162,7 @@ downloads/<source>/<category>/
 downloads/<source>/<category>/<source-id>/<job-key>/
 ├── source.mp4
 ├── audio.wav
-├── captions.<language>.<kind>.<id>.json  # B站原始字幕，若有
+├── captions.<language>.<kind>.<id>.<index>.json  # B站净化平台字幕，若有
 ├── captions.<language>.<kind>.<id>.vtt
 ├── captions.<language>.<kind>.<id>.txt
 └── metadata.json
