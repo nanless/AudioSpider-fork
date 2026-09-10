@@ -8,6 +8,29 @@ from background import decode_metadata
 import spiders.bilibili as bilibili_module
 from spiders.bilibili import BilibiliSpider
 from spiders.xiaoyuzhou import XiaoyuzhouSpider
+from storage import AudioRecord
+
+
+class _FakeResponse:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def read(self):
+        return b""
+
+
+class _FakeSession:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    def get(self, *args, **kwargs):
+        return _FakeResponse()
 
 
 class SpiderMetadataTests(unittest.TestCase):
@@ -198,6 +221,91 @@ class BilibiliMetadataTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
         spider._get_audio_url.assert_not_awaited()
+
+    async def test_collection_max_new_records_counts_database_inserts(self):
+        spider = BilibiliSpider()
+        spider.keywords = ["中文访谈"]
+        spider.max_search_pages = 1
+        spider.max_videos_per_keyword = 3
+        spider.max_new_records = 2
+        spider.limiter.acquire = AsyncMock()
+        spider._search_page = AsyncMock(return_value=[
+            ("BVone", "采访一", "30:00"),
+            ("BVtwo", "采访二", "40:00"),
+            ("BVthree", "采访三", "50:00"),
+        ])
+
+        async def records_for_video(session, bvid, title, keyword):
+            return [AudioRecord(
+                url=f"https://www.bilibili.com/video/{bvid}?p=1",
+                source="bilibili",
+                title=title,
+                artifact_kind="video_bundle",
+            )]
+
+        spider._extract_video_records = AsyncMock(side_effect=records_for_video)
+        stored = []
+
+        def on_batch(batch):
+            stored.extend(batch)
+            return len(batch), 0
+
+        with (
+            patch("spiders.bilibili.aiohttp.ClientSession", return_value=_FakeSession()),
+            patch("spiders.bilibili.random_delay", new=AsyncMock()),
+        ):
+            records = await spider.crawl(on_batch=on_batch)
+
+        self.assertEqual(records, [])
+        self.assertEqual(len(stored), 2)
+        self.assertEqual(spider._extract_video_records.await_count, 2)
+
+    def test_interview_keywords_use_interview_category(self):
+        self.assertEqual(BilibiliSpider._guess_category("人物访谈 长视频"), "访谈")
+        self.assertEqual(BilibiliSpider._guess_category("人物专访 完整版"), "访谈")
+        self.assertEqual(BilibiliSpider._guess_category("深度对话 完整版"), "访谈")
+
+    async def test_collection_applies_title_and_duration_policy(self):
+        spider = BilibiliSpider()
+        spider.required_title_terms = ["访谈", "专访"]
+        spider.excluded_title_terms = ["俄语", "日语"]
+        spider.min_duration_seconds = 1500
+        spider.max_duration_seconds = 14400
+        spider.max_pages_per_video = 1
+        spider.limiter.acquire = AsyncMock()
+        spider._get_video_info = AsyncMock(return_value={
+            "title": "人物访谈完整版",
+            "pages": [
+                {"cid": 1, "page": 1, "part": "访谈", "duration": 2000},
+                {"cid": 2, "page": 2, "part": "短花絮", "duration": 100},
+            ],
+        })
+        spider._get_subtitle_inventory = AsyncMock(return_value={
+            "status": "not_provided_publicly",
+            "need_login_subtitle": False,
+            "assets": [],
+        })
+
+        with patch("spiders.bilibili.random_delay", new=AsyncMock()):
+            records = await spider._extract_video_records(
+                object(), "BVinterview", "人物访谈", "人物访谈 长视频",
+            )
+
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].category, "访谈")
+        metadata = decode_metadata(records[0].metadata_json)
+        policy = metadata["source_data"]["bilibili"]["download_task"]["collection_policy"]
+        self.assertEqual(policy["min_duration_seconds"], 1500)
+        self.assertEqual(policy["max_duration_seconds"], 14400)
+
+        spider._get_video_info = AsyncMock(return_value={
+            "title": "俄语人物访谈",
+            "pages": [{"cid": 1, "page": 1, "part": "访谈", "duration": 2000}],
+        })
+        rejected = await spider._extract_video_records(
+            object(), "BVforeign", "俄语人物访谈", "人物访谈 长视频",
+        )
+        self.assertEqual(rejected, [])
 
     async def test_existing_bilibili_audio_keeps_legacy_artifact_identity(self):
         spider = BilibiliSpider()

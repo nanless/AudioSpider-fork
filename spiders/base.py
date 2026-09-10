@@ -21,8 +21,8 @@ class BaseSpider(ABC):
     async def crawl(self, on_batch=None) -> list[AudioRecord]:
         """执行爬取，返回发现的音频记录列表。
 
-        on_batch: 可选回调 ``(records: list[AudioRecord]) -> None``，
-        用于增量入库（例如每解析完一页就调用一次）。
+        on_batch: 可选增量入库回调。实现可以忽略返回值；需要按数据库
+        真实新增量控制批次时，可读取 ``(added, backfilled)`` 返回值。
         """
         ...
 

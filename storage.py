@@ -759,6 +759,28 @@ class Storage:
         ).fetchone()
         return row is not None
 
+    def source_id_prefix_exists(self, source: str, source_id_prefix: str,
+                                artifact_kind: str = "audio") -> bool:
+        """Return whether any task has the exact stable source-id prefix.
+
+        ``substr`` keeps ``_`` and ``%`` literal, unlike a SQL LIKE pattern.
+        This is used to keep a bounded Bilibili batch unique by parent BV even
+        when an older task contains a different part or immutable job key.
+        """
+        if not source_id_prefix:
+            return False
+        row = self._get_conn().execute(
+            "SELECT 1 FROM audio_urls WHERE source=? AND artifact_kind=? "
+            "AND substr(source_id, 1, ?) = ? LIMIT 1",
+            (
+                source,
+                artifact_kind or "audio",
+                len(source_id_prefix),
+                source_id_prefix,
+            ),
+        ).fetchone()
+        return row is not None
+
     def job_key_exists(self, source: str, artifact_kind: str,
                        job_key: str) -> bool:
         if not job_key:

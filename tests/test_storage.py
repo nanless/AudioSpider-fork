@@ -176,6 +176,12 @@ class StorageTests(unittest.TestCase):
         self.assertTrue(storage.source_id_exists(
             "bilibili", "BV1example_p1", artifact_kind="video_bundle",
         ))
+        self.assertTrue(storage.source_id_prefix_exists(
+            "bilibili", "BV1example_p", artifact_kind="video_bundle",
+        ))
+        self.assertFalse(storage.source_id_prefix_exists(
+            "bilibili", "BV1other_p", artifact_kind="video_bundle",
+        ))
 
     def test_enrichment_is_scoped_to_artifact_kind(self):
         storage = Storage(self.db_path)

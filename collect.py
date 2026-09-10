@@ -78,9 +78,23 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
         try:
             # 增量入库：爬虫每产出一批（如 B站每解析完一页）就立刻写库
             incremental = {"used": False, "added": 0, "backfilled": 0}
+            accepted_bilibili_parents: set[str] = set()
 
             def on_batch(batch):
                 incremental["used"] = True
+                if spider.name == "bilibili" and getattr(spider, "max_new_records", 0):
+                    unique_batch = []
+                    for record in batch:
+                        bvid = record.source_id.split("_p", 1)[0]
+                        if not bvid or bvid in accepted_bilibili_parents:
+                            continue
+                        if storage.source_id_prefix_exists(
+                            "bilibili", f"{bvid}_p", artifact_kind="video_bundle",
+                        ):
+                            continue
+                        accepted_bilibili_parents.add(bvid)
+                        unique_batch.append(record)
+                    batch = unique_batch
                 added, backfilled = _flush_records(storage, batch, logger)
                 incremental["added"] += added
                 incremental["backfilled"] += backfilled
@@ -89,6 +103,7 @@ async def do_crawl(storage: Storage, spider_names: list[str] | None = None):
                         f"    [{spider.name}] 增量入库 +{added}"
                         + (f", 更新元数据 {backfilled}" if backfilled else "")
                     )
+                return added, backfilled
 
             records = await spider.crawl(on_batch=on_batch)
 

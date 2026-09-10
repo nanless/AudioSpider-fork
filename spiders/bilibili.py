@@ -62,17 +62,28 @@ class BilibiliSpider(BaseSpider):
         self.max_pages_per_video = cfg.get("max_pages_per_video", 20)
         # 搜索结果翻页数：每页约 20 个视频，翻页越多每个关键词覆盖越广
         self.max_search_pages = cfg.get("max_search_pages", 1)
+        self.max_new_records = cfg.get("max_new_records", 0)
+        self.required_title_terms = cfg.get("required_title_terms", [])
+        self.excluded_title_terms = cfg.get("excluded_title_terms", [])
+        self.min_duration_seconds = cfg.get("min_duration_seconds", 0)
+        self.max_duration_seconds = cfg.get("max_duration_seconds", 4 * 3600)
         self.content_language = str(cfg.get("content_language") or "und")
         self.limiter = RateLimiter(rate=0.5, burst=3)
 
-    async def crawl(self, on_batch: Callable[[list[AudioRecord]], None] | None = None) -> list[AudioRecord]:
+    async def crawl(
+        self,
+        on_batch: Callable[[list[AudioRecord]], tuple[int, int] | None] | None = None,
+    ) -> list[AudioRecord]:
         """边搜索边解析；解析完一页后立刻 on_batch 入库；同时预取下一页搜索。"""
         self.logger.info(
             f"开始爬取B站, 关键词: {len(self.keywords)} 个"
-            f"（最多翻 {self.max_search_pages} 页/词，解析前 {self.max_videos_per_keyword} 个/词）"
+            f"（最多翻 {self.max_search_pages} 页/词，解析前 {self.max_videos_per_keyword} 个/词"
+            + (f"，本轮新增上限 {self.max_new_records} 条" if self.max_new_records else "")
+            + "）"
         )
         records: list[AudioRecord] = []
         total_records = 0
+        new_records = 0
         seen_urls: set[str] = set()
         seen_bvids: set[str] = set()
 
@@ -88,12 +99,16 @@ class BilibiliSpider(BaseSpider):
                 self.logger.warning(f"B站 cookie 预热失败，将继续搜索: {exc}")
 
             for keyword in self.keywords:
+                if self.max_new_records and new_records >= self.max_new_records:
+                    break
                 parsed_for_keyword = 0
                 keyword_records = 0
                 prefetch: asyncio.Task | None = None
 
                 try:
                     for page in range(1, self.max_search_pages + 1):
+                        if self.max_new_records and new_records >= self.max_new_records:
+                            break
                         if parsed_for_keyword >= self.max_videos_per_keyword:
                             break
 
@@ -137,6 +152,8 @@ class BilibiliSpider(BaseSpider):
                             continue
 
                         for idx, (bvid, title, duration_str) in enumerate(fresh, 1):
+                            if self.max_new_records and new_records >= self.max_new_records:
+                                break
                             self.logger.info(
                                 f"解析视频 [{idx}/{len(fresh)}] {bvid} "
                                 f"{title[:40]}..."
@@ -145,25 +162,30 @@ class BilibiliSpider(BaseSpider):
                             page_records = await self._extract_video_records(
                                 session, bvid, title, keyword
                             )
-                            video_batch: list[AudioRecord] = []
-                            for r in page_records:
-                                if r.url not in seen_urls:
-                                    seen_urls.add(r.url)
-                                    video_batch.append(r)
-                                    keyword_records += 1
-                                    total_records += 1
-                                    if on_batch is None:
-                                        records.append(r)
+                            video_batch = [r for r in page_records if r.url not in seen_urls]
+                            if self.max_new_records:
+                                remaining = self.max_new_records - new_records
+                                video_batch = video_batch[:remaining]
+                            for record in video_batch:
+                                seen_urls.add(record.url)
+                            keyword_records += len(video_batch)
+                            total_records += len(video_batch)
+                            if on_batch is None:
+                                records.extend(video_batch)
                             parsed_for_keyword += 1
 
                             # 每个视频解析完立刻入库（合集分P多，不能等搜完整页）
                             if video_batch and on_batch is not None:
-                                on_batch(video_batch)
+                                result = on_batch(video_batch)
+                                added = result[0] if result is not None else len(video_batch)
+                                new_records += added
                                 self.logger.info(
                                     f"视频 {bvid} 已入库 {len(video_batch)} 条 "
                                     f"（累计发现 {total_records}）"
                                 )
                             else:
+                                if video_batch:
+                                    new_records += len(video_batch)
                                 self.logger.info(
                                     f"视频 {bvid} 解析完成: {len(page_records)} 条"
                                     f"（无新增可入库）"
@@ -223,6 +245,17 @@ class BilibiliSpider(BaseSpider):
         records = []
         try:
             video_info = await self._get_video_info(session, bvid)
+            searchable_title = f"{video_title} {video_info.get('title', '')}"
+            if self.required_title_terms and not any(
+                term in searchable_title for term in self.required_title_terms
+            ):
+                self.logger.info(f"跳过 {bvid}: 标题不符合本轮访谈词规则")
+                return []
+            if self.excluded_title_terms and any(
+                term in searchable_title for term in self.excluded_title_terms
+            ):
+                self.logger.info(f"跳过 {bvid}: 标题命中本轮排除词")
+                return []
             pages = video_info.get("pages", [])
             if not pages:
                 async with session.get(PAGELIST_URL, params={"bvid": bvid},
@@ -246,6 +279,18 @@ class BilibiliSpider(BaseSpider):
                 duration = page.get("duration", 0)
 
                 if not cid:
+                    continue
+                if duration < self.min_duration_seconds:
+                    self.logger.info(
+                        f"跳过 {bvid} P{page_num}: {duration}s 小于最短时长 "
+                        f"{self.min_duration_seconds}s"
+                    )
+                    continue
+                if duration > self.max_duration_seconds:
+                    self.logger.info(
+                        f"跳过 {bvid} P{page_num}: {duration}s 超过最长时长 "
+                        f"{self.max_duration_seconds}s"
+                    )
                     continue
 
                 await self.limiter.acquire()
@@ -364,7 +409,7 @@ class BilibiliSpider(BaseSpider):
                     "parts": [page_num],
                     "max_parts": 1,
                     "max_height": 720,
-                    "max_duration_seconds": 4 * 3600,
+                    "max_duration_seconds": self.max_duration_seconds,
                     "content_language": record.language or "zh",
                     "caption_policy": {
                         "mode": "all_matching_public_tracks",
@@ -378,6 +423,13 @@ class BilibiliSpider(BaseSpider):
                     "ai_generation": {"status": "unknown", "evidence": []},
                     "speaker_count": None,
                     "speaker_count_status": "needs_review",
+                    "collection_policy": {
+                        "keyword": keyword,
+                        "required_title_terms": self.required_title_terms,
+                        "excluded_title_terms": self.excluded_title_terms,
+                        "min_duration_seconds": self.min_duration_seconds,
+                        "max_duration_seconds": self.max_duration_seconds,
+                    },
                     "source_revision": "current",
                 },
             },
@@ -492,6 +544,8 @@ class BilibiliSpider(BaseSpider):
 
     @staticmethod
     def _guess_category(keyword: str) -> str:
+        if "访谈" in keyword or "专访" in keyword or "对话" in keyword:
+            return "访谈"
         if "有声书" in keyword:
             return "有声书"
         if "评书" in keyword:

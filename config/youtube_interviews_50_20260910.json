@@ -1,0 +1,1786 @@
+{
+  "schema_version": 1,
+  "manifest_purpose": "50 个英语完整访谈/对谈母视频候选；无字幕也保留，字幕由正式采集阶段核验",
+  "selection_policy": {
+    "source": "Talks at Google 已验证官方频道",
+    "channel_url": "https://www.youtube.com/@talksatgoogle",
+    "parent_video_only": true,
+    "content_language": "en",
+    "duration_range_seconds": [
+      1530,
+      3636
+    ],
+    "preferred_caption_languages": [
+      "en",
+      "en-US"
+    ],
+    "caption_requirement": "best_effort_keep_video_without_caption",
+    "deduplication": "video_id",
+    "existing_formal_video_ids_excluded": [
+      "u7TwqpWiY5s",
+      "guZa7mQV1l0",
+      "azzJur0cukc",
+      "Ye85L2r0hWw"
+    ],
+    "verified_at": "2026-09-10",
+    "verification_method": "YouTube 官方频道视频页可见标题、canonical watch URL 和缩略图秒级时长；未调用媒体下载",
+    "limitations": [
+      "字幕轨及人工/自动来源必须在正式 inspect 阶段核验",
+      "说话人数尚未人工逐条复核",
+      "公开视频不等于允许训练或再分发，全部保留 needs_review"
+    ]
+  },
+  "items": [
+    {
+      "url": "https://www.youtube.com/watch?v=43FZtdF2RcY",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=43FZtdF2RcY",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Rebecca Winthrop | Rethinking the Purpose of Education in the Age of AI | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "41:07",
+        "duration_seconds_observed": 2467,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=zKMWLs3S9yg",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=zKMWLs3S9yg",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Dr. Robert Wachter | A Giant Leap: How AI Is Transforming Healthcare... | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "40:54",
+        "duration_seconds_observed": 2454,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=cgPAAt9Nd7o",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=cgPAAt9Nd7o",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Dr. Deepika Chopra | The Power of Real Optimism | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "39:30",
+        "duration_seconds_observed": 2370,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=t8ZUiinrksw",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=t8ZUiinrksw",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Jeff Kinney | Diary of a Wimpy Kid: Partypooper | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "35:39",
+        "duration_seconds_observed": 2139,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=YG5w939A9yQ",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=YG5w939A9yQ",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Susie Wolff | Driven | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "45:01",
+        "duration_seconds_observed": 2701,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=MGY_OM8u42A",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=MGY_OM8u42A",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Nelson Dellis | Everyday Genius: Hacks to Boost Your Memory, Focus... | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "32:46",
+        "duration_seconds_observed": 1966,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=057mnWzLBcA",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=057mnWzLBcA",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Nir Eyal | Beyond Belief | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "46:09",
+        "duration_seconds_observed": 2769,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=GigRB6bZ0MI",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=GigRB6bZ0MI",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Julia Minson | How to Disagree Better | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "32:14",
+        "duration_seconds_observed": 1934,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=N4Pp37pMKmI",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=N4Pp37pMKmI",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Vivian Tu | Well Endowed | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "28:54",
+        "duration_seconds_observed": 1734,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=bIjz7UkauBA",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=bIjz7UkauBA",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Jefferson Fisher | The Next Conversation Workbook | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "32:36",
+        "duration_seconds_observed": 1956,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=QMfw8OqroDs",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=QMfw8OqroDs",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Jay Foreman & Mark Cooper-Jones | Map Men: This Way Up | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "28:04",
+        "duration_seconds_observed": 1684,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=LE8iaF8neSk",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=LE8iaF8neSk",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Ron Clark | Igniting Engagement | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "38:05",
+        "duration_seconds_observed": 2285,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=mxPgcNbSacI",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=mxPgcNbSacI",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Maya Ackerman | Creative Machines: AI, Art & Us | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "51:26",
+        "duration_seconds_observed": 3086,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=t8q43fsioqU",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=t8q43fsioqU",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Jon Levy | Team Intelligence: How Brilliant Leaders Unlock Collective Genius | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "45:09",
+        "duration_seconds_observed": 2709,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=m8ZmF1P4Z58",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=m8ZmF1P4Z58",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Andrew Zimmern & Barton Seaver | The Blue Food Cookbook | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "1:00:20",
+        "duration_seconds_observed": 3620,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=TpT37dWYG6I",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=TpT37dWYG6I",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Brie Larson & Courtney McBroom | Party People | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "47:51",
+        "duration_seconds_observed": 2871,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=JwkEL0QAFFc",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=JwkEL0QAFFc",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Broadway's Buena Vista Social Club | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "58:16",
+        "duration_seconds_observed": 3496,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=AT-kLjXxn7A",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=AT-kLjXxn7A",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Dr. Pria Anand | The Mind Electric | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "55:57",
+        "duration_seconds_observed": 3357,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=esA0vZZe6wk",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=esA0vZZe6wk",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Alfredo Garcia | Let's Make It!: A Mexican-American Culinary Adventure | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "38:22",
+        "duration_seconds_observed": 2302,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=XrpADTRwRS8",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=XrpADTRwRS8",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "B. Dylan Hollis | Baking Across America: A Vintage Recipe Road Trip | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "49:36",
+        "duration_seconds_observed": 2976,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=gDNJYKE5S84",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=gDNJYKE5S84",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Broadway's Stranger Things | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "58:12",
+        "duration_seconds_observed": 3492,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=hlO4AKUOAok",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=hlO4AKUOAok",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Zarna Garg | This American Woman: A One-In-A-Billion Memoir | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "54:05",
+        "duration_seconds_observed": 3245,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=m5zx248Hmw8",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=m5zx248Hmw8",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Luke Wilson, Ana Villafañe & Jimmy Canton | The Hole in the Wall Gang Camp | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "51:07",
+        "duration_seconds_observed": 3067,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=o9EXAJOxFIE",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=o9EXAJOxFIE",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Moritz Baier-Lentz | Investor Perspectives: Igniting Growth with AI | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "52:06",
+        "duration_seconds_observed": 3126,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=MBdegZLhb6Q",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=MBdegZLhb6Q",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Tom Pickett & Jenna Glover | Headspace & the ROI of Mindfulness | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "51:50",
+        "duration_seconds_observed": 3110,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=lNYpj11oNsE",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=lNYpj11oNsE",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Dr. Judith Joseph | High Functioning: Overcome Your Hidden Depression... | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "54:34",
+        "duration_seconds_observed": 3274,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=KJnpmXeHWnY",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=KJnpmXeHWnY",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Noor Murad | Lugma: Abundant Dishes & Stories From My Middle East | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "55:55",
+        "duration_seconds_observed": 3355,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=a3rFENGzHL0",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=a3rFENGzHL0",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Asma Khan | Monsoon: Delicious Indian Recipes for Every Day and Season | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "57:57",
+        "duration_seconds_observed": 3477,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=MTzhQ-E5wcQ",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=MTzhQ-E5wcQ",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Jenny Wood | Wild Courage: Go After What You Want and Get It | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "56:05",
+        "duration_seconds_observed": 3365,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=On9jhMEg-lE",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=On9jhMEg-lE",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Dr. Alison Wood Brooks | The Science of Conversation & the Art of Being Ourselves | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "59:36",
+        "duration_seconds_observed": 3576,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=amV0j7R0yJc",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=amV0j7R0yJc",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Anne-Laure Le Cunff | Tiny Experiments | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "55:14",
+        "duration_seconds_observed": 3314,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=qoYNyDU0gso",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=qoYNyDU0gso",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Lewis Howes | Make Money Easy | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "55:48",
+        "duration_seconds_observed": 3348,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=YQvFiC64UdM",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=YQvFiC64UdM",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Nisha Vora | Big Vegan Flavor | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "54:17",
+        "duration_seconds_observed": 3257,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=1uanweUW5XQ",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=1uanweUW5XQ",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Anas Bukhash | Perspective of an Interviewer from the Arab World | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "58:10",
+        "duration_seconds_observed": 3490,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=bwS_PJBni8Y",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=bwS_PJBni8Y",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Ravi Bapna & Anindya Ghose | Thrive: Maximizing Well-Being in the Age of AI | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "58:36",
+        "duration_seconds_observed": 3516,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=VDuu5ZKyQJc",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=VDuu5ZKyQJc",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Annie & Kerry Xu | Badminton: Twin Sisters Represent USA at Paris Olympics 2024 | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "33:16",
+        "duration_seconds_observed": 1996,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=2fEyffMkUxA",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=2fEyffMkUxA",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Ilya Strebulaev | The Venture Mindset | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "46:48",
+        "duration_seconds_observed": 2808,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=2fZiROJCe9o",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=2fZiROJCe9o",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Doug Melville | Invisible Generals | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "49:55",
+        "duration_seconds_observed": 2995,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=Y_5OsKR6zlk",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=Y_5OsKR6zlk",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Erno Rubik | Celebrating 50 Years of the Rubik's Cube | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "37:36",
+        "duration_seconds_observed": 2256,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=l6zmMLegv3g",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=l6zmMLegv3g",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Marie Kondo | Finding Joy at Work | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "47:32",
+        "duration_seconds_observed": 2852,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=dR0DlY7qh1c",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=dR0DlY7qh1c",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Rose Levy Beranbaum & Woody Wolston | The Cake Bible: 35th Anniversary Edition | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "55:03",
+        "duration_seconds_observed": 3303,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=UEpsZ9fki0o",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=UEpsZ9fki0o",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Camilla Marcus | My Regenerative Kitchen | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "43:47",
+        "duration_seconds_observed": 2627,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=OEG8XpoA03k",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=OEG8XpoA03k",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Broadway's The Outsiders | Cast & Creatives | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "47:43",
+        "duration_seconds_observed": 2863,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=X_TB4VxPjPo",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=X_TB4VxPjPo",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Harper Steele | Will & Harper | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "51:09",
+        "duration_seconds_observed": 3069,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=ikTg870J378",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=ikTg870J378",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Sean Sherman | The Sioux Chef's Indigenous Kitchen | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "52:46",
+        "duration_seconds_observed": 3166,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=Wq6cv7V0cTo",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=Wq6cv7V0cTo",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Simon Sinek | Building Optimism | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "57:06",
+        "duration_seconds_observed": 3426,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=BsHzEyIjfbE",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=BsHzEyIjfbE",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Chris Bernhardt | Beautiful Math | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "43:54",
+        "duration_seconds_observed": 2634,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=27nQa0o2iOQ",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=27nQa0o2iOQ",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Dr. Tony Nader | Consciousness Is All There Is | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "33:02",
+        "duration_seconds_observed": 1982,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=QCQutoQj0bc",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=QCQutoQj0bc",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Xolo Maridueña | Blue Beetle & Beyond | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "52:06",
+        "duration_seconds_observed": 3126,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=60jZvsEyceE",
+      "profile": "youtube_interviews",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US"
+      ],
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "source": "Talks at Google 已验证官方频道公开视频",
+        "evidence_url": "https://www.youtube.com/watch?v=60jZvsEyceE",
+        "note": "仅作为待权利复核候选；公开可访问不代表允许下载、训练或再分发。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "candidate_metadata": {
+        "title_at_discovery": "Joanna “JoJo” Levesque | Over the Influence: A Memoir | Talks at Google",
+        "channel": "Talks at Google",
+        "channel_url": "https://www.youtube.com/@talksatgoogle",
+        "duration_text": "59:54",
+        "duration_seconds_observed": 3594,
+        "duration_source": "youtube_official_channel_page",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "caption_requirement": "best_effort_keep_video_without_caption",
+        "discovered_at": "2026-09-10"
+      }
+    }
+  ]
+}
+

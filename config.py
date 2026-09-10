@@ -19,6 +19,24 @@ def _positive_env_int(name: str, default: int) -> int:
     return value
 
 
+def _nonnegative_env_int(name: str, default: int) -> int:
+    value = int(os.environ.get(name, str(default)))
+    if value < 0:
+        raise ValueError(f"{name} must be a non-negative integer")
+    return value
+
+
+def _csv_env(name: str, default: list[str]) -> list[str]:
+    """Read a comma-separated env list while rejecting an empty override."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return list(default)
+    values = [item.strip() for item in raw.split(",") if item.strip()]
+    if not values:
+        raise ValueError(f"{name} must contain at least one non-empty value")
+    return values
+
+
 MAX_CONCURRENT_DOWNLOADS = 4
 MAX_CONCURRENT_SPIDERS = 3
 DOWNLOAD_TIMEOUT = 600
@@ -144,7 +162,7 @@ SPIDER_CONFIGS = {
         "content_language": os.environ.get(
             "AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE", "zh"
         ),
-        "search_keywords": [
+        "search_keywords": _csv_env("AUDIOSPIDER_BILIBILI_KEYWORDS", [
             # 有声书 / 听书
             "有声书 合集", "有声书 全集", "有声小说 全集", "听书 合集",
             "有声书 玄幻", "有声书 言情", "有声书 历史", "有声书 科幻",
@@ -170,13 +188,39 @@ SPIDER_CONFIGS = {
             "朗读 名著", "诗歌 朗诵", "散文 朗读", "经典 朗读",
             # 知识 / 人文
             "读书 解读", "历史 故事 合集", "百家讲坛", "人文 讲座",
-        ],
+        ]),
         # 搜索翻页：每页约 20 个视频；结果耗尽时会提前停止
-        "max_search_pages": 5,
+        "max_search_pages": _positive_env_int(
+            "AUDIOSPIDER_BILIBILI_MAX_SEARCH_PAGES", 5,
+        ),
         # 每个关键词最多解析的视频数（建议 >= max_search_pages * 20）
-        "max_videos_per_keyword": 100,
+        "max_videos_per_keyword": _positive_env_int(
+            "AUDIOSPIDER_BILIBILI_MAX_VIDEOS_PER_KEYWORD", 100,
+        ),
         # 每个视频最多取多少分P（设很大 ≈ 不限）
-        "max_pages_per_video": 200,
+        "max_pages_per_video": _positive_env_int(
+            "AUDIOSPIDER_BILIBILI_MAX_PAGES_PER_VIDEO", 200,
+        ),
+        # 0 表示不限；正数表示本轮最多向数据库新增多少条 bundle 任务。
+        # 该上限根据 on_batch 的真实新增返回值计数，因此数据库中的重复项
+        # 不会占用配额，适合“再新增 100 条”这类可复现批次。
+        "max_new_records": _nonnegative_env_int(
+            "AUDIOSPIDER_BILIBILI_MAX_NEW_RECORDS", 0,
+        ),
+        # 可选的采集质量门槛；默认不限制标题和最短时长，保持旧行为。
+        # 批量访谈任务可显式要求标题出现“访谈/专访/对谈”等词。
+        "required_title_terms": _csv_env(
+            "AUDIOSPIDER_BILIBILI_REQUIRED_TITLE_TERMS", [],
+        ),
+        "excluded_title_terms": _csv_env(
+            "AUDIOSPIDER_BILIBILI_EXCLUDED_TITLE_TERMS", [],
+        ),
+        "min_duration_seconds": _nonnegative_env_int(
+            "AUDIOSPIDER_BILIBILI_MIN_DURATION_SECONDS", 0,
+        ),
+        "max_duration_seconds": _positive_env_int(
+            "AUDIOSPIDER_BILIBILI_MAX_DURATION_SECONDS", 4 * 3600,
+        ),
     },
     "youtube": {
         "enabled": True,
