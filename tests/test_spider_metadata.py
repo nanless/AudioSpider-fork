@@ -65,13 +65,24 @@ class BilibiliMetadataTests(unittest.IsolatedAsyncioTestCase):
         bilibili_module.PLAYER_URL = self.previous_url
         await self.runner.cleanup()
 
-    async def player(self, _request):
+    async def player(self, request):
+        if request.query.get("bvid") == "BVauth":
+            return web.json_response({
+                "code": 0,
+                "data": {
+                    "need_login_subtitle": True,
+                    "subtitle": {"subtitles": []},
+                },
+            })
         return web.json_response({
             "code": 0,
             "data": {"subtitle": {"subtitles": [{
-                "subtitle_url": "//cdn.example/subtitle.json?token=temporary",
+                "subtitle_url": "//aisubtitle.hdslb.com/subtitle.json?token=temporary",
                 "lan": "zh-CN",
                 "lan_doc": "中文（自动生成）",
+                "type": 1,
+                "ai_type": 0,
+                "ai_status": 2,
             }]}}
         })
 
@@ -81,9 +92,18 @@ class BilibiliMetadataTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(
             rows[0]["url"],
-            "https://cdn.example/subtitle.json?token=temporary",
+            "https://aisubtitle.hdslb.com/subtitle.json?token=temporary",
         )
-        self.assertEqual(rows[0]["text_source"], "platform")
+        self.assertEqual(rows[0]["text_source"], "platform_auto")
+        self.assertEqual(rows[0]["kind"], "automatic")
+        self.assertEqual(rows[0]["selected_by_rule"], "bilibili_type_ai")
+        self.assertEqual(rows[0]["ai_status"], 2)
+
+    async def test_login_gated_caption_is_not_a_fake_transcript_asset(self):
+        async with aiohttp.ClientSession() as session:
+            inventory = await BilibiliSpider()._get_subtitle_inventory(session, "BVauth", 1)
+        self.assertEqual(inventory["status"], "auth_required")
+        self.assertEqual(inventory["assets"], [])
 
 
 if __name__ == "__main__":

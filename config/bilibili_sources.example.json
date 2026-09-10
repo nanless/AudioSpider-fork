@@ -1,0 +1,26 @@
+{
+  "items": [
+    {
+      "bvid": "BV1FD4y147uH",
+      "parts": [1],
+      "max_parts": 1,
+      "max_height": 480,
+      "max_duration_seconds": 1800,
+      "languages": ["zh-Hans", "zh-CN", "ai-zh"],
+      "require_caption": false,
+      "content_language": "zh",
+      "program": "Bilibili 视频与字幕管线公开探针",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开可访问不等于允许训练或再分发"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "initial-public-probe"
+    }
+  ]
+}

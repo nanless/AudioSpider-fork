@@ -18,6 +18,7 @@ import sys
 import uuid
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 from config import DB_PATH, DOWNLOAD_DIR
 from storage import Storage
@@ -194,7 +195,16 @@ def _opus_needs_convert(filepath: str) -> bool:
 def scan_audio_files(directory: str) -> list[str]:
     """扫描目录下需要转换的音频文件（已符合目标格式的跳过）"""
     files = []
-    for root, _, filenames in os.walk(directory):
+    start = Path(directory).resolve()
+    if any((ancestor / ".audiospider-dataset.json").is_file()
+           for ancestor in (start, *start.parents)):
+        logger.info("跳过受 sidecar 保护的数据集目录或子目录: %s", start)
+        return []
+    for root, directories, filenames in os.walk(directory):
+        if ".audiospider-dataset.json" in filenames:
+            directories[:] = []
+            logger.info("跳过受 sidecar 保护的数据集目录: %s", root)
+            continue
         for fname in filenames:
             if ".tmp_conv" in fname or ".tmp_convert" in fname:
                 continue

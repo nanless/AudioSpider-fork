@@ -24,6 +24,7 @@
 - [运行与维护](guides/operations.md)
 - [故障排查](guides/troubleshooting.md)
 - [YouTube 视频、平台字幕与影视短片小白指南](guides/youtube-datasets.md)
+- [B 站视频、WAV 与平台字幕小白指南](guides/bilibili-video-datasets.md)
 
 ## 第 3 层：接口参考
 
@@ -35,6 +36,7 @@
 - [来源适配器](reference/spiders.md)
 - [背景信息与文本资产](reference/background-metadata.md)
 - [YouTube 数据集 sidecar](reference/youtube-sidecars.md)
+- [B 站视频 bundle 与 sidecar](reference/bilibili-video-sidecars.md)
 
 ## 第 4 层：设计与开发
 
@@ -55,6 +57,7 @@
 - [2026-09-08 dev_L4_1gpus 服务器验收报告](reports/2026-09-08-dev-l4-validation.md)
 - [2026-09-09 5,000 条详细元数据与音频下载终态验收](reports/2026-09-09-complete-metadata-and-scale-validation.md)
 - [2026-09-10 YouTube 长访谈与影视短片验收](reports/2026-09-10-youtube-dataset-validation.md)
+- [2026-09-10 B 站视频数据管线首批验收](reports/2026-09-10-bilibili-video-validation.md)
 
 ## 深度研究
 

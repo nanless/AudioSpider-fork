@@ -21,6 +21,9 @@
 - `youtube_dataset.py`：独立采集 YouTube 长访谈视频、16 kHz WAV、平台人工/自动字幕和完整 sidecar。
 - 字幕对齐影视短片：生成可追溯的 MP4/WAV/VTT/TXT/JSON 五件套，严格限制 0.418–29.888 秒。
 - YouTube 清单探测、稳定 job/clip ID、目录级 staging、SHA-256/ffprobe/VTT 全量审计。
+- `bilibili_dataset.py`：独立下载 B 站分 P 的 DASH 视频与音频、合并 MP4、抽取 16 kHz WAV，并保存所有可见平台字幕。
+- `bilibili_subtitles.py`：人工、自动、未知三态来源判定，独立翻译维度，以及平台 JSON 到 VTT/TXT 的严格转换。
+- B 站视频 bundle 使用表示层指纹断点续传、目录锁、原子提升、SHA-256/ffprobe/字幕重建审计。
 
 ### 安全
 
@@ -28,6 +31,8 @@
 - sidecar 递归移除 URL 查询参数，避免持久化临时签名。
 - 背景资产失败不会影响已验证音频的 done 状态。
 - YouTube 仅接受无凭据单视频 URL，不用 Cookie、不绕过访问控制、不保存临时签名 URL；未核权样本明确标成候选。
+- B 站媒体和字幕只接受受控 HTTPS 域名，不保存签名 query；可选登录 Cookie 只从进程环境读取且不持久化。
+- 批量 Opus 转码会跳过带 `.audiospider-dataset.json` 保护标记的视频数据集。
 
 ### 文档
 
@@ -37,6 +42,7 @@
 - 架构、安全、数据流和开发说明。
 - 背景信息深度研究、ADR、设计和实施计划。
 - 面向小白的 YouTube 视频/字幕/影视短片指南和 sidecar 字段参考。
+- 面向小白的 B 站视频/字幕指南、sidecar 参考与真实首批验收报告。
 
 ## 2026-09-08
 

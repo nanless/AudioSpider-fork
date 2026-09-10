@@ -6,7 +6,7 @@ import tempfile
 import unittest
 import wave
 
-from convert_audio import convert_file, plan_targets
+from convert_audio import convert_file, plan_targets, scan_audio_files
 from storage import AudioRecord, Storage
 
 
@@ -35,6 +35,17 @@ class ConvertAudioTests(unittest.TestCase):
         self.assertNotEqual(targets[mp3], targets[wav])
         self.assertTrue(targets[mp3].endswith("_mp3.opus"))
         self.assertTrue(targets[wav].endswith("_wav.opus"))
+
+    def test_sidecar_dataset_directory_is_never_bulk_converted(self):
+        protected = os.path.join(self.temp.name, "dataset")
+        os.makedirs(protected)
+        with open(os.path.join(protected, ".audiospider-dataset.json"), "w") as output:
+            output.write("{}")
+        make_wav(os.path.join(protected, "audio.wav"))
+        ordinary = os.path.join(self.temp.name, "ordinary.wav")
+        make_wav(ordinary)
+        self.assertEqual(scan_audio_files(self.temp.name), [ordinary])
+        self.assertEqual(scan_audio_files(protected), [])
 
     def test_conversion_updates_database_to_final_file(self):
         source_path = os.path.join(self.temp.name, "tone.wav")

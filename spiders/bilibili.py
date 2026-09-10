@@ -20,6 +20,7 @@ import aiohttp
 
 from anti_crawler import random_delay, RateLimiter
 from background import encode_metadata, metadata_envelope, plain_text
+from bilibili_subtitles import classify_subtitle_inventory, sanitize_subtitle_track
 from config import SPIDER_CONFIGS
 from spiders.base import BaseSpider
 from storage import AudioRecord
@@ -245,7 +246,8 @@ class BilibiliSpider(BaseSpider):
                 audio_url = await self._get_audio_url(session, bvid, cid)
                 if not audio_url:
                     continue
-                subtitles = await self._get_subtitles(session, bvid, cid)
+                caption_inventory = await self._get_subtitle_inventory(session, bvid, cid)
+                subtitles = caption_inventory["assets"]
 
                 title = f"{video_title} P{page_num}" if not part_title else part_title
                 category = self._guess_category(keyword)
@@ -259,6 +261,7 @@ class BilibiliSpider(BaseSpider):
                 self._attach_metadata(
                     record, video_info, page, bvid=bvid, cid=cid,
                     page_num=page_num, keyword=keyword, subtitles=subtitles,
+                    caption_inventory=caption_inventory,
                 )
                 records.append(record)
 
@@ -277,7 +280,8 @@ class BilibiliSpider(BaseSpider):
     def _attach_metadata(self, record: AudioRecord, video_info: dict,
                          page: dict, *, bvid: str, cid: int,
                          page_num: int, keyword: str,
-                         subtitles: list[dict]) -> AudioRecord:
+                         subtitles: list[dict],
+                         caption_inventory: dict | None = None) -> AudioRecord:
         owner = video_info.get("owner") or {}
         record.webpage_url = f"https://www.bilibili.com/video/{bvid}?p={page_num}"
         record.description = plain_text(video_info.get("desc", ""))
@@ -312,8 +316,19 @@ class BilibiliSpider(BaseSpider):
                 "copyright": video_info.get("copyright"),
                 "rights": video_info.get("rights", {}),
                 "stats": video_info.get("stat", {}),
+                "caption_inventory": {
+                    "status": (caption_inventory or {}).get("status", "unknown"),
+                    "need_login_subtitle": (caption_inventory or {}).get(
+                        "need_login_subtitle"
+                    ),
+                    "track_count": len(subtitles),
+                },
             },
             assets={"transcripts": subtitles},
+            transcript_status=(
+                "provided" if subtitles
+                else (caption_inventory or {}).get("status", "unknown")
+            ),
         ))
         return record
 
@@ -339,7 +354,8 @@ class BilibiliSpider(BaseSpider):
                 if not page or not page.get("cid"):
                     continue
                 cid = page["cid"]
-                subtitles = await self._get_subtitles(session, bvid, cid)
+                caption_inventory = await self._get_subtitle_inventory(session, bvid, cid)
+                subtitles = caption_inventory["assets"]
                 record = AudioRecord(
                     url=row["url"], source=self.name, title=row.get("title", ""),
                     file_format=row.get("file_format", ""),
@@ -351,7 +367,7 @@ class BilibiliSpider(BaseSpider):
                 self._attach_metadata(
                     record, video_info, page, bvid=bvid, cid=cid,
                     page_num=page_num, keyword=row.get("category", ""),
-                    subtitles=subtitles,
+                    subtitles=subtitles, caption_inventory=caption_inventory,
                 )
                 records.append(record)
         return records
@@ -373,32 +389,37 @@ class BilibiliSpider(BaseSpider):
 
     async def _get_subtitles(self, session: aiohttp.ClientSession,
                              bvid: str, cid: int) -> list[dict]:
+        return (await self._get_subtitle_inventory(session, bvid, cid))["assets"]
+
+    async def _get_subtitle_inventory(self, session: aiohttp.ClientSession,
+                                      bvid: str, cid: int) -> dict:
         try:
             async with session.get(
                 PLAYER_URL, params={"bvid": bvid, "cid": cid},
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status != 200:
-                    return []
+                    return {
+                        "status": "external_failure",
+                        "need_login_subtitle": None,
+                        "assets": [],
+                    }
                 payload = await response.json(content_type=None)
-                subtitles = payload.get("data", {}).get("subtitle", {}).get("subtitles", [])
+                inventory = classify_subtitle_inventory(payload.get("data"))
+                subtitles = inventory["tracks"]
                 results = []
                 for subtitle in subtitles:
-                    url = subtitle.get("subtitle_url", "")
-                    if url.startswith("//"):
-                        url = "https:" + url
-                    if url:
-                        results.append({
-                            "url": url,
-                            "type": "application/json",
-                            "language": subtitle.get("lan", ""),
-                            "label": subtitle.get("lan_doc", ""),
-                            "text_source": "platform",
-                        })
-                return results
+                    normalized = sanitize_subtitle_track(subtitle)
+                    if normalized["url"]:
+                        results.append(normalized)
+                return {
+                    "status": inventory["status"],
+                    "need_login_subtitle": inventory["need_login_subtitle"],
+                    "assets": results,
+                }
         except Exception as exc:
             self.logger.debug(f"获取公开视频字幕失败 {bvid} cid={cid}: {exc}")
-            return []
+            return {"status": "external_failure", "need_login_subtitle": None, "assets": []}
 
     async def _get_audio_url(self, session: aiohttp.ClientSession,
                               bvid: str, cid: int) -> str:

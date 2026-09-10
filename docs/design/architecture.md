@@ -27,6 +27,9 @@ probe.py -> 临时 DB + JSON           v
 
 YouTube source manifest -> youtube_dataset.py -> parent bundles -> subtitle-aligned clips
                                                 \-> run manifests and strict audit
+
+Bilibili manifest -> bilibili_dataset.py -> per-part MP4/WAV/platform-caption bundles
+                                         \-> run manifests and strict audit
 ```
 
 ## 入口层
@@ -39,6 +42,8 @@ YouTube source manifest -> youtube_dataset.py -> parent bundles -> subtitle-alig
 - `db_viewer.py`：人类可读的数据库浏览。
 - `youtube_dataset.py`：不经过 SQLite 队列，管理 YouTube 父视频、平台字幕和派生短片。
 - `youtube_vtt.py`：WebVTT 解析、自动滚动字幕消重和确定性 cue 分组。
+- `bilibili_dataset.py`：独立管理 B 站分 P 的 DASH 视频/音频、平台字幕和 bundle 审计。
+- `bilibili_subtitles.py`：B 站字幕三态来源判定和原始 JSON→VTT/TXT 转换。
 
 入口脚本负责参数校验和编排，不应复制存储或下载核心逻辑。
 

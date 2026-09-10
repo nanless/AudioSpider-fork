@@ -80,6 +80,29 @@ python youtube_dataset.py --output downloads/youtube-candidates audit
 
 第一次使用请完整阅读 [YouTube 视频与字幕数据集小白指南](docs/guides/youtube-datasets.md)；sidecar 字段见 [YouTube sidecar 参考](docs/reference/youtube-sidecars.md)。
 
+### B 站视频、WAV 和平台字幕也是独立流水线
+
+旧 B 站 Spider 继续服务纯音频队列；如果要保留画面，使用 `bilibili_dataset.py`：
+
+```bash
+# 只查分 P、CID、时长和字幕可用性
+python bilibili_dataset.py --output datasets/bilibili-video-candidates \
+  inspect --manifest config/bilibili_sources.example.json
+
+# 下载分离的 DASH 视频/音频并合并 MP4，同时抽取 16 kHz WAV
+python bilibili_dataset.py --output datasets/bilibili-video-candidates \
+  download --manifest config/bilibili_sources.example.json
+
+# 重算全部哈希、媒体流和字幕派生关系
+python bilibili_dataset.py --output datasets/bilibili-video-candidates audit
+```
+
+每个分 P 至少有 `source.mp4`、`audio.wav` 和 `metadata.json`。平台公开字幕时，每条轨道再保存原始 JSON、VTT 和 TXT；同一分 P 的多语言、多类型轨道全部保留。字幕分为 `manual/platform_manual`、`automatic/platform_auto` 和 `unknown/platform_unknown`，并保存判定规则和原始枚举。
+
+匿名接口返回 `need_login_subtitle=true` 时会标为 `auth_required`，不会误写成“无字幕”。有合法访问权时可临时设置 `BILIBILI_COOKIE`，程序只在请求头中使用，不会写进数据、日志或 Git。自动字幕只说明文本轨的来源，不说明视频/声音由 AI 生成。
+
+详细步骤见 [B 站视频、WAV 和平台字幕小白指南](docs/guides/bilibili-video-datasets.md)，字段见 [B 站 sidecar 参考](docs/reference/bilibili-video-sidecars.md)。
+
 ## 2. 十分钟上手
 
 ### 第一步：进入仓库
@@ -278,6 +301,7 @@ python main.py --retry-failed --source bilibili --limit 100
 AudioSpider-fork/
 ├── audiospider.db         SQLite 数据库
 ├── downloads/             音频与 JSON 元信息
+├── datasets/              独立的 YouTube/B站视频 bundle（推荐位置）
 ├── logs/                  运行日志
 └── tmp/                   SQLite/程序临时文件
 ```
@@ -476,6 +500,9 @@ python main.py background --limit 10000 --workers 4 --background all
 - [来源适配器](docs/reference/spiders.md)
 - [背景信息与文本资产](docs/reference/background-metadata.md)
 - [背景信息深度研究](docs/research/2026-09-09-background-metadata-research.md)
+- [YouTube 视频与字幕数据集](docs/guides/youtube-datasets.md)
+- [B 站视频、WAV 与平台字幕](docs/guides/bilibili-video-datasets.md)
+- [B 站视频 sidecar](docs/reference/bilibili-video-sidecars.md)
 
 ### 设计与开发
 

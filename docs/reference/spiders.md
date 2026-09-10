@@ -95,6 +95,8 @@ python probe.py --source bilibili --keywords "有声书 合集" --search-pages 1
 
 视频简介、UP主、封面、发布时间、分P、权限与统计会保存；player API 公开返回字幕时声明为 transcript 资产。无字幕时保持空列表。
 
+如果需要完整视频、WAV、全部平台字幕和独立 sidecar，请不要改旧音频队列，使用 `bilibili_dataset.py`。详见[B 站视频小白指南](../guides/bilibili-video-datasets.md)和[sidecar 参考](bilibili-video-sidecars.md)。
+
 ## 配置与正式注册
 
 `collect.py` 的 `ALL_SPIDERS` 注册当前五个 Spider；`config.py` 的 `SPIDER_CONFIGS` 控制启用状态与来源参数。新增来源时两处都要同步，并为 `probe.py` 增加一个有严格上限的配置分支。

@@ -145,6 +145,31 @@ python main.py [download|stats|fix-meta|background] [参数]
 
 `--per-source` 与 `--per-category` 互斥。
 
+## `bilibili_dataset.py`
+
+独立管理 B 站视频 bundle，不读写 `audio_urls`：
+
+```bash
+python bilibili_dataset.py --output datasets/bilibili-video-candidates \
+  inspect --manifest config/bilibili_sources.example.json
+python bilibili_dataset.py --output datasets/bilibili-video-candidates \
+  download --manifest config/bilibili_sources.example.json
+python bilibili_dataset.py --output datasets/bilibili-video-candidates \
+  audit --manifest config/bilibili_sources.example.json
+python bilibili_dataset.py --output datasets/bilibili-video-candidates repair-metadata
+```
+
+| 动作/参数 | 含义 |
+|---|---|
+| `inspect --manifest PATH` | 查询 BV/分 P/CID/字幕状态，不下载媒体 |
+| `download --manifest PATH` | 下载清单中的公开 DASH、合并 MP4、抽 WAV并取字幕 |
+| `audit` | 校验所有正式 bundle；空集或 staging 残留也返回非零 |
+| `audit --manifest PATH` | 额外要求清单中显式列出的每个分 P 都有合法 bundle |
+| `repair-metadata` | 从现有媒体和运行清单重建派生 sidecar 字段，不替换来源媒体 |
+| `--output PATH` | 数据集根目录，推荐在 `datasets/` 下 |
+
+可选 `BILIBILI_COOKIE` 环境变量用于当前进程的合法登录态；不得写入 manifest。字幕必需性、分 P、语言、清晰度、时长、权利和 AI 状态都在 JSON 清单逐项声明。
+
 已有音频补齐示例：
 
 ```bash
