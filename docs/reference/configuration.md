@@ -41,6 +41,7 @@ python discover.py --source podcastindex --keywords news --pi-max-pages 1
 | `AUDIOSPIDER_YOUTUBE_INSPECT_TIMEOUT` | `120` | 单个 YouTube 元数据/字幕核验子进程硬超时（秒） |
 | `AUDIOSPIDER_YOUTUBE_DOWNLOAD_TIMEOUT` | `14400` | 单个 YouTube 完整 bundle 下载子进程硬超时（秒） |
 | `AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE` | `zh` | B站受控搜索批次的内容语言；英文批次显式设为 `en` |
+| `AUDIOSPIDER_BILIBILI_CATEGORY` | 空 | 可选统一分类覆盖；例如访谈批次设为 `访谈` |
 | `AUDIOSPIDER_BILIBILI_KEYWORDS` | `config.py` 列表 | 逗号分隔的本轮 B站搜索词 |
 | `AUDIOSPIDER_BILIBILI_REQUIRED_TITLE_TERMS` | 空 | 标题至少命中一个词才保留 |
 | `AUDIOSPIDER_BILIBILI_EXCLUDED_TITLE_TERMS` | 空 | 标题命中任一词就排除；仅是候选选择证据 |

@@ -162,6 +162,10 @@ SPIDER_CONFIGS = {
         "content_language": os.environ.get(
             "AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE", "zh"
         ),
+        # 可选的批次分类覆盖；空值保持按关键词自动分类。
+        "category_override": os.environ.get(
+            "AUDIOSPIDER_BILIBILI_CATEGORY", ""
+        ).strip(),
         "search_keywords": _csv_env("AUDIOSPIDER_BILIBILI_KEYWORDS", [
             # 有声书 / 听书
             "有声书 合集", "有声书 全集", "有声小说 全集", "听书 合集",

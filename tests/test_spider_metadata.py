@@ -265,6 +265,32 @@ class BilibiliMetadataTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(BilibiliSpider._guess_category("人物专访 完整版"), "访谈")
         self.assertEqual(BilibiliSpider._guess_category("深度对话 完整版"), "访谈")
 
+    async def test_category_override_applies_to_branded_interview_keyword(self):
+        spider = BilibiliSpider()
+        spider.category_override = "访谈"
+        spider.max_pages_per_video = 1
+        spider.min_duration_seconds = 0
+        spider.max_duration_seconds = 14400
+        spider.required_title_terms = []
+        spider.excluded_title_terms = []
+        spider.limiter.acquire = AsyncMock()
+        spider._get_video_info = AsyncMock(return_value={
+            "title": "陈鲁豫慢谈",
+            "pages": [{"cid": 5, "page": 1, "part": "正片", "duration": 3600}],
+        })
+        spider._get_subtitle_inventory = AsyncMock(return_value={
+            "status": "not_provided_publicly",
+            "need_login_subtitle": False,
+            "assets": [],
+        })
+
+        with patch("spiders.bilibili.random_delay", new=AsyncMock()):
+            records = await spider._extract_video_records(
+                object(), "BVbrand", "陈鲁豫慢谈", "陈鲁豫 慢谈 视频播客",
+            )
+
+        self.assertEqual(records[0].category, "访谈")
+
     async def test_collection_applies_title_and_duration_policy(self):
         spider = BilibiliSpider()
         spider.required_title_terms = ["访谈", "专访"]

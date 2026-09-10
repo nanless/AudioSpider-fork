@@ -68,6 +68,12 @@ class BilibiliSpider(BaseSpider):
         self.min_duration_seconds = cfg.get("min_duration_seconds", 0)
         self.max_duration_seconds = cfg.get("max_duration_seconds", 4 * 3600)
         self.content_language = str(cfg.get("content_language") or "und")
+        self.category_override = str(cfg.get("category_override") or "").strip()
+        if self.category_override and self.category_override not in {
+            "有声书", "播客", "相声", "评书", "演讲", "脱口秀",
+            "广播剧", "新闻", "访谈", "朗读", "视频",
+        }:
+            raise ValueError("bilibili.category_override is not a supported category")
         self.limiter = RateLimiter(rate=0.5, burst=3)
 
     async def crawl(
@@ -303,7 +309,7 @@ class BilibiliSpider(BaseSpider):
                 ]
 
                 title = f"{video_title} P{page_num}" if not part_title else part_title
-                category = self._guess_category(keyword)
+                category = self.category_override or self._guess_category(keyword)
 
                 canonical_url = self._canonical_page_url(bvid, page_num)
                 record = AudioRecord(

@@ -60,6 +60,7 @@ B站来源不是读取 standalone manifest，而是由 `collect.py` 使用受控
 | 变量 | 含义 |
 |---|---|
 | `AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE` | 内容主要语言；中文批次设为 `zh` |
+| `AUDIOSPIDER_BILIBILI_CATEGORY` | 可选统一分类覆盖；访谈批次设为 `访谈` |
 | `AUDIOSPIDER_BILIBILI_KEYWORDS` | 逗号分隔的搜索词 |
 | `AUDIOSPIDER_BILIBILI_REQUIRED_TITLE_TERMS` | 标题至少命中其中一个词；空值表示不启用 |
 | `AUDIOSPIDER_BILIBILI_EXCLUDED_TITLE_TERMS` | 标题命中其中一个词就排除；只用于候选筛选，不是声学语言证明 |
@@ -78,6 +79,7 @@ BV 不会重复进入本批，也不会消耗新增配额。所有上限只控�
 
 ```bash
 AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE=zh \
+AUDIOSPIDER_BILIBILI_CATEGORY=访谈 \
 AUDIOSPIDER_BILIBILI_KEYWORDS='人物访谈 长视频' \
 AUDIOSPIDER_BILIBILI_REQUIRED_TITLE_TERMS='访谈,专访,对谈,对话,圆桌,会谈,播客' \
 AUDIOSPIDER_BILIBILI_EXCLUDED_TITLE_TERMS='俄语,英语,英文,日语,韩语,法语,德语,西班牙语' \
