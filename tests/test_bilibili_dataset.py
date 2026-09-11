@@ -20,6 +20,7 @@ from bilibili_dataset import (
     bilibili_video_id,
     caption_timeline_rejection,
     prepare_caption_payloads,
+    redact_bilibili_error,
     download_job,
     caption_language_matches_content,
     build_jobs,
@@ -887,6 +888,17 @@ class AuditTests(unittest.TestCase):
 
 
 class AuthenticationBoundaryTests(unittest.IsolatedAsyncioTestCase):
+    def test_failure_text_redacts_signed_query_and_loopback_proxy(self):
+        message = (
+            "request https://cdn.bilivideo.com/a.m4s?token=secret "
+            "through http://127.0.0.1:18798 failed"
+        )
+        redacted = redact_bilibili_error(message)
+        self.assertNotIn("secret", redacted)
+        self.assertNotIn("127.0.0.1", redacted)
+        self.assertIn("https://cdn.bilivideo.com/a.m4s", redacted)
+        self.assertIn("[bilibili-loopback-proxy]", redacted)
+
     def test_ambient_cookie_is_consumed_but_ignored_without_gate(self):
         with mock.patch.dict(os.environ, {"BILIBILI_COOKIE": "SESSDATA=secret"}):
             self.assertEqual(_consume_bilibili_cookie(False), "")

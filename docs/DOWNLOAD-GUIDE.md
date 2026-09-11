@@ -147,6 +147,11 @@ YouTube 核验和下载分别运行在可终止子进程中；默认硬超时为
 `BILIBILI_COOKIE` 并为本次 `main.py` 命令加 `--allow-bilibili-cookie`。
 不加该开关时，即使环境中残留 Cookie 也会强制匿名。
 
+`main.py` 创建统一下载器时只读取一次该变量，校验后立即从进程环境移除；同一批 B站
+任务共享内存中的只读值。下载 HTTP 会话禁用持久 CookieJar，也不再访问 B站首页做匿名
+Cookie 预热，因此平台响应不能混入或覆盖已授权字段。显式 Cookie header 仍只发给
+`api.bilibili.com`，字幕/媒体 CDN、FFmpeg、OCR 和其他来源都收不到它。
+
 采集阶段用 yt-dlp structured info 核验完整视频和同语言平台字幕，只写数据库；下载
 阶段保存：
 
@@ -273,6 +278,7 @@ python scripts/audit_media_queue.py
   整个 Edge profile，不得浏览或导出其他站点 Cookie；
 - Bilibili Cookie 只在用户明确授权且有合法访问权时临时注入，只发往
   `api.bilibili.com`；
+- 下载器一次性消费该环境变量并禁用响应 CookieJar；不要依赖匿名首页预热取得 Cookie；
 - Cookie 不得出现在聊天、Git、JSON、命令行参数或日志；
 - yt-dlp、ffmpeg/ffprobe 子进程不继承爬虫凭据；
 - 硬限制单流、字幕、bundle、任务数和磁盘保留空间。

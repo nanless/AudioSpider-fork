@@ -59,6 +59,17 @@ BILIBILI_HEADERS = {
 }
 
 
+def _consume_bilibili_cookie(allowed: bool) -> str:
+    """Consume the optional browser session once and remove it from the process env."""
+
+    value = os.environ.pop("BILIBILI_COOKIE", "")
+    if not allowed:
+        return ""
+    if value and (len(value) > 16_384 or "\r" in value or "\n" in value):
+        raise ValueError("BILIBILI_COOKIE is too long or contains a newline")
+    return value
+
+
 def safe_filename(url: str, title: str = "", fmt: str = "", source_id: str = "") -> str:
     """Build a single safe path component with a collision-resistant suffix."""
     url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
@@ -205,6 +216,9 @@ class Downloader:
             raise ValueError("background_mode must be none, metadata, or all")
         self.background_mode = background_mode
         self.allow_bilibili_cookie = allow_bilibili_cookie
+        self.bilibili_auth_cookie = _consume_bilibili_cookie(
+            allow_bilibili_cookie
+        )
         # Validate the explicit source proxy before any queue row is claimed.
         self.bilibili_proxy = get_bilibili_proxy()
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:12]}"
@@ -287,21 +301,10 @@ class Downloader:
             self._connector = aiohttp.TCPConnector(
                 limit=self.max_workers, limit_per_host=3
             )
-            async with aiohttp.ClientSession(connector=self._connector) as session:
-                # B站需要先获取 cookie
-                has_bilibili = any(item.get("source") == "bilibili" for item in pending)
-                if has_bilibili:
-                    try:
-                        async with session.get(
-                            "https://www.bilibili.com",
-                            headers=BILIBILI_HEADERS,
-                            timeout=aiohttp.ClientTimeout(total=10),
-                            **proxy_request_kwargs(self.bilibili_proxy),
-                        ) as response:
-                            await response.read()
-                    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-                        logger.warning(f"B站 cookie 预热失败，将继续下载: {exc}")
-
+            async with aiohttp.ClientSession(
+                connector=self._connector,
+                cookie_jar=aiohttp.DummyCookieJar(),
+            ) as session:
                 tasks = [
                     self._download_one(session, item, i + 1, total)
                     for i, item in enumerate(pending)
@@ -432,7 +435,9 @@ class Downloader:
         output_root = self._build_subdir(source, category)
         result = await download_video_bundle(
             item, session, output_root,
-            allow_bilibili_cookie=self.allow_bilibili_cookie,
+            bilibili_auth_cookie=(
+                self.bilibili_auth_cookie if source == "bilibili" else ""
+            ),
         )
         self.storage.finalize_artifact(
             item["url"],

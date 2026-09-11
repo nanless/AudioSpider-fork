@@ -813,6 +813,17 @@ def _stream_fingerprint(stream: dict[str, Any]) -> str:
     ).hexdigest()
 
 
+def redact_bilibili_error(value: Any) -> str:
+    """Remove signed URLs and the ephemeral loopback proxy from diagnostics."""
+
+    redacted = redact_urls_in_text(value)
+    return re.sub(
+        r"http://127\.0\.0\.1:[1-9][0-9]{0,4}",
+        "[bilibili-loopback-proxy]",
+        redacted,
+    )[:2000]
+
+
 def _parse_content_range(value: str) -> tuple[int, int, int | None] | None:
     match = re.fullmatch(r"bytes (\d+)-(\d+)/(\d+|\*)", value.strip())
     if not match:
@@ -874,7 +885,7 @@ async def _download_stream(
         "expected_kind": expected_kind, "complete": False,
     })
 
-    last_error: Exception | None = None
+    last_error_type = "unknown"
     for url in urls:
         try:
             await validate_public_http_url(url)
@@ -939,8 +950,10 @@ async def _download_stream(
             })
             return
         except Exception as exc:
-            last_error = exc
-    raise RuntimeError(f"all DASH CDN candidates failed: {last_error}")
+            last_error_type = type(exc).__name__
+    raise RuntimeError(
+        f"all DASH CDN candidates failed ({last_error_type})"
+    )
 
 
 @contextmanager
@@ -1230,7 +1243,7 @@ async def download_job(
         except Exception as exc:
             write_json_atomic(stage / "failure.json", {
                 "status": "failed", "job_key": job["job_key"],
-                "failed_at": utc_now(), "error": str(exc)[:2000],
+                "failed_at": utc_now(), "error": redact_bilibili_error(exc),
             })
             raise
 

@@ -98,6 +98,10 @@ Before acting, read the matching files in the live repository:
   or a one-shot loopback bridge into the gated process. Never print or persist them. Even an ambient
   `BILIBILI_COOKIE` is ignored unless the command uses `--allow-bilibili-cookie`; send the session only to
   `api.bilibili.com`, never to media/subtitle CDN or subprocesses.
+- The unified downloader must consume `BILIBILI_COOKIE` once at construction and immediately remove it
+  from the process environment. Use a non-persisting HTTP cookie jar and do not warm up an anonymous
+  Bilibili homepage session, because response cookies can otherwise mix with or override the authorized
+  allow-list. Reuse the validated in-memory value across the bounded Bilibili batch.
 - Visual OCR itself never receives a browser Cookie. An authorized Edge session may only support the
   separately gated platform inventory request under the same minimum, in-memory rules.
 - Validate HTTPS host, public DNS result, each redirect, size limits, disk reserve and safe paths.

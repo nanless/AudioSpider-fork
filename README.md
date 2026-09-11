@@ -109,6 +109,10 @@ python main.py --source youtube --artifact-kind video_bundle --limit 1 --workers
 stdin/一次性内存桥注入并只发往 `api.bilibili.com`，不得复制浏览器 profile 或把 Cookie
 写进命令行、聊天、日志、SQLite、sidecar、下载目录或 Git。
 
+统一下载器会在创建时一次性读取并立即从进程环境删除 `BILIBILI_COOKIE`。下载 HTTP
+会话使用 `DummyCookieJar`，不吸收平台响应 Cookie，也不再做匿名首页预热；Edge 登录态
+不会被响应字段覆盖，且不会传给字幕 CDN、媒体 CDN、FFmpeg、OCR 或其他来源。
+
 旧 standalone bundle 可先运行 `python scripts/migrate_video_bundles.py` 做默认 dry-run；
 确认报告后再显式加 `--apply`。apply 会先备份 SQLite，再移动、复验和登记 bundle。
 

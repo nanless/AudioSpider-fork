@@ -122,7 +122,7 @@ class MediaArtifactTests(unittest.IsolatedAsyncioTestCase):
         ):
             result = await media_artifacts.download_video_bundle(
                 {"source": "bilibili"}, object(), Path(temp),
-                allow_bilibili_cookie=True,
+                bilibili_auth_cookie="SESSDATA=sentinel",
             )
 
         self.assertEqual(result, expected)

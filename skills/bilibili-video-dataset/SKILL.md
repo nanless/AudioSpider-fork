@@ -106,6 +106,12 @@ supplied lawful session must use the `--allow-bilibili-cookie` gate, remain proc
 and be sent only to `api.bilibili.com`; never persist, print or forward it to CDN/ffmpeg. Keep rights at
 `needs_review` unless independent evidence clears the intended use.
 
+The unified downloader must consume that environment value once before queue work, immediately remove
+it from the environment, and reuse only the validated in-memory value for the bounded batch. Its HTTP
+session uses a non-persisting cookie jar and must not perform anonymous homepage cookie warmup: response
+cookies must never mix with or override the Edge allow-list. Do not infer successful authentication from
+process liveness; verify the API result or caption inventory without logging credential values.
+
 If the user authorizes their current Edge Bilibili session, extract only the minimum Bilibili-origin
 allow-list through stdin or a one-shot memory bridge; never copy the profile or inspect other-origin
 cookies. OCR itself uses local pixels and must not receive the Cookie.

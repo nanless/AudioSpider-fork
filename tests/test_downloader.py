@@ -10,11 +10,12 @@ import wave
 from unittest import mock
 from unittest import mock
 
+import aiohttp
 from aiohttp import web
 
 import downloader
 import background
-from downloader import Downloader
+from downloader import Downloader, _consume_bilibili_cookie
 from storage import AudioRecord, Storage
 
 
@@ -65,6 +66,30 @@ class DownloaderTests(unittest.IsolatedAsyncioTestCase):
 
     def storage(self):
         return Storage(os.path.join(self.temp.name, f"{id(self)}.db"))
+
+    def test_cookie_is_consumed_once_and_ignored_without_gate(self):
+        with mock.patch.dict(
+            os.environ, {"BILIBILI_COOKIE": "SESSDATA=sentinel"}
+        ):
+            self.assertEqual(_consume_bilibili_cookie(False), "")
+            self.assertNotIn("BILIBILI_COOKIE", os.environ)
+
+    def test_cookie_is_consumed_once_with_explicit_gate(self):
+        with mock.patch.dict(
+            os.environ, {"BILIBILI_COOKIE": "SESSDATA=sentinel"}
+        ):
+            self.assertEqual(
+                _consume_bilibili_cookie(True), "SESSDATA=sentinel"
+            )
+            self.assertNotIn("BILIBILI_COOKIE", os.environ)
+
+    def test_cookie_rejects_newlines_before_any_request(self):
+        with mock.patch.dict(
+            os.environ, {"BILIBILI_COOKIE": "SESSDATA=x\nCookie:y"}
+        ):
+            with self.assertRaisesRegex(ValueError, "newline"):
+                _consume_bilibili_cookie(True)
+            self.assertNotIn("BILIBILI_COOKIE", os.environ)
 
     async def test_end_to_end_download_conversion_and_metadata(self):
         storage = self.storage()
@@ -194,6 +219,7 @@ class DownloaderTests(unittest.IsolatedAsyncioTestCase):
             output_root,
             os.path.join(downloader.DOWNLOAD_DIR, "youtube", "访谈"),
         )
+        self.assertEqual(worker.await_args.kwargs["bilibili_auth_cookie"], "")
         row = storage._get_conn().execute(
             "SELECT * FROM audio_urls WHERE url=?", (url,),
         ).fetchone()
@@ -201,6 +227,44 @@ class DownloaderTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["artifact_kind"], "video_bundle")
         self.assertEqual(row["bundle_path"], bundle)
         self.assertEqual(row["local_path"], result["local_path"])
+
+    async def test_bilibili_session_has_no_persistent_cookie_jar(self):
+        storage = self.storage()
+        url = "https://www.bilibili.com/video/BV1xx411c7mD"
+        storage.add_url(AudioRecord(
+            url=url, source="bilibili", title="Interview", file_format="mp4",
+            source_id="BV1xx411c7mD_p1", category="访谈",
+            artifact_kind="video_bundle", job_key="job", metadata_json="{}",
+        ))
+        bundle = os.path.join(
+            downloader.DOWNLOAD_DIR, "bilibili", "访谈", "BV1xx411c7mD_p1", "job"
+        )
+        result = {
+            "local_path": os.path.join(bundle, "source.mp4"),
+            "bundle_path": bundle,
+            "file_format": "mp4", "file_size": 123,
+            "content_hash": "a" * 64, "reused": False,
+        }
+
+        async def inspect_session(_item, session, _root, **_kwargs):
+            self.assertIsInstance(session.cookie_jar, aiohttp.DummyCookieJar)
+            self.assertEqual(
+                _kwargs["bilibili_auth_cookie"], "SESSDATA=sentinel"
+            )
+            return result
+
+        with mock.patch.dict(
+            os.environ, {"BILIBILI_COOKIE": "SESSDATA=sentinel"}
+        ), mock.patch(
+            "downloader.download_video_bundle", side_effect=inspect_session,
+        ):
+            stats = await Downloader(
+                storage, max_workers=1, min_disk_free_bytes=0,
+                allow_bilibili_cookie=True,
+            ).download_all(limit=1)
+            self.assertNotIn("BILIBILI_COOKIE", os.environ)
+
+        self.assertEqual(stats["success"], 1)
 
     async def test_long_batch_renews_claims_until_downloads_finish(self):
         storage = self.storage()

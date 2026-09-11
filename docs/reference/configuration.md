@@ -91,8 +91,8 @@ python main.py --source bilibili --artifact-kind video_bundle \
   --limit 1 --workers 1 --format original
 ```
 
-同一变量也适用于 `python collect.py --spiders bilibili`。它会覆盖 B站首页预热、搜索、
-稿件/分 P/字幕目录 API、字幕文件与 DASH CDN 请求；不会改变 YouTube、RSS 等其他来源，
+同一变量也适用于 `python collect.py --spiders bilibili`。它会覆盖搜索、稿件/分 P/字幕
+目录 API、字幕文件与 DASH CDN 请求；不会改变 YouTube、RSS 等其他来源，
 也不会写入数据库、sidecar 或日志。程序不会读取通用 `HTTP_PROXY`、`HTTPS_PROXY`，也
 不会启用 aiohttp 的 `trust_env`。
 
@@ -100,6 +100,11 @@ python main.py --source bilibili --artifact-kind video_bundle \
 `127.0.0.1` 和 1–65535 端口。`localhost`、远端 IP、用户名密码、末尾 `/`、路径、query、
 fragment、空白或换行都会在领取下载任务前被拒绝。域名白名单还必须由本机代理端实施；
 变量本身只是服务器 loopback 入口。不要把代理地址或 B站 Cookie 写进仓库配置文件。
+
+已授权的 `BILIBILI_COOKIE` 不是普通配置：必须同时使用 CLI 门禁
+`--allow-bilibili-cookie`。下载器只消费一次并立即从环境删除，HTTP 会话禁用响应
+CookieJar，也不做匿名首页预热；该值仅由 B站 API client 显式发送给
+`api.bilibili.com`，不会随代理转发给媒体/字幕 CDN 或子进程。
 
 ## 固定路径
 

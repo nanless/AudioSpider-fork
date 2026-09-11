@@ -186,7 +186,7 @@ async def _download_youtube(item: dict[str, Any], output_root: Path) -> dict[str
 
 async def _download_bilibili(
     item: dict[str, Any], session: Any, output_root: Path,
-    *, allow_bilibili_cookie: bool = False,
+    *, bilibili_auth_cookie: str = "",
 ) -> dict[str, Any]:
     data = _source_data(item, "bilibili")
     task = data.get("download_task")
@@ -214,13 +214,8 @@ async def _download_bilibili(
         "source_revision": task.get("source_revision", "current"),
     }
     manifest_item = validate_bilibili_manifest({"items": [raw_manifest]})[0]
-    auth_cookie = os.environ.get("BILIBILI_COOKIE", "") if allow_bilibili_cookie else ""
-    if auth_cookie and (
-        len(auth_cookie) > 16_384 or "\r" in auth_cookie or "\n" in auth_cookie
-    ):
-        raise ValueError("BILIBILI_COOKIE is too long or contains a newline")
     client = BilibiliClient(
-        session, auth_cookie=auth_cookie, proxy=get_bilibili_proxy()
+        session, auth_cookie=bilibili_auth_cookie, proxy=get_bilibili_proxy()
     )
     view = await client.view(manifest_item["bvid"])
     jobs = build_bilibili_jobs(manifest_item, view)
@@ -252,7 +247,7 @@ async def _download_bilibili(
 
 async def download_video_bundle(
     item: dict[str, Any], session: Any, output_root: Path,
-    *, allow_bilibili_cookie: bool = False,
+    *, bilibili_auth_cookie: str = "",
 ) -> dict[str, Any]:
     """Materialize one claimed video bundle below a shared source/category root."""
 
@@ -266,7 +261,7 @@ async def download_video_bundle(
             try:
                 return await _download_bilibili(
                     item, session, root,
-                    allow_bilibili_cookie=allow_bilibili_cookie,
+                    bilibili_auth_cookie=bilibili_auth_cookie,
                 )
             except Exception as exc:
                 if attempt >= BILIBILI_JOB_ATTEMPTS or not _retryable_bilibili_error(exc):

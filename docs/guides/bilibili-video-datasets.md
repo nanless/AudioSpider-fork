@@ -170,6 +170,10 @@ unset BILIBILI_COOKIE
 登录 Cookie 只允许发往 `api.bilibili.com`，不能转发给媒体 CDN、字幕 CDN、ffmpeg 或
 其他子进程。登录成功也不保证视频一定提供字幕。
 
+统一下载器会在启动时一次性消费 `BILIBILI_COOKIE` 并从环境删除；随后一批任务只共享
+内存中的已校验值。下载 HTTP 会话使用 `DummyCookieJar`，不接受平台响应的持久 Cookie，
+也不再先访问首页“预热”。这避免匿名响应字段混入或覆盖 Edge 登录态。
+
 ## 6. 字幕状态与人工/自动分类
 
 每条字幕轨必须独立记录：
