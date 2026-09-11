@@ -6,6 +6,7 @@ from __future__ import annotations
 import multiprocessing
 import os
 import queue
+import time
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,15 @@ from bilibili_visual_ocr import VisualOcrConfig
 
 
 DEFAULT_VISUAL_OCR_TIMEOUT_SECONDS = 14_400
+RESULT_POLL_SECONDS = 1.0
+
+
+def _terminate_process(process: Any) -> None:
+    process.terminate()
+    process.join(timeout=10)
+    if process.is_alive():
+        process.kill()
+        process.join(timeout=5)
 
 
 def _worker(video_path: str, config: VisualOcrConfig, result_queue: Any) -> None:
@@ -54,21 +64,34 @@ def prepare_visual_ocr_payloads_bounded(
     )
     process.start()
     try:
-        try:
-            result = result_queue.get(timeout=timeout_seconds)
-        except queue.Empty as exc:
-            process.terminate()
-            process.join(timeout=10)
-            if process.is_alive():
-                process.kill()
-                process.join(timeout=5)
-            raise TimeoutError(
-                f"visual OCR exceeded {timeout_seconds}s hard limit"
-            ) from exc
+        deadline = time.monotonic() + timeout_seconds
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                _terminate_process(process)
+                raise TimeoutError(
+                    f"visual OCR exceeded {timeout_seconds}s hard limit"
+                )
+            try:
+                result = result_queue.get(
+                    timeout=min(RESULT_POLL_SECONDS, remaining)
+                )
+                break
+            except queue.Empty as exc:
+                if process.is_alive():
+                    continue
+                process.join(timeout=1)
+                try:
+                    result = result_queue.get(timeout=RESULT_POLL_SECONDS)
+                    break
+                except queue.Empty:
+                    raise RuntimeError(
+                        "visual OCR child exited without a result: "
+                        f"exit_code={process.exitcode}"
+                    ) from exc
         process.join(timeout=10)
         if process.is_alive():
-            process.terminate()
-            process.join(timeout=5)
+            _terminate_process(process)
         if result[0] != "ok":
             raise RuntimeError(f"visual OCR child failed: {result[1]}")
         if not isinstance(result[1], dict):
