@@ -520,8 +520,9 @@ def _bbox_center_distance(first: Sequence[float], second: Sequence[float]) -> fl
 class _DetectionRun:
     first: float
     last: float
-    bboxes: list[tuple[float, float, float, float]]
-    confidences: list[float]
+    bbox_totals: tuple[float, float, float, float]
+    confidence_total: float
+    observation_count: int
     variants: Counter[str] = field(default_factory=Counter)
     variant_confidence: defaultdict[str, float] = field(
         default_factory=lambda: defaultdict(float)
@@ -529,11 +530,8 @@ class _DetectionRun:
 
     @classmethod
     def create(cls, timestamp: float, detection: OcrDetection) -> "_DetectionRun":
-        run = cls(timestamp, timestamp, [detection.bbox_norm], [detection.confidence])
+        run = cls(timestamp, timestamp, (0.0, 0.0, 0.0, 0.0), 0.0, 0)
         run.add(timestamp, detection)
-        # ``add`` appends one bbox/confidence; remove the constructor seed.
-        run.bboxes.pop(0)
-        run.confidences.pop(0)
         return run
 
     @property
@@ -548,13 +546,17 @@ class _DetectionRun:
     @property
     def bbox(self) -> tuple[float, float, float, float]:
         return tuple(
-            sum(values) / len(self.bboxes) for values in zip(*self.bboxes)
+            value / self.observation_count for value in self.bbox_totals
         )  # type: ignore[return-value]
 
     def add(self, timestamp: float, detection: OcrDetection) -> None:
         self.last = timestamp
-        self.bboxes.append(detection.bbox_norm)
-        self.confidences.append(detection.confidence)
+        self.bbox_totals = tuple(
+            total + value
+            for total, value in zip(self.bbox_totals, detection.bbox_norm)
+        )  # type: ignore[assignment]
+        self.confidence_total += detection.confidence
+        self.observation_count += 1
         self.variants[detection.text] += 1
         self.variant_confidence[detection.text] += detection.confidence
 
@@ -627,7 +629,7 @@ def merge_frame_observations(
     cues = []
     static_filtered = 0
     for run in completed:
-        if len(run.confidences) < config.min_consecutive_frames:
+        if run.observation_count < config.min_consecutive_frames:
             continue
         end = min(duration, run.last + frame_interval)
         run_duration = max(0.0, end - run.first)
@@ -645,8 +647,8 @@ def merge_frame_observations(
             start=_round_number(run.first),
             end=_round_number(end),
             text=run.text,
-            confidence=_round_number(sum(run.confidences) / len(run.confidences)),
-            observations=len(run.confidences),
+            confidence=_round_number(run.confidence_total / run.observation_count),
+            observations=run.observation_count,
             bbox_norm=tuple(_round_number(value) for value in run.bbox),
         )
         cues.append(cue)

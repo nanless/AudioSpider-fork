@@ -188,6 +188,18 @@ class EnvironmentAndFfmpegTests(unittest.TestCase):
 
 
 class ObservationAndMergeTests(unittest.TestCase):
+    def test_detection_run_keeps_constant_size_aggregates(self):
+        run = visual._DetectionRun.create(0.0, detection(confidence=0.8))
+        for index in range(1, 10_000):
+            run.add(float(index), detection(confidence=1.0))
+
+        self.assertEqual(run.observation_count, 10_000)
+        self.assertAlmostEqual(run.confidence_total, 9_999.8)
+        for observed, expected in zip(run.bbox, BBOX):
+            self.assertAlmostEqual(observed, expected)
+        self.assertFalse(hasattr(run, "bboxes"))
+        self.assertFalse(hasattr(run, "confidences"))
+
     def test_observe_frames_filters_low_confidence_and_sorts_detections(self):
         frames = [visual.SampledFrame(0, 0.0, minimal_png())]
         engine = visual.CallableOcrEngine(
