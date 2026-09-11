@@ -52,6 +52,7 @@ class CaptionBackfillTests(unittest.TestCase):
         self.assertFalse(args.allow_bilibili_cookie)
         self.assertFalse(args.retry_invalid_timeline)
         self.assertFalse(args.visual_ocr)
+        self.assertFalse(args.refresh_visual_ocr)
         self.assertEqual(args.job_key, [])
         self.assertEqual(args.ocr_engine, "paddle")
         self.assertEqual(args.ocr_sample_fps, 4.0)
@@ -261,6 +262,41 @@ class CaptionBackfillTests(unittest.TestCase):
                 )
         self.assertEqual(default, [])
         self.assertEqual(len(explicit), 1)
+
+    def test_visual_ocr_discovery_skips_existing_result_unless_refreshed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = (
+                root / "downloads" / "bilibili" / "访谈" / "BV1xx411c7mD_p1"
+                / "BV1xx411c7mD-p1-c1-test"
+            )
+            bundle.mkdir(parents=True)
+            (bundle / "metadata.json").write_text("{}", encoding="utf-8")
+            db_path, _ = self._database_row(root, bundle)
+            metadata = {
+                "job_key": bundle.name,
+                "source_id": bundle.parent.name,
+                "caption": {"status": "not_provided_publicly"},
+                "derived_text": {
+                    "visual_ocr": {"status": "downloaded"},
+                },
+            }
+            audit = {}
+            with mock.patch.object(
+                backfill, "validate_bundle", return_value={"metadata": metadata}
+            ):
+                skipped = backfill.discover_candidates(
+                    db_path, root / "downloads", 10,
+                    skip_existing_visual_ocr=True,
+                    audit=audit,
+                )
+                refreshed = backfill.discover_candidates(
+                    db_path, root / "downloads", 10,
+                    skip_existing_visual_ocr=False,
+                )
+        self.assertEqual(skipped, [])
+        self.assertEqual(audit["already_visual_ocr"], 1)
+        self.assertEqual(len(refreshed), 1)
 
     def test_discovery_can_filter_one_exact_job_key(self):
         with tempfile.TemporaryDirectory() as temporary:

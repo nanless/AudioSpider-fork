@@ -216,7 +216,9 @@ SQLite 或 sidecar，也不得转发给媒体/字幕 CDN。字幕必需性、分
 对统一下载树中已 `done` 的 B 站 bundle 执行字幕-only 回填。默认 dry-run；
 只有显式 `--apply` 才会在 SQLite 备份、精确 job lock 和事务回滚保护下写字幕/
 sidecar/DB 闭包指纹。工具不下载或改写 MP4/WAV。
-文件恢复和 SQLite 回滚可覆盖可捕获异常，但不能承诺 `SIGKILL`/断电时的跨文件系统与数据库原子性。
+写入前会在 `downloads/bilibili/.caption-backfill-journal/` 建立持久修复日志；若遇到
+`SIGKILL` 或断电，下次 `--apply` 会依据 SQLite 的提交前指纹和当前 bundle 闭包自动
+回滚或完成清理。底层存储介质损坏仍不在软件事务的保证范围内。
 旧 sidecar 若把 `requested_languages` 留为空数组，会按
 `content_language` 重建同语言候选，避免误选其他语言字幕。失败报告只输出
 `phase`/`reason` 等固定诊断码，不回显平台 URL、查询串或登录信息。
@@ -236,6 +238,7 @@ python scripts/audit_media_queue.py
 | 参数 | 规则 |
 |---|---|
 | `--visual-ocr` | 仅在同语言平台轨不可用时尝试本地烧录字幕 OCR |
+| `--refresh-visual-ocr` | 与 `--visual-ocr` 同用，显式重做已有 OCR；默认幂等跳过已有成功/无稳定文本结果 |
 | `--job-key` | 只处理完全匹配的一个任务，可重复传入；推荐用它做金丝雀测试 |
 | `--apply` | 唯一写入门禁；与平台回填共享 backup、job lock、rollback 和 CAS |
 | `--allow-bilibili-cookie` | 只授权平台 API 重查；构造 API client 后即从环境移除，OCR 不接收 Cookie |

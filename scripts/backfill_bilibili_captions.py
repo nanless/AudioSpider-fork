@@ -213,6 +213,13 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--refresh-visual-ocr", action="store_true",
+        help=(
+            "显式重做已有视觉 OCR；默认会跳过 status=downloaded/"
+            "no_stable_text_detected 的完整 OCR sidecar"
+        ),
+    )
+    parser.add_argument(
         "--ocr-engine", choices=("paddle",), default="paddle",
         help="--visual-ocr 的 OCR 后端（当前仅支持 paddle）",
     )
@@ -282,6 +289,7 @@ def bundle_fingerprint(bundle: Path) -> tuple[int, str]:
 def discover_candidates(
     db_path: Path, download_root: Path, limit: int,
     *, include_invalid_timeline: bool = False,
+    skip_existing_visual_ocr: bool = False,
     job_keys: set[str] | None = None,
     audit: dict[str, int] | None = None,
 ) -> list[dict[str, Any]]:
@@ -302,6 +310,7 @@ def discover_candidates(
         "done_rows_scanned": len(rows),
         "requested_rows_matched": 0,
         "already_captioned": 0,
+        "already_visual_ocr": 0,
         "skipped_path_or_sidecar": 0,
         "skipped_invalid_bundle": 0,
         "skipped_database_identity": 0,
@@ -329,6 +338,17 @@ def discover_candidates(
         )
         if caption_status not in refreshable:
             counters["already_captioned"] += 1
+            continue
+        visual_ocr_status = str(
+            (((metadata.get("derived_text") or {}).get("visual_ocr") or {}).get(
+                "status"
+            )) or ""
+        )
+        if (
+            skip_existing_visual_ocr
+            and visual_ocr_status in {"downloaded", "no_stable_text_detected"}
+        ):
+            counters["already_visual_ocr"] += 1
             continue
         old_file_size = row["file_size"]
         old_content_hash = row["content_hash"]
@@ -1173,6 +1193,8 @@ async def repair_candidate(
 
 
 async def async_main(args: argparse.Namespace) -> int:
+    if args.refresh_visual_ocr and not args.visual_ocr:
+        raise ValueError("--refresh-visual-ocr requires --visual-ocr")
     recovered = (
         recover_interrupted_repairs(args.db, args.downloads)
         if args.apply else []
@@ -1181,6 +1203,9 @@ async def async_main(args: argparse.Namespace) -> int:
     candidates = discover_candidates(
         args.db, args.downloads, args.limit,
         include_invalid_timeline=args.retry_invalid_timeline,
+        skip_existing_visual_ocr=(
+            args.visual_ocr and not args.refresh_visual_ocr
+        ),
         job_keys=set(args.job_key) if args.job_key else None,
         audit=discovery,
     )
