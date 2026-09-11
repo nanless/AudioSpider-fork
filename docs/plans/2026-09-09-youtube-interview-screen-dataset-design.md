@@ -1,5 +1,9 @@
 # YouTube 长访谈与影视短片数据集设计
 
+> **历史文档，已废弃。** 这里的 standalone/自动 clip 方案不得用于新任务。当前只通过
+> `collect.py -> audiospider.db -> main.py -> downloads/youtube/...` 下载完整母视频；见
+> [统一下载指南](../DOWNLOAD-GUIDE.md)。
+
 ## 目标
 
 在不改变现有 `audio_urls` 音频下载队列语义的前提下，新增一条可复现、可审计的 YouTube 数据集流水线：

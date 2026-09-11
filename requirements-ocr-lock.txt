@@ -1,0 +1,6 @@
+# PaddlePaddle GPU is installed separately from its official CUDA 11.8 index
+# by scripts/bootstrap_ocr_conda.sh.
+paddleocr==3.7.0
+paddlex==3.7.2
+opencv-contrib-python==4.10.0.84
+numpy==2.3.5

@@ -248,6 +248,11 @@ class BilibiliMetadataTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(task["parts"], [2])
         self.assertEqual(task["caption_policy"]["mode"], "all_matching_public_tracks")
         self.assertFalse(task["caption_policy"]["require_caption"])
+        self.assertFalse(task["caption_policy"]["visual_ocr_fallback"])
+        self.assertEqual(
+            task["caption_policy"]["visual_ocr_profile"],
+            "bilibili-visual-ocr-zh-v1",
+        )
         self.assertEqual(task["rights"]["status"], "needs_review")
         self.assertEqual(task["ai_generation"]["status"], "unknown")
         self.assertIsNone(task["speaker_count"])

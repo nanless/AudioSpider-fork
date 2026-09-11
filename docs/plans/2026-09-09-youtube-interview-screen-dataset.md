@@ -1,5 +1,9 @@
 # YouTube Interview and Screen Dataset Implementation Plan
 
+> **Historical and superseded.** Do not execute the standalone/automatic-clip
+> workflow below. Current jobs use the unified SQLite pipeline and retain full
+> parent videos; see [the unified download guide](../DOWNLOAD-GUIDE.md).
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add a reproducible, auditable YouTube pipeline for long interview videos and caption-aligned film/TV-style short clips, then download and validate a real sample batch.

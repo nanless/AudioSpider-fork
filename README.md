@@ -77,6 +77,9 @@ python main.py --limit 5000 --workers 4 --format original --background all
   `unknown/platform_unknown` 分类；字幕来源不能推导媒体是否 AI 生成。
 - 字幕语言必须与内容语言同族；中文/粤语视频不能用英文字幕兜底。
 - B站匿名响应要求登录时保存 `auth_required`，不伪装成“无字幕”。
+- B站没有可用的同语言平台轨时，可显式启用**画面字幕 OCR**：它从已经下载的
+  `source.mp4` 像素中识别烧录字幕，仍写回同一个 bundle 和 SQLite 闭包，不另建队列或
+  `datasets/` 根目录。OCR 结果必须标成 `visual_ocr`，不能冒充平台人工/自动字幕。
 
 正式操作示例：
 
@@ -84,6 +87,11 @@ python main.py --limit 5000 --workers 4 --format original --background all
 # B站：按 config.py 的有界搜索配置采集完整分P任务，再下载一条
 python collect.py --spiders bilibili
 python main.py --source bilibili --artifact-kind video_bundle --limit 1 --workers 1 --format original
+
+# 可选：先预览一条已完成 B站 bundle 的平台字幕/OCR 回填，再显式写入
+bash scripts/bootstrap_ocr_conda.sh
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr --apply
 
 # YouTube：默认读取 config/youtube_sources.initial.json；先限制一条
 AUDIOSPIDER_YOUTUBE_MAX_ITEMS=1 python collect.py --spiders youtube
@@ -93,6 +101,13 @@ python main.py --source youtube --artifact-kind video_bundle --limit 1 --workers
 `--format` 只控制普通音频；视频包始终保存 MP4 和 WAV。`bilibili_dataset.py`、
 `youtube_dataset.py` 保留为兼容、修复和审计工具，不是新手正式下载入口。完整流程见
 [统一下载指南](docs/DOWNLOAD-GUIDE.md)和[统一媒体架构](docs/architecture.md)。
+
+上述回填命令的参数以当前部署的
+`python scripts/backfill_bilibili_captions.py --help` 为准。视觉 OCR 不需要 Cookie；只有
+重查受登录保护的平台字幕清单时，才在用户明确授权后使用
+`--allow-bilibili-cookie`。即使使用用户当前 Edge 的 B站登录态，也只能最小化提取、经
+stdin/一次性内存桥注入并只发往 `api.bilibili.com`，不得复制浏览器 profile 或把 Cookie
+写进命令行、聊天、日志、SQLite、sidecar、下载目录或 Git。
 
 旧 standalone bundle 可先运行 `python scripts/migrate_video_bundles.py` 做默认 dry-run；
 确认报告后再显式加 `--apply`。apply 会先备份 SQLite，再移动、复验和登记 bundle。
@@ -311,6 +326,9 @@ downloads/
 │   └── 访谈/<source-id>/<job-key>/
 │       ├── source.mp4
 │       ├── audio.wav
+│       ├── captions.*.json/.vtt/.txt  # 平台字幕；条件存在
+│       ├── captions.*.rejected.json   # 错配轨道隔离证据；条件存在
+│       ├── visual_ocr.json/.vtt/.txt  # 视觉 OCR；无稳定 cue 时仅 JSON
 │       └── metadata.json
 ├── youtube/                # 完整母视频，不默认 clip
 │   └── 访谈/<source-id>/<job-key>/
@@ -397,6 +415,12 @@ JSON 元信息包含：
 | YouTube | 完整母视频 bundle + 训练 WAV + 同语言平台字幕 | 网络可达性、字幕缺失、版权和大文件风险 |
 
 外部站点随时可能修改页面、字段、签名或访问规则。探针失败不一定是代码崩溃，也可能是网络、地区、风控或服务条款限制。
+
+视觉 OCR 的真实边界：它只能读到视频帧里实际可见的字，不能恢复关闭的 CC；小字、模糊、
+动画、遮挡、竖排、花字和场景文字都可能漏检或误报。平台 `manual` 只是平台轨证据，平台
+`automatic` 是平台自动轨；`visual_ocr` 则是本地自动提取，字幕原本由谁制作通常未知。
+OCR 文档固定标为 `human_review_status=unreviewed`；跨帧一致性、置信度和静态覆盖层过滤只是
+技术筛选，不等于人工验真。正式数据仍须按时间轴、误报率和人工抽检质量门验收。
 
 ## 8. 配置
 

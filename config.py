@@ -37,6 +37,18 @@ def _csv_env(name: str, default: list[str]) -> list[str]:
     return values
 
 
+def _bool_env(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be one of 1/0, true/false, yes/no, on/off")
+
+
 MAX_CONCURRENT_DOWNLOADS = 4
 MAX_CONCURRENT_SPIDERS = 3
 DOWNLOAD_TIMEOUT = 600
@@ -158,6 +170,16 @@ SPIDER_CONFIGS = {
     },
     "bilibili": {
         "enabled": True,
+        # 平台字幕缺失时，可在同一 bundle 内从画面像素自动提取文字。
+        # 默认关闭：启用后必须用 audiospider-ocr 环境运行下载 worker。
+        # 这只控制新采集任务；旧 bundle 必须用有边界的 backfill 命令。
+        "visual_ocr_fallback": _bool_env(
+            "AUDIOSPIDER_BILIBILI_VISUAL_OCR_FALLBACK", False
+        ),
+        "visual_ocr_profile": os.environ.get(
+            "AUDIOSPIDER_BILIBILI_VISUAL_OCR_PROFILE",
+            "bilibili-visual-ocr-zh-v1",
+        ).strip(),
         # 当前受控搜索清单面向中文语音；改抓英文时必须显式改为 en。
         "content_language": os.environ.get(
             "AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE", "zh"

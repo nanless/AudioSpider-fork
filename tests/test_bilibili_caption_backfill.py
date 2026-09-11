@@ -2,7 +2,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest import mock
@@ -51,6 +51,30 @@ class CaptionBackfillTests(unittest.TestCase):
         self.assertFalse(args.apply)
         self.assertFalse(args.allow_bilibili_cookie)
         self.assertFalse(args.retry_invalid_timeline)
+        self.assertFalse(args.visual_ocr)
+        self.assertEqual(args.job_key, [])
+        self.assertEqual(args.ocr_engine, "paddle")
+        self.assertEqual(args.ocr_sample_fps, 4.0)
+        self.assertEqual(args.ocr_region, (0.0, 0.5, 1.0, 1.0))
+        self.assertEqual(args.ocr_min_confidence, 0.80)
+
+    def test_parser_accepts_repeatable_exact_job_keys(self):
+        args = backfill.build_parser().parse_args([
+            "--job-key", "first", "--job-key", "second",
+        ])
+        self.assertEqual(args.job_key, ["first", "second"])
+
+    def test_visual_ocr_cli_config_is_explicit_and_validated(self):
+        args = backfill.build_parser().parse_args([
+            "--visual-ocr", "--ocr-engine", "paddle",
+            "--ocr-sample-fps", "2", "--ocr-region", "0.1,0.7,0.9,0.98",
+            "--ocr-min-confidence", "0.9", "--ocr-profile", "sample-v2",
+        ])
+        self.assertTrue(args.visual_ocr)
+        self.assertFalse(args.apply)
+        self.assertEqual(args.ocr_region, (0.1, 0.7, 0.9, 0.98))
+        with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
+            backfill.build_parser().parse_args(["--ocr-region", "0,1,1,0"])
 
     def test_old_empty_requested_languages_fall_back_to_content_language(self):
         job = backfill._job_from_metadata({
@@ -151,7 +175,38 @@ class CaptionBackfillTests(unittest.TestCase):
         client.assert_not_called()
         report = json.loads(output.getvalue())
         self.assertEqual(report["mode"], "dry-run")
+        self.assertFalse(report["visual_ocr_enabled"])
         self.assertEqual(report["candidates"][0]["bundle_path"], str(candidate["bundle"]))
+
+    def test_visual_ocr_dry_run_constructs_neither_network_nor_engine(self):
+        args = backfill.build_parser().parse_args(["--visual-ocr"])
+        candidate = {
+            "id": 1, "source_id": "BV1xx411c7mD_p1", "job_key": "job",
+            "bundle": Path("/data/downloads/bilibili/访谈/BV1xx411c7mD_p1/job"),
+            "_bundle_path_db": "/data/ignored", "_old_file_size": 12,
+            "_old_content_hash": "a" * 64, "caption_status": "unknown",
+        }
+        with mock.patch.object(backfill, "discover_candidates", return_value=[candidate]), \
+             mock.patch.object(backfill, "BilibiliClient") as client, \
+             mock.patch.object(backfill, "_create_visual_ocr_engine") as engine, \
+             redirect_stdout(StringIO()) as output:
+            result = __import__("asyncio").run(backfill.async_main(args))
+        self.assertEqual(result, 0)
+        client.assert_not_called()
+        engine.assert_not_called()
+        report = json.loads(output.getvalue())
+        self.assertTrue(report["visual_ocr_enabled"])
+
+    def test_exact_job_key_not_eligible_is_a_nonzero_dry_run(self):
+        args = backfill.build_parser().parse_args([
+            "--job-key", "missing-job",
+        ])
+        with mock.patch.object(backfill, "discover_candidates", return_value=[]), \
+             redirect_stdout(StringIO()) as output:
+            result = __import__("asyncio").run(backfill.async_main(args))
+        self.assertEqual(result, 2)
+        report = json.loads(output.getvalue())
+        self.assertEqual(report["requested_job_keys_not_eligible"], ["missing-job"])
 
     def test_discovery_requires_exact_done_integrated_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -207,6 +262,35 @@ class CaptionBackfillTests(unittest.TestCase):
         self.assertEqual(default, [])
         self.assertEqual(len(explicit), 1)
 
+    def test_discovery_can_filter_one_exact_job_key(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = (
+                root / "downloads" / "bilibili" / "访谈" / "BV1xx411c7mD_p1"
+                / "BV1xx411c7mD-p1-c1-test"
+            )
+            bundle.mkdir(parents=True)
+            (bundle / "metadata.json").write_text("{}", encoding="utf-8")
+            db_path, _ = self._database_row(root, bundle)
+            metadata = {
+                "job_key": bundle.name,
+                "source_id": bundle.parent.name,
+                "caption": {"status": "invalid_track_inventory"},
+            }
+            with mock.patch.object(
+                backfill, "validate_bundle", return_value={"metadata": metadata}
+            ):
+                selected = backfill.discover_candidates(
+                    db_path, root / "downloads", 10,
+                    job_keys={bundle.name},
+                )
+                omitted = backfill.discover_candidates(
+                    db_path, root / "downloads", 10,
+                    job_keys={"some-other-job"},
+                )
+        self.assertEqual([row["job_key"] for row in selected], [bundle.name])
+        self.assertEqual(omitted, [])
+
     def test_pre_mutation_rejects_disk_closure_mismatch(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -248,6 +332,48 @@ class CaptionBackfillTests(unittest.TestCase):
                  ):
                 with self.assertRaises(RuntimeError):
                     backfill._verify_pre_mutation(db_path, candidate)
+
+    def test_interrupted_precommit_journal_rolls_bundle_back_exactly(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = (
+                root / "downloads/bilibili/访谈/BV1xx411c7mD_p1"
+                / "BV1xx411c7mD-p1-c1-test"
+            )
+            bundle.mkdir(parents=True)
+            old_asset = bundle / "captions.old.txt"
+            old_asset.write_bytes(b"old-caption")
+            original_sidecar = b'{"original":true}\n'
+            sidecar = bundle / "metadata.json"
+            sidecar.write_bytes(original_sidecar)
+            db_path, row_id = self._database_row(root, bundle)
+            candidate = self._candidate(bundle, row_id)
+            stage = root / "stage"
+            stage.mkdir()
+            new_asset = stage / "captions.new.txt"
+            new_asset.write_bytes(b"new-caption")
+            journal_dir = backfill._journal_directory(bundle, candidate["job_key"])
+            journal = backfill._write_repair_journal(
+                journal_dir, candidate, sidecar,
+                [(old_asset.name, old_asset)], [new_asset],
+            )
+            backup = journal_dir / journal["old_assets"][0]["backup"]
+            old_asset.replace(backup)
+            (bundle / new_asset.name).write_bytes(new_asset.read_bytes())
+            sidecar.write_bytes(b'{"half_applied":true}\n')
+            with mock.patch.object(backfill, "validate_bundle", return_value={}), \
+                 mock.patch.object(
+                     backfill, "bundle_fingerprint",
+                     return_value=(12, "a" * 64),
+                 ):
+                result = backfill._recover_one_journal(
+                    db_path, root / "downloads", journal_dir
+                )
+            self.assertEqual(result["action"], "rolled_back")
+            self.assertEqual(old_asset.read_bytes(), b"old-caption")
+            self.assertFalse((bundle / new_asset.name).exists())
+            self.assertEqual(sidecar.read_bytes(), original_sidecar)
+            self.assertFalse(journal_dir.exists())
 
     def test_network_phase_disk_drift_is_rejected_before_first_move(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -580,7 +706,12 @@ class CaptionBackfillTests(unittest.TestCase):
                     "audio": {"path": "audio.wav"},
                     "caption_rejected_0_json": {"path": name},
                 },
-                "caption": {},
+                "caption": {
+                    "tracks": [],
+                    "rejected_tracks": [{
+                        "files": {"json": "caption_rejected_0_json"}
+                    }],
+                },
             }
             rejected = [{
                 "index": 0, "paths": {"json": replacement},
@@ -623,7 +754,12 @@ class CaptionBackfillTests(unittest.TestCase):
                     "audio": {"path": "audio.wav"},
                     "caption_rejected_0_json": {"path": name},
                 },
-                "caption": {},
+                "caption": {
+                    "tracks": [],
+                    "rejected_tracks": [{
+                        "files": {"json": "caption_rejected_0_json"}
+                    }],
+                },
             }
             rejected = [{
                 "index": 0, "paths": {"json": replacement},
@@ -762,6 +898,215 @@ class CaptionBackfillTests(unittest.TestCase):
             )
         self.assertEqual(persisted["caption"]["tracks"], [])
         self.assertEqual(persisted["caption"]["track_count"], 0)
+
+    def test_platform_refresh_removes_only_caption_namespace(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = root / "downloads/bilibili/访谈/BV1xx411c7mD_p1/BV1xx411c7mD-p1-c1-test"
+            bundle.mkdir(parents=True)
+            for name, data in {
+                "source.mp4": b"video", "audio.wav": b"audio",
+                "captions.old.txt": b"old-caption",
+                "visual_ocr.json": b"visual", "future.asset": b"future",
+            }.items():
+                (bundle / name).write_bytes(data)
+            (bundle / "metadata.json").write_text("{}\n", encoding="utf-8")
+            db_path, row_id = self._database_row(root, bundle)
+            stage = root / "stage"
+            stage.mkdir()
+            replacement = stage / "captions.zh.manual.new.txt"
+            replacement.write_bytes(b"new-caption")
+            metadata = {
+                "files": {
+                    "video": {"path": "source.mp4"},
+                    "audio": {"path": "audio.wav"},
+                    "caption_0_txt": {"path": "captions.old.txt"},
+                    "visual_ocr_json": {"path": "visual_ocr.json"},
+                    "future_derivation": {"path": "future.asset"},
+                },
+                "caption": {
+                    "tracks": [{"files": {"txt": "caption_0_txt"}}],
+                },
+                "derived_text": {"visual_ocr": {
+                    "sentinel": True,
+                    "files": {"json": "visual_ocr_json"},
+                }},
+            }
+            prepared = [{
+                "index": 0, "paths": {"txt": replacement},
+                "track": {"id_str": "new", "language": "zh"},
+            }]
+            with mock.patch.object(backfill, "_verify_pre_mutation", return_value={}), \
+                 mock.patch.object(backfill, "validate_bundle", return_value={}), \
+                 mock.patch.object(
+                     backfill, "bundle_fingerprint", return_value=(100, "new-hash")
+                 ):
+                backfill._commit_sidecar_and_database(
+                    db_path, self._candidate(bundle, row_id), metadata, prepared
+                )
+            persisted = json.loads(
+                (bundle / "metadata.json").read_text(encoding="utf-8")
+            )
+            self.assertFalse((bundle / "captions.old.txt").exists())
+            self.assertEqual((bundle / "visual_ocr.json").read_bytes(), b"visual")
+            self.assertEqual((bundle / "future.asset").read_bytes(), b"future")
+            self.assertIn("visual_ocr_json", persisted["files"])
+            self.assertIn("future_derivation", persisted["files"])
+
+    def test_platform_caption_prevents_engine_construction(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            bundle = Path(temporary) / "downloads/bilibili/访谈/source/job"
+            bundle.mkdir(parents=True)
+            metadata = {
+                "bvid": "BV1xx411c7mD", "cid": 1,
+                "content_language": "zh", "files": {},
+                "media": {"duration_seconds": 10.0},
+                "caption": {"requested_languages": ["zh"]},
+                "acquisition_policy": {"require_caption": False},
+            }
+            prepared = [{"index": 0, "paths": {}, "track": {}}]
+            client = mock.Mock(authenticated=False)
+            factory = mock.Mock()
+
+            def commit(_db, _candidate, committed, accepted, _rejected,
+                       *, visual_ocr=None):
+                committed["caption"].update({"tracks": [], "track_count": 1})
+                self.assertIsNone(visual_ocr)
+                return 200, "hash"
+
+            with mock.patch.object(
+                backfill, "_verify_pre_mutation", return_value={"metadata": metadata}
+            ), mock.patch.object(
+                backfill, "resolve_caption_inventory",
+                mock.AsyncMock(return_value=(
+                    {"need_login_subtitle": False}, [{"language": "zh"}],
+                    "downloaded", [{"attempt": 1}],
+                )),
+            ), mock.patch.object(
+                backfill, "_prepare_captions",
+                mock.AsyncMock(return_value=(prepared, [])),
+            ), mock.patch.object(
+                backfill, "_commit_sidecar_and_database", side_effect=commit
+            ):
+                __import__("asyncio").run(backfill.repair_candidate(
+                    client, Path(temporary) / "db", self._candidate(bundle, 1),
+                    enable_visual_ocr=True, visual_ocr_config=mock.sentinel.config,
+                    visual_ocr_engine_factory=factory,
+                ))
+            factory.assert_not_called()
+
+    def test_missing_platform_caption_uses_mock_engine_and_ocr(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            bundle = Path(temporary) / "downloads/bilibili/访谈/source/job"
+            bundle.mkdir(parents=True)
+            metadata = {
+                "bvid": "BV1xx411c7mD", "cid": 1,
+                "content_language": "zh", "files": {},
+                "media": {"duration_seconds": 10.0},
+                "caption": {"requested_languages": ["zh"]},
+                "acquisition_policy": {"require_caption": False},
+            }
+            ocr_result = {
+                "document": {
+                    "status": "downloaded", "profile": "test-profile",
+                    "cue_count": 1, "cues": [], "text_source": "visual_ocr",
+                },
+                "payloads": {"vtt": "WEBVTT\n\n", "txt": "你好\n"},
+            }
+            client = mock.Mock(authenticated=False)
+            engine = mock.sentinel.engine
+            factory = mock.Mock(return_value=engine)
+            captured = {}
+
+            def commit(_db, _candidate, committed, accepted, rejected,
+                       *, visual_ocr=None):
+                committed["caption"].update({"tracks": [], "track_count": 0})
+                committed["derived_text"] = {"visual_ocr": {"status": "downloaded"}}
+                captured["visual_ocr"] = visual_ocr
+                return 201, "hash"
+
+            with mock.patch.object(
+                backfill, "_verify_pre_mutation", return_value={"metadata": metadata}
+            ), mock.patch.object(
+                backfill, "resolve_caption_inventory",
+                mock.AsyncMock(return_value=(
+                    {"need_login_subtitle": False}, [], "not_provided_publicly",
+                    [{"attempt": 1}],
+                )),
+            ), mock.patch.object(
+                backfill, "_prepare_captions", mock.AsyncMock(return_value=([], [])),
+            ), mock.patch.object(
+                backfill, "_prepare_visual_ocr", return_value=ocr_result
+            ) as visual, mock.patch.object(
+                backfill, "_commit_sidecar_and_database", side_effect=commit
+            ):
+                result = __import__("asyncio").run(backfill.repair_candidate(
+                    client, Path(temporary) / "db", self._candidate(bundle, 1),
+                    enable_visual_ocr=True, visual_ocr_config=mock.sentinel.config,
+                    visual_ocr_engine_factory=factory,
+                ))
+            factory.assert_called_once_with()
+            visual.assert_called_once_with(
+                bundle / "source.mp4", config=mock.sentinel.config, engine=engine,
+                timeout_seconds=14_400,
+            )
+            self.assertEqual(captured["visual_ocr"]["document"],
+                             ocr_result["document"])
+            self.assertEqual(result["visual_ocr_status"], "downloaded")
+
+    def test_visual_ocr_failure_restores_previous_namespace(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bundle = root / "downloads/bilibili/访谈/BV1xx411c7mD_p1/BV1xx411c7mD-p1-c1-test"
+            bundle.mkdir(parents=True)
+            for name, data in {
+                "source.mp4": b"video", "audio.wav": b"audio",
+                "visual_ocr.json": b"old-visual",
+            }.items():
+                (bundle / name).write_bytes(data)
+            original = b'{"original":true}\n'
+            (bundle / "metadata.json").write_bytes(original)
+            db_path, row_id = self._database_row(root, bundle)
+            stage = root / "stage"
+            stage.mkdir()
+            new_visual = stage / "visual_ocr.json"
+            new_visual.write_bytes(b"new-visual")
+            metadata = {
+                "files": {
+                    "video": {"path": "source.mp4"},
+                    "audio": {"path": "audio.wav"},
+                    "visual_ocr_json": {"path": "visual_ocr.json"},
+                },
+                "caption": {}, "acquisition_policy": {},
+                "derived_text": {"visual_ocr": {
+                    "status": "downloaded",
+                    "files": {"json": "visual_ocr_json"},
+                }},
+            }
+            with mock.patch.object(backfill, "_verify_pre_mutation", return_value={}), \
+                 mock.patch.object(
+                     backfill, "validate_bundle",
+                     side_effect=[ValueError("synthetic failure"), {}],
+                 ), mock.patch.object(
+                     backfill, "bundle_fingerprint", return_value=(102, "hash")
+                 ):
+                with self.assertRaises(ValueError):
+                    backfill._commit_sidecar_and_database(
+                        db_path, self._candidate(bundle, row_id), metadata, [],
+                        visual_ocr={
+                            "document": {
+                                "status": "no_stable_text_detected",
+                                "profile": "test-profile",
+                            },
+                            "paths": {"json": new_visual},
+                        },
+                    )
+            self.assertEqual((bundle / "visual_ocr.json").read_bytes(), b"old-visual")
+            self.assertEqual((bundle / "metadata.json").read_bytes(), original)
+            row = sqlite3.connect(db_path).execute(
+                "SELECT file_size, content_hash FROM audio_urls WHERE id=?", (row_id,)
+            ).fetchone()
+        self.assertEqual(row, (12, "a" * 64))
 
 
 if __name__ == "__main__":

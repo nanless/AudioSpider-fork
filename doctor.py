@@ -198,8 +198,63 @@ def check_database(db_path: Path) -> dict:
         )
 
 
-def collect_checks(db_path: Path, download_dir: Path) -> list[dict]:
-    return [
+def default_ocr_python() -> Path:
+    configured = os.environ.get("AUDIOSPIDER_VISUAL_OCR_PYTHON")
+    if configured:
+        return Path(configured).expanduser()
+    executable = Path(sys.executable).resolve()
+    if executable.parent.name == "bin" and executable.parents[1].parent.name == "envs":
+        return executable.parents[1].parent / "audiospider-ocr" / "bin" / "python"
+    return executable
+
+
+def check_visual_ocr(python: Path | None = None) -> dict:
+    executable = Path(python or default_ocr_python()).resolve()
+    if not executable.is_file():
+        return make_result(
+            "visual_ocr", "error", f"OCR Python 不存在：{executable}",
+            executable=str(executable),
+        )
+    probe = (
+        "import json,cv2,numpy,paddle,paddleocr;"
+        "print(json.dumps({'paddle':paddle.__version__,"
+        "'paddleocr':paddleocr.__version__,'opencv':cv2.__version__,"
+        "'cuda':bool(paddle.is_compiled_with_cuda()),"
+        "'device':paddle.device.get_device()}))"
+    )
+    environment = dict(os.environ)
+    for name in list(environment):
+        upper = name.upper()
+        if any(marker in upper for marker in (
+            "COOKIE", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL", "PROXY",
+        )):
+            environment.pop(name, None)
+    try:
+        result = subprocess.run(
+            [str(executable), "-c", probe], capture_output=True, text=True,
+            timeout=60, env=environment,
+        )
+        details = json.loads(result.stdout.strip()) if result.returncode == 0 else {}
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
+        return make_result(
+            "visual_ocr", "error", f"OCR 环境检查失败：{exc}",
+            executable=str(executable),
+        )
+    if result.returncode != 0 or not details.get("cuda"):
+        return make_result(
+            "visual_ocr", "error", "OCR 依赖不完整或 Paddle 未启用 CUDA",
+            executable=str(executable), versions=details,
+        )
+    return make_result(
+        "visual_ocr", "ok", f"PaddleOCR {details['paddleocr']}，设备 {details['device']}",
+        executable=str(executable), versions=details,
+    )
+
+
+def collect_checks(
+    db_path: Path, download_dir: Path, *, include_visual_ocr: bool = False,
+) -> list[dict]:
+    checks = [
         check_python(),
         check_packages(),
         check_ffmpeg(),
@@ -207,6 +262,9 @@ def collect_checks(db_path: Path, download_dir: Path) -> list[dict]:
         check_disk(download_dir),
         check_database(db_path),
     ]
+    if include_visual_ocr:
+        checks.append(check_visual_ocr())
+    return checks
 
 
 def print_human(checks: list[dict]) -> None:
@@ -228,9 +286,15 @@ def main() -> int:
     parser.add_argument("--strict", action="store_true", help="将提醒也视为失败")
     parser.add_argument("--db", type=Path, default=BASE_DIR / "audiospider.db")
     parser.add_argument("--download-dir", type=Path, default=BASE_DIR / "downloads")
+    parser.add_argument(
+        "--ocr", action="store_true",
+        help="额外检查隔离的 audiospider-ocr GPU 环境",
+    )
     args = parser.parse_args()
 
-    checks = collect_checks(args.db, args.download_dir)
+    checks = collect_checks(
+        args.db, args.download_dir, include_visual_ocr=args.ocr
+    )
     if args.json:
         print(json.dumps({"checks": checks}, ensure_ascii=False, indent=2))
     else:

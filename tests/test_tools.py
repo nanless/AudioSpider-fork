@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 import doctor
 import probe
@@ -50,6 +51,27 @@ class DoctorTests(unittest.TestCase):
             else:
                 os.environ["AUDIOSPIDER_MIN_DISK_FREE_BYTES"] = previous
         self.assertEqual(check["status"], "error")
+
+    def test_visual_ocr_check_reports_cuda_environment_without_credentials(self):
+        completed = mock.Mock(
+            returncode=0,
+            stdout=(
+                '{"paddle":"3.3.0","paddleocr":"3.7.0",'
+                '"opencv":"4.12.0","cuda":true,"device":"gpu:0"}\n'
+            ),
+        )
+        with tempfile.TemporaryDirectory() as root:
+            executable = Path(root) / "python"
+            executable.write_text("", encoding="utf-8")
+            with mock.patch.dict(
+                os.environ, {"BILIBILI_COOKIE": "secret"}
+            ), mock.patch(
+                "doctor.subprocess.run", return_value=completed
+            ) as run:
+                check = doctor.check_visual_ocr(executable)
+        self.assertEqual(check["status"], "ok")
+        environment = run.call_args.kwargs["env"]
+        self.assertNotIn("BILIBILI_COOKIE", environment)
 
 
 class ProbeTests(unittest.TestCase):

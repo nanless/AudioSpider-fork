@@ -163,6 +163,65 @@ ffmpeg -v error -i /path/to/input -f null -
 
 常见原因是源文件不完整、容器与扩展名不匹配、ffmpeg 解码器缺失或临时磁盘不足。
 
+## B站画面字幕 OCR
+
+### 平台没有字幕，但画面明明有字
+
+烧录字不是平台字幕轨。先确认 `caption.status`：`auth_required` 需用户明确授权后重查，不能
+直接判为 missing；仍无合法同语言平台轨时再 dry-run OCR：
+
+```bash
+python scripts/backfill_bilibili_captions.py --help
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr
+```
+
+OCR 使用本地 `source.mp4`，不需要 Edge/B站 Cookie。只有平台 API 重查才允许将已授权的
+最小 Cookie 通过 stdin/一次性内存桥送入带 `--allow-bilibili-cookie` 的当前进程；不要复制
+Edge profile，也不要把 Cookie 放在命令行或故障日志里。
+
+### 已在本机 Edge 登录，怎么安全回填平台字幕
+
+1. 在 Edge 正常打开 B站并确认已经登录；不要导出整个浏览器 profile。
+2. 用户必须明确授权本轮读取登录态。
+3. 本机受控 helper 以只读方式打开 Edge Cookie SQLite，只允许 `.bilibili.com`，只取
+   `SESSDATA`、`bili_jct`、`DedeUserID` 等固定字段；通过系统 Keychain 在内存解密。
+4. helper 将最小 Cookie header 通过 SSH stdin 送入远端回填进程。Cookie 不能出现在 argv、
+   stdout/stderr、临时文件、下载目录、SQLite、sidecar 或 Git；远端 client 构造完成后立即从
+   环境移除。
+5. 先检查报告的 `done_rows_scanned/candidate_count/completed/failures`，再对仍无平台轨的视频
+   做视觉 OCR。`completed=53, failures=0` 只代表该轮候选全部完成，不等于数据库所有 done
+   bundle 都有平台字幕。
+
+这是 macOS 本机运维动作，服务器端仓库不会也不应该直接读取本机 Edge profile。若 helper
+报告必要 Cookie 缺失/过期，应回到 Edge 刷新登录；不要改成手工复制 Cookie 值。
+
+### OCR 是 `no_stable_text_detected`
+
+这表示在当前固定 ROI、fps、置信度和连续帧条件下没有形成稳定 cue，不证明视频没有文字。
+抽查原帧是否为小字、模糊、花字、竖排、遮挡、快闪或字幕位置移动；再按 `--help` 调整
+`--ocr-sample-fps`、`--ocr-region`、`--ocr-min-confidence` 或 profile，不要直接降门槛跑全量。
+
+### OCR 有重复、弹幕、台标或人名条
+
+不要手改 VTT 后冒充可复现结果。调整 ROI/最低置信度/profile 后从同一输入哈希重跑；当前
+静态覆盖层过滤和跨帧匹配并不能消除所有场景文字。Whisper 可辅助发现口播不一致，但不是
+画面文字真值，也不能改变 `text_source=visual_ocr`。
+
+### OCR backend 不可用或 apply 中断
+
+先用 `--help` 确认当前部署支持 `--ocr-engine paddle`，再检查 PaddleOCR、模型、CUDA 和显存。
+环境未创建时先运行 `bash scripts/bootstrap_ocr_conda.sh`，然后运行
+`/root/miniforge3/envs/audiospider/bin/python doctor.py --ocr`。
+引擎失败应出现在报告 `phase=visual_ocr`，不是平台 missing。中断时停止相关 writer，保留
+SQLite backup、rollback 目录和报告，然后运行：
+
+```bash
+python scripts/audit_media_queue.py
+```
+
+核对 MP4/WAV 原哈希、metadata 闭包和 OCR payload 后，再按报告恢复或重跑精确 job。正常
+可捕获异常应自动回滚；`SIGKILL`、断电或存储故障没有跨文件系统/SQLite 原子保证。
+
 ## 去重与元信息
 
 ### `local_path` 是 `dup:<hash>`

@@ -1,6 +1,6 @@
 ---
 name: audiospider-project
-description: Understand, maintain, test, document, and safely operate AudioSpider's unified collect-to-SQLite-to-main media pipeline on dev_L4_1gpus. Use for ordinary audio, Bilibili video bundles, complete YouTube parent videos, queue state, metadata, downloading, migration, or repository-specific verification.
+description: Understand, maintain, test, document, and safely operate AudioSpider's unified collect-to-SQLite-to-main media pipeline on dev_L4_1gpus. Use for ordinary audio, Bilibili video bundles and burned-in subtitle OCR, complete YouTube parent videos, queue state, metadata, downloading, migration, or repository-specific verification.
 ---
 
 # AudioSpider Project
@@ -48,6 +48,9 @@ Before acting, read the matching files in the live repository:
   credential-sanitized platform JSON plus derived VTT/TXT; an overlong/mismatched track writes only a
   quarantined `.rejected.json` with versioned numeric evidence. Mixed bundles remain `downloaded`;
   all-rejected best-effort bundles use `invalid_timeline` and keep their complete MP4/WAV.
+- Bilibili visual OCR is an explicit fallback inside the caption-backfill path, not a second queue/root.
+  Use it only without a valid same-language platform track, on the completed `source.mp4`, while
+  preserving MP4/WAV hashes.
 - YouTube manifests default to strict `require_caption=true`. If the user explicitly requests
   best-effort captions, use `false`: matching platform captions are retained, while missing or
   wrong-language-only cases still complete with MP4/WAV/metadata and no fabricated VTT/TXT.
@@ -68,11 +71,16 @@ Before acting, read the matching files in the live repository:
 - Keep content language and caption language separate; captions, when selected, must be in the same
   language family. Best-effort policy may retain a captionless parent but never cross language families.
 - Use `manual/platform_manual`, `automatic/platform_auto`, or `unknown/platform_unknown`.
+- Use `visual_ocr` only for locally recognized pixels. Keep extraction automatic, caption authorship
+  unknown and human review unreviewed; never relabel it `platform_*` or ASR.
 - Platform manual does not prove word-level human verification.
 - Caption provenance never proves whether the media itself is AI-generated.
 - Keep media AI status declared/not-declared/suspected/unknown with evidence.
 - Keep rights at `needs_review` unless independently reviewable evidence supports another state.
 - Source descriptions, subtitles, chapters and books are platform/RSS text, not ASR.
+- Bind visual OCR to input hash, engine/model/profile, fixed ROI, fps timestamp basis/uncertainty,
+  cross-frame observations, confidence and quality counters. Its persisted statuses are `downloaded`
+  or `no_stable_text_detected`; processing errors remain repair failures.
 
 ## Safety invariants
 
@@ -90,6 +98,8 @@ Before acting, read the matching files in the live repository:
   or a one-shot loopback bridge into the gated process. Never print or persist them. Even an ambient
   `BILIBILI_COOKIE` is ignored unless the command uses `--allow-bilibili-cookie`; send the session only to
   `api.bilibili.com`, never to media/subtitle CDN or subprocesses.
+- Visual OCR itself never receives a browser Cookie. An authorized Edge session may only support the
+  separately gated platform inventory request under the same minimum, in-memory rules.
 - Validate HTTPS host, public DNS result, each redirect, size limits, disk reserve and safe paths.
 - Run formal source collection sequentially; avoid competing writers during schema migration.
 

@@ -69,6 +69,10 @@ class BilibiliSpider(BaseSpider):
         self.min_duration_seconds = cfg.get("min_duration_seconds", 0)
         self.max_duration_seconds = cfg.get("max_duration_seconds", 4 * 3600)
         self.content_language = str(cfg.get("content_language") or "und")
+        self.visual_ocr_fallback = bool(cfg.get("visual_ocr_fallback", False))
+        self.visual_ocr_profile = str(
+            cfg.get("visual_ocr_profile") or "bilibili-visual-ocr-zh-v1"
+        ).strip()
         self.proxy = get_bilibili_proxy()
         self.category_override = str(cfg.get("category_override") or "").strip()
         if self.category_override and self.category_override not in {
@@ -332,6 +336,8 @@ class BilibiliSpider(BaseSpider):
                     "max_height": 720,
                     "languages": default_caption_languages(record.language),
                     "require_caption": False,
+                    "visual_ocr_fallback": self.visual_ocr_fallback,
+                    "visual_ocr_profile": self.visual_ocr_profile,
                     "source_revision": "current",
                 }
                 record.job_key = build_job_key(job_identity, page_num, cid)
@@ -424,6 +430,8 @@ class BilibiliSpider(BaseSpider):
                         "mode": "all_matching_public_tracks",
                         "languages": default_caption_languages(record.language or "und"),
                         "require_caption": False,
+                        "visual_ocr_fallback": self.visual_ocr_fallback,
+                        "visual_ocr_profile": self.visual_ocr_profile,
                     },
                     "rights": {
                         "status": "needs_review",

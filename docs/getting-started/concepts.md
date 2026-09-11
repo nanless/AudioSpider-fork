@@ -2,7 +2,7 @@
 
 ## 先记住一句话
 
-AudioSpider 把“找地址”和“下载文件”分开。看到一个音频 URL 出现在数据库里，不代表文件已经下载。
+AudioSpider 把“发现媒体任务”和“下载文件”分开。看到音频 URL 或视频 bundle 任务出现在数据库里，不代表文件已经下载。
 
 ## 三个阶段
 
@@ -16,7 +16,7 @@ AudioSpider 把“找地址”和“下载文件”分开。看到一个音频 U
 
 ### 2. 从固定来源采集
 
-`collect.py` 运行 `spiders/` 中的适配器，从配置好的 RSS、小宇宙、喜马拉雅、LibriVox 和 B站抓取媒体 URL。
+`collect.py` 运行 `spiders/` 中的适配器，从配置好的 RSS、小宇宙、喜马拉雅、LibriVox、B站和 YouTube 生成统一任务。普通来源写音频任务；B站/YouTube 可写完整 `video_bundle` 任务。
 
 ```text
 固定来源 → Spider → AudioRecord → 数据库 pending
@@ -24,7 +24,7 @@ AudioSpider 把“找地址”和“下载文件”分开。看到一个音频 U
 
 ### 3. 下载
 
-`main.py` 从数据库原子领取 pending 任务，下载并校验音频，最后标记 done 或 failed。
+`main.py` 从数据库原子领取 pending 任务，下载并校验普通音频或完整视频 bundle，最后标记 done 或 failed。
 
 ```text
 pending → downloading → done / failed

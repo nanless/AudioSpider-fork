@@ -7,6 +7,17 @@
 - 修复长视频批次超过两小时后 lease 过期、被其他来源 downloader 误回收的问题：活跃批次现在周期性续租，过期回收也限制在当前领取过滤范围内。
 - B 站同语言字幕若与当前分 P 时长明显错配，best-effort 任务现在保留完整视频和隔离的净化平台 JSON（保留 cue 与平台结构、移除传输凭据），逐轨记录版本化时间轴证据，不生成误导性 VTT/TXT；所有轨道都错配时标记 `invalid_timeline`，严格字幕任务仍失败。
 
+### B站画面字幕 OCR 回退
+
+- 在现有 `scripts/backfill_bilibili_captions.py` 增加显式 `--visual-ocr` 回退；先查
+  同语言平台轨，只有不可用时才从已完成 bundle 的 `source.mp4` 识别烧录字幕。
+- OCR 仍使用统一 SQLite、job lock、同文件系统 rollback、sidecar 原子替换和闭包 CAS；
+  默认 dry-run，只有 `--apply` 才写入，不建立第二条队列或第二个数据根目录。
+- 平台人工、平台自动和视觉 OCR 使用互斥 provenance；OCR 记录输入视频哈希、引擎/模型、
+  profile、区域、采样、跨帧聚合、置信度和质量判定，不把 OCR 文本伪装成 `platform_*`。
+- Edge 登录态只可在用户明确授权后最小化、一次性内存注入；OCR 本身读取本地 MP4，不需要
+  Cookie。新增 OCR 无区域/无 cue/需复核/失败状态，避免把模型失败写成“视频没有字幕”。
+
 ### 统一媒体队列
 
 - 正式主路径统一为 `collect.py -> audiospider.db -> main.py -> downloads/<source>/<category>/`；

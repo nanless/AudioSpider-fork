@@ -59,7 +59,11 @@ class MediaArtifactTests(unittest.IsolatedAsyncioTestCase):
     async def test_bilibili_current_part_must_keep_collected_cid(self):
         task = {
             "bvid": "BV1xx411c7mD", "page": 1, "parts": [1], "cid": 111,
-            "caption_policy": {}, "rights": {"status": "needs_review"},
+            "caption_policy": {
+                "visual_ocr_fallback": True,
+                "visual_ocr_profile": "bilibili_zh_burned_in_v1",
+            },
+            "rights": {"status": "needs_review"},
         }
         item = {
             "source": "bilibili", "source_id": "BV1xx411c7mD_p1",
@@ -77,7 +81,7 @@ class MediaArtifactTests(unittest.IsolatedAsyncioTestCase):
             "media_artifacts.BilibiliClient", return_value=client
         ) as client_class, mock.patch(
             "media_artifacts.validate_bilibili_manifest", return_value=[{"bvid": task["bvid"]}]
-        ), mock.patch(
+        ) as validator, mock.patch(
             "media_artifacts.build_bilibili_jobs",
             return_value=[{"bvid": task["bvid"], "part": 1, "cid": 222, "job_key": "job"}],
         ), mock.patch(
@@ -87,6 +91,12 @@ class MediaArtifactTests(unittest.IsolatedAsyncioTestCase):
                 await media_artifacts.download_video_bundle(item, object(), Path(temp))
         downloader_worker.assert_not_awaited()
         self.assertEqual(client_class.call_args.kwargs["proxy"], proxy)
+        queued_item = validator.call_args.args[0]["items"][0]
+        self.assertTrue(queued_item["visual_ocr_fallback"])
+        self.assertEqual(
+            queued_item["visual_ocr_profile"],
+            "bilibili_zh_burned_in_v1",
+        )
 
     async def test_bilibili_transient_failure_refreshes_job_and_retries(self):
         expected = {

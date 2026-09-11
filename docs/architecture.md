@@ -82,6 +82,7 @@ downloads/
 │   ├── source.mp4
 │   ├── audio.wav
 │   ├── captions.*.json/.vtt/.txt
+│   ├── visual_ocr.json/.vtt/.txt  # 显式 OCR 回退；无稳定 cue 时仅 JSON
 │   ├── captions.*.rejected.json  # 错配时间轴隔离证据；没有派生 VTT/TXT
 │   └── metadata.json
 └── youtube/<category>/<source-id>/<job-key>/
@@ -104,6 +105,44 @@ downloads/
 
 自动字幕不证明视频或音频由 AI 生成。平台 manual 也不等于逐字人工验真。字幕必须
 与内容语言同族；中文/普通话/粤语内容不能用英文字幕兜底。
+
+视觉 OCR 是独立的提取来源：
+
+| 类别 | 证据来自 | `text_source` | 能说什么 |
+|---|---|---|---|
+| 平台人工轨 | 平台轨字段/标签 | `platform_manual` | 平台展示为普通 CC；不保证逐字人工验真 |
+| 平台自动轨 | 平台轨字段/标签 | `platform_auto` | 平台展示为自动轨 |
+| 画面字幕 OCR | MP4 可见像素 + 本地模型 | `visual_ocr` | 本地机器识别了烧录文字；原作者/制作方式未知 |
+
+三者不能互相覆盖。`auth_required` 只说明匿名请求不能判定平台轨；随后即使 OCR 成功，也
+必须保留该平台事实。OCR 的 `no_stable_text_detected` 也不能写成“视频没有字幕”。
+
+```mermaid
+flowchart TD
+    Q[main.py 已完成 B站 bundle] --> P{存在合法同语言平台轨?}
+    P -->|是| PT[保留 platform_manual/platform_auto]
+    P -->|否；且显式启用| V[source.mp4 画面 OCR]
+    P -->|否；未启用| S[保留平台 availability]
+    V --> F[固定 ROI 按 fps 抽帧]
+    F --> C[置信度过滤、跨帧匹配、静态覆盖层过滤]
+    C --> G{有稳定 cue?}
+    G -->|有| O[visual_ocr JSON/VTT/TXT]
+    G -->|无| N[no_stable_text_detected；只保留 JSON]
+    PT --> A[统一 bundle validator]
+    S --> A
+    O --> A
+    N --> A
+    A --> D[(同一 audiospider.db 与 downloads/bilibili/...)]
+```
+
+当前 v1 对配置的归一化区域（默认画面下半区）用 FFmpeg 固定约 4 fps 抽帧，时间戳来自
+`fps` filter 输出帧序号，并保守记录一个采样间隔的不确定度；它不是逐帧原始 PTS。OCR 结果至少连续两个
+采样、文本/位置相似才合并为 cue，覆盖视频过久的静态字会作为台标类覆盖层过滤。空间框会从
+ROI 局部坐标映射回完整视频归一化坐标；时间边界保守记录 `1/fps` 不确定度。4 fps、
+固定 ROI 和串行识别是可审计的初始 profile，不是所有视频的保证；快闪、移动、多区域或
+双语字幕需调参/后续增强。PaddleOCR 是本轮唯一已接入的 L4 后端（仍须预装依赖和模型）；RapidOCR/ONNX、变化帧跳过和 GPU
+批处理是后续可选优化，不能写成当前已具备。Whisper/音画对齐只能作为一致性证据，不能
+替换像素 provenance。
 
 YouTube 清单通过 `require_caption` 决定字幕是硬门禁还是 best effort。缺失字幕的完整
 母视频只能在 `require_caption=false` 时完成，并必须以 `missing` 或

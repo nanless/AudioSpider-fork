@@ -1,4 +1,4 @@
-# 查看已经下载的音频和详细背景信息
+# 查看已经下载的音频、视频、字幕和详细背景信息
 
 这篇文档解决两个最常见的问题：
 
@@ -41,7 +41,17 @@ AudioSpider-fork/
 │   │   ├── episode.description.txt
 │   │   ├── episode.description.html
 │   │   └── episode.cover.jpg
-│   ├── bilibili/
+│   ├── bilibili/访谈/<source-id>/<job-key>/
+│   │   ├── source.mp4
+│   │   ├── audio.wav
+│   │   ├── captions.*.json/.vtt/.txt
+│   │   ├── visual_ocr.json/.vtt/.txt
+│   │   └── metadata.json
+│   ├── youtube/访谈/<source-id>/<job-key>/
+│   │   ├── source.mp4
+│   │   ├── audio.wav
+│   │   ├── captions.*
+│   │   └── metadata.json
 │   ├── xiaoyuzhou/
 │   └── ximalaya/
 ├── logs/                          # 运行日志和验收 JSON
@@ -55,6 +65,20 @@ find downloads -type f \( \
   -iname '*.mp3' -o -iname '*.m4a' -o -iname '*.aac' -o \
   -iname '*.opus' -o -iname '*.ogg' -o -iname '*.wav' \
 \) | sort | less
+```
+
+只列出 B站、YouTube 的完整视频：
+
+```bash
+find downloads/bilibili downloads/youtube -type f -name source.mp4 | sort | less
+```
+
+B站平台字幕看 `metadata.json` 的 `caption.status/tracks`；画面烧录字幕 OCR 看
+`derived_text.visual_ocr.status`。它们是两套独立来源，不能只凭目录里有 `.txt` 就猜字幕类型。
+数据库—目录统一审计使用：
+
+```bash
+python scripts/audit_media_queue.py
 ```
 
 查看某个目录的大小：
@@ -207,4 +231,3 @@ rsync -a --info=progress2 downloads/ user@目标机器:/path/to/AudioSpider-fork
 ```
 
 迁移后重新运行 `python doctor.py`、`python main.py stats` 和全量验收脚本。数据库中的 `local_path` 是服务器路径，换机器后如果目录不同，需要先按项目文档处理路径映射，不要直接修改成不存在的路径。
-

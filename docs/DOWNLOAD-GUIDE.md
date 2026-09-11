@@ -103,6 +103,29 @@ python main.py --source bilibili --artifact-kind video_bundle --limit 1 --worker
 人工、自动、unknown 必须逐轨判断。B站 `type` 是生成来源主证据，`ai_type` 是翻译
 轴；不能因 `ai_type` 或 CDN 名称单独断言 ASR 来源。
 
+平台轨与画面烧录字幕是两类证据。前者由 B站 API 提供并分
+`platform_manual/platform_auto/platform_unknown`；后者是 MP4 像素，本地 OCR 后只能标
+`visual_ocr`，原作者/制作方式写 `caption_authorship=unknown`。平台同语言轨不可用时，可对
+已完成媒体用同一回填工具先 dry-run；实际参数以部署版本 `--help` 为准：
+
+```bash
+sqlite3 -header -column audiospider.db \
+  "SELECT source_id,job_key,bundle_path FROM audio_urls WHERE source='bilibili' AND artifact_kind='video_bundle' AND status='done' ORDER BY id DESC LIMIT 20;"
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr --apply
+python scripts/audit_media_queue.py
+```
+
+第一条 OCR 命令只列候选，不联网、不加载模型、不写文件。必须看到
+`candidate_count=1`，且 `source_id/job_key/bundle_path` 与目标完全一致后，才能执行带
+`--apply` 的第二条；拼错或目标不适合回填时命令会非零退出。
+
+OCR 读取本地 `source.mp4`，不需要 Cookie；重查登录可见的平台清单才需用户明确授权并加
+`--allow-bilibili-cookie`。回填不重下载/改写 MP4 或 WAV，仍使用精确 job lock、SQLite
+backup、同文件系统持久 journal、sidecar/闭包复验与短事务 CAS。正常异常立即回滚；进程被
+强杀或机器重启后，下次 `--apply` 会先按 journal 与 SQLite 精确指纹决定回滚或完成提交，
+第三种歧义状态会停止并保留证据，不静默跳过。
+
 ## 4. YouTube 完整母视频
 
 YouTube 来源读取受控 manifest。默认路径是 `config/youtube_sources.initial.json`；也可用
@@ -166,6 +189,9 @@ downloads/<source>/<category>/<source-id>/<job-key>/
 ├── captions.<language>.<kind>.<id>.<index>.json  # B站净化平台字幕，若有
 ├── captions.<language>.<kind>.<id>.<index>.vtt
 ├── captions.<language>.<kind>.<id>.<index>.txt
+├── visual_ocr.json  # OCR 结构化 cue、模型/profile 与复现参数
+├── visual_ocr.vtt   # 至少形成一条稳定 cue 时才存在
+├── visual_ocr.txt
 ├── captions.<language>.<kind>.<id>.<index>.rejected.json  # 时间轴错配证据，不是可用字幕
 └── metadata.json
 ```
@@ -243,6 +269,8 @@ python scripts/audit_media_queue.py
 - 拒绝私网、loopback、link-local、凭据 URL和未重新校验的重定向；
 - 不把 signed URL query 写入数据库、sidecar 或日志；
 - 不从浏览器自动读取 Cookie；
+- 只有用户明确授权使用当前 Edge 的 B站会话后，才最小化读取 B站 origin Cookie；不得复制
+  整个 Edge profile，不得浏览或导出其他站点 Cookie；
 - Bilibili Cookie 只在用户明确授权且有合法访问权时临时注入，只发往
   `api.bilibili.com`；
 - Cookie 不得出现在聊天、Git、JSON、命令行参数或日志；
@@ -263,6 +291,13 @@ python scripts/audit_media_queue.py
 - 平台可见作者 vs 已人工验真；
 - 有画面烧录字幕 vs 有独立字幕轨。
 
+视觉 OCR 只能识别可见像素，不能恢复关闭的 CC。小字、模糊、动画、遮挡、弹幕、台标、
+人名条和场景文字会带来漏检/误报。当前持久化状态为 `downloaded` 或
+`no_stable_text_detected`；引擎/处理异常在回填报告中以 `phase=visual_ocr` 失败，不伪装成
+平台 missing。建议用标注集测 cue precision/recall、中文 CER、边界误差、每分钟误报和
+实时系数。`human_review_status=unreviewed`；VTT/TXT 只代表通过置信度/连续帧技术门，不等于
+人工验收。Whisper 可辅助复核口播一致性，但不得把 OCR 改标成 ASR 或平台字幕。
+
 ## 10. 统一实现验收清单
 
 以下是正式实现 gate：
@@ -277,6 +312,8 @@ python scripts/audit_media_queue.py
 - 字幕语言与内容语言同族；
 - subtitle JSON 能确定性重建 VTT/TXT；
 - manual/automatic/unknown 与 AI 媒体状态独立；
+- platform_manual/platform_auto/visual_ocr 三类来源互斥且可并存审计；
+- 视觉 OCR 输入哈希、引擎/模型/profile、ROI、采样、置信度、跨帧聚合和质量计数齐全；
 - SHA-256、bytes、相对路径和 sidecar 闭包通过；
 - 无 signed query、Cookie、绝对外逸路径；
 - staging 为空，audit failure 为零。

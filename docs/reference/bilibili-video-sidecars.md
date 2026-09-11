@@ -11,7 +11,7 @@ downloads/bilibili/<category>/<source_id>/<job_key>/
 旧 standalone 目录才使用 `parents/<bvid>/p<page>/<job_key>/`；它必须通过迁移脚本
 验收后进入统一正式树，不能继续作为新任务输出位置。
 
-`job_key` 绑定 BVID、CID、分 P、清晰度、字幕语言、`require_caption`、`source_revision`、schema 和编码 profile。分 P 顺序可能变化，CID 是更稳定的具体媒体身份。
+旧任务的 `job_key` 绑定 BVID、CID、分 P、清晰度、字幕语言、`require_caption`、`source_revision` 和编码 profile。只有采集时显式启用视觉 OCR 的新任务，才额外绑定 sidecar v2、OCR 开关和 OCR profile；post-hoc 回填不会篡改采集策略或旧 job key。分 P 顺序可能变化，CID 是更稳定的具体媒体身份。
 
 `metadata.json` 是完成标记，但程序不会仅凭文件存在就复用：重跑会重新检查 schema、文件闭包、字节数、SHA-256、ffprobe 和字幕派生一致性。
 
@@ -19,7 +19,7 @@ downloads/bilibili/<category>/<source_id>/<job_key>/
 
 | 字段 | 含义 |
 |---|---|
-| `schema_version` | 当前为 1 |
+| `schema_version` | v1 为平台媒体/字幕；v2 增加视觉 OCR，验收器继续兼容 v1 |
 | `asset_type` | 固定 `bilibili_parent` |
 | `source/source_id` | `bilibili` 与旧音频兼容 ID `BV..._pN` |
 | `bvid/aid/cid/part` | 视频、稿件、分 P 媒体和当时页序 |
@@ -30,6 +30,7 @@ downloads/bilibili/<category>/<source_id>/<job_key>/
 | `acquisition_policy` | 本轮画质、时长、字幕和修订策略 |
 | `media/audio` | ffprobe 得到的实际流、codec、分辨率、采样率和时长 |
 | `caption` | 字幕可用性和逐轨证据 |
+| `derived_text.visual_ocr` | v2 条件字段；像素 OCR 的来源、触发方式、模型、采样、质量和文件引用 |
 | `files` | 所有 payload 的相对路径、字节数和 SHA-256 |
 | `rights` | 项目侧权利审核，不由平台 `copyright` 自动推导 |
 | `ai_generation` | 媒体内容 AI 来源，与字幕 kind 独立 |
@@ -111,7 +112,7 @@ HTTP/API 失败不会被写成上述“空字幕”状态，也不会提升正�
 
 ## 文件闭包
 
-无字幕 bundle 精确包含 `source.mp4`、`audio.wav`、`metadata.json`。
+无平台字幕且未运行 OCR 的 bundle 精确包含 `source.mp4`、`audio.wav`、`metadata.json`。
 `invalid_timeline` 还包含逐轨 `.rejected.json`，它们受同样的字节数和 SHA-256 闭包保护。
 
 每条已下载字幕增加三个文件：
@@ -122,6 +123,14 @@ HTTP/API 失败不会被写成上述“空字幕”状态，也不会提升正�
 
 审计会重新解析 JSON 并重建 VTT/TXT 后比较，任一字幕正文被改动、文件遗漏、路径逃逸、
 软链接、目录、FIFO/socket/device 等非普通节点、字节数或哈希不符都会失败。
+
+平台字幕状态只写在 `caption.status`。视觉 OCR 另写在
+`derived_text.visual_ocr.status`，两者不能互相覆盖。OCR 成功时增加
+`visual_ocr.json/.vtt/.txt`；未形成稳定 cue 时只增加 `visual_ocr.json`。
+`derivation_trigger=acquisition_fallback` 表示采集时策略触发，必须与
+`acquisition_policy.visual_ocr_profile` 一致；`posthoc_backfill` 表示之后补算，不能改写原
+`job_key` 对应的采集策略。JSON 中 `bbox_basis=source_video_frame_normalized`，所有框坐标均已从
+裁剪 ROI 映射回完整视频画面。
 
 ## 审计硬条件
 

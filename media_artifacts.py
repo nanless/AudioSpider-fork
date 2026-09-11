@@ -201,6 +201,10 @@ async def _download_bilibili(
         "max_duration_seconds": task.get("max_duration_seconds", 4 * 3600),
         "languages": caption_policy.get("languages") or [],
         "require_caption": bool(caption_policy.get("require_caption", False)),
+        "visual_ocr_fallback": bool(
+            caption_policy.get("visual_ocr_fallback", False)
+        ),
+        "visual_ocr_profile": caption_policy.get("visual_ocr_profile"),
         "content_language": task.get("content_language") or item.get("language") or "zh",
         "program": item.get("title") or "",
         "rights": {"status": (task.get("rights") or {}).get("status", "needs_review")},

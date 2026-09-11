@@ -45,3 +45,18 @@ Do not enable ambient proxy discovery or persist the proxy endpoint.
 
 Default operation is anonymous. Only after explicit authorization may an operator privately set
 `BILIBILI_COOKIE` and add `--allow-bilibili-cookie`; never print or persist it.
+
+For burned-in subtitles without a valid same-language platform track, keep the same bundle and command:
+
+```bash
+python scripts/backfill_bilibili_captions.py --help
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr --apply
+python scripts/audit_media_queue.py
+```
+
+Choose the deployed Paddle backend/tuning only through current `--ocr-*` help. OCR needs no Cookie and
+must preserve MP4/WAV hashes. Store `derived_text.visual_ocr` and `visual_ocr.json`; only a nonempty cue
+set adds VTT/TXT. The result stays `human_review_status=unreviewed`. Review scene text, watermarks,
+danmaku, lower thirds, no-subtitle and bilingual samples. Apply shares backup, exact lock, rollback,
+validator and CAS; after SIGKILL/power loss retain recovery artifacts and audit before changes.

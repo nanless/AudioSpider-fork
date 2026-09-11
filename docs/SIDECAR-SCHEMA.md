@@ -8,7 +8,7 @@
 | artifact | schema | 文件位置 |
 |---|---:|---|
 | 普通音频 | `schema_version=2` | 与音频同 stem 的 `.json` |
-| B站完整分P | `schema_version=1`, `asset_type=bilibili_parent` | bundle 内 `metadata.json` |
+| B站完整分P | `schema_version=1/2`, `asset_type=bilibili_parent` | bundle 内 `metadata.json`；v2 可含视觉 OCR |
 | YouTube完整母视频 | `schema_version=1`, `asset_type=youtube_parent` | bundle 内 `metadata.json` |
 
 SQLite `audio_urls.artifact_kind` 区分 `audio` 与 `video_bundle`；视频行还使用
@@ -23,6 +23,7 @@ SQLite `audio_urls.artifact_kind` 区分 `audio` 与 `video_bundle`；视频行�
 4. 所有 payload 使用相对路径、字节数和 SHA-256 闭包；
 5. 字幕来源、字幕语言、内容语言、媒体 AI 来源、rights 分开；
 6. 未知必须显式保存为 unknown，不能从缺字段推断否定结论。
+7. 平台字幕写 `caption`；画面 OCR 写 `derived_text.visual_ocr`，两者不能互相冒充或覆盖。
 
 ## 公共语义
 
@@ -74,6 +75,10 @@ SQLite `audio_urls.artifact_kind` 区分 `audio` 与 `video_bundle`；视频行�
   "acquired_at": "2026-09-10T00:00:00+00:00"
 }
 ```
+
+上例为便于阅读的摘要；严格文档中的 `sampling` 还会完整保存 `max_width`、连续/缺帧数、
+模糊文本阈值、bbox IoU/中心距离、静态覆盖层阈值以及帧/cue/字节/字符上限，不能删字段后
+冒充 validator 可接受的 payload。
 
 主音频的路径和状态由数据库 `local_path`/`artifact_kind=audio` 记录；sidecar 的
 `content_hash` 是最终音频 SHA-256。背景简介、封面、RSS transcript、章节和公版
@@ -192,6 +197,44 @@ unknown   <-> platform_unknown
 平台 manual 只代表 CC/作者证据，不保证逐字人工制作或审核。自动字幕也不影响
 `ai_generation.status`。
 
+### 视觉 OCR 结构
+
+视觉 OCR 是 bundle 内 `source.mp4` 的本地派生，不是平台轨。sidecar 在
+`derived_text.visual_ocr` 保存摘要及文件引用；完整 cue 位于 `visual_ocr.json`。核心字段为：
+
+```json
+{
+  "derived_text": {"visual_ocr": {
+    "schema_version": 1,
+    "asset_type": "visual_ocr_transcript",
+    "status": "downloaded",
+    "text_source": "visual_ocr",
+    "extraction_kind": "automatic",
+    "caption_authorship": "unknown",
+    "human_review_status": "unreviewed",
+    "language": "zh-Hans",
+    "profile": "bilibili-visual-ocr-zh-v1",
+    "source_media": {"file_key": "video", "sha256": "64-hex", "duration_seconds": 600.0},
+    "engine": {"name": "paddleocr", "version": "versioned-id", "model": "versioned-id", "model_version": "versioned-id"},
+    "bbox_basis": "source_video_frame_normalized",
+    "sampling": {"fps": 4.0, "timestamp_basis": "ffmpeg_fps_filter_output_index", "timestamp_uncertainty_seconds": 0.25, "region_normalized": [0.0, 0.5, 1.0, 1.0]},
+    "cue_count": 120,
+    "quality": {"frames_sampled": 2400, "frames_with_candidates": 900, "detections_accepted": 850, "detections_filtered_low_confidence": 50, "static_tracks_filtered": 1, "cues_emitted": 120, "mean_confidence": 0.94},
+    "files": {"json": "visual_ocr_json", "vtt": "visual_ocr_vtt", "txt": "visual_ocr_txt"}
+  }}
+}
+```
+
+当前状态只有 `downloaded` 与 `no_stable_text_detected`；未运行时没有该对象，处理失败写回填
+报告而不提交残缺 sidecar。后者只保存 `visual_ocr.json`；前者再保存确定性派生的 VTT/TXT。
+`downloaded` 仅表示至少有 cue 通过配置的置信度、连续帧、文本/位置聚合和静态覆盖层过滤，
+不证明逐字正确、人工制作、说话者归属或使用权。完整 JSON 的每个 cue 保存起止秒、文本、
+完整视频归一化 bbox、observation 数和均值置信度；时间戳来自 FFmpeg fps 输出序号并保守记录一整个采样间隔误差，
+不是原始逐帧 PTS。双语字幕仍需人工抽检，不能无证据宣称已正确分轨。
+
+OCR 重跑必须绑定输入视频 SHA-256、引擎/模型版本、profile 和完整采样参数。当前固定文件名
+意味着替换应走同一回填 rollback/CAS，不能在不同模型结果间静默覆盖。
+
 ## 字幕语言策略
 
 - `content_language` 与 `caption.language` 分开保存；
@@ -253,6 +296,7 @@ caption automatic 永远不能自动设置 media AI declared。
 - MP4 缺视频或音频流；
 - WAV 不是 16 kHz mono PCM16；
 - 字幕 JSON 无法确定性重建 VTT/TXT；
+- 视觉 OCR 输入视频哈希、引擎/profile、采样、置信度/质量计数缺失，或 JSON 无法重建派生文件；
 - `.rejected.json` 的 cue、身份或数值时间轴证据无法和 sidecar/inventory/媒体重新对齐；
 - `kind/text_source` 交叉；
 - 内容语言和字幕语言不匹配；

@@ -35,12 +35,28 @@ from bilibili_subtitles import (
     sanitize_subtitle_document,
 )
 from bilibili_proxy import get_bilibili_proxy, proxy_request_kwargs
+from bilibili_visual_ocr import (
+    render_visual_ocr_text,
+    render_visual_ocr_vtt,
+    validate_visual_ocr_document,
+)
 from youtube_dataset import redact_urls_in_text, sha256_file, write_json_atomic, write_text_atomic
 from network_safety import validate_public_http_url
 
 
-SCHEMA_VERSION = 1
+# Artifact identity and sidecar evolution are intentionally independent.  The
+# original value is part of every existing queue job hash and must never be
+# changed merely because the sidecar schema grows.
+JOB_IDENTITY_VERSION = 1
+LEGACY_SIDECAR_SCHEMA_VERSION = 1
+CURRENT_SIDECAR_SCHEMA_VERSION = 2
+SUPPORTED_SIDECAR_SCHEMA_VERSIONS = {
+    LEGACY_SIDECAR_SCHEMA_VERSION, CURRENT_SIDECAR_SCHEMA_VERSION,
+}
+# Backward-compatible public name used by the legacy dataset marker.
+SCHEMA_VERSION = LEGACY_SIDECAR_SCHEMA_VERSION
 ENCODING_PROFILE = "bilibili-mp4-wav16k-v1"
+DEFAULT_VISUAL_OCR_PROFILE = "bilibili-visual-ocr-zh-v1"
 VIEW_URL = "https://api.bilibili.com/x/web-interface/view"
 PLAYER_URL = "https://api.bilibili.com/x/player/v2"
 PLAYURL_URL = "https://api.bilibili.com/x/player/playurl"
@@ -173,6 +189,21 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
         require_caption = item.get("require_caption", False)
         if not isinstance(require_caption, bool):
             raise ValueError(f"item {index} require_caption must be boolean")
+        visual_ocr_fallback = item.get("visual_ocr_fallback", False)
+        if not isinstance(visual_ocr_fallback, bool):
+            raise ValueError(f"item {index} visual_ocr_fallback must be boolean")
+        raw_visual_ocr_profile = item.get("visual_ocr_profile")
+        visual_ocr_profile = str(
+            DEFAULT_VISUAL_OCR_PROFILE
+            if raw_visual_ocr_profile is None
+            else raw_visual_ocr_profile
+        ).strip()
+        if (
+            not visual_ocr_profile
+            or len(visual_ocr_profile) > 120
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", visual_ocr_profile)
+        ):
+            raise ValueError(f"item {index} visual_ocr_profile is invalid")
 
         rights = item.get("rights") or {"status": "needs_review"}
         if not isinstance(rights, dict) or rights.get("status") not in RIGHTS_STATUSES:
@@ -218,6 +249,8 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
             "max_duration_seconds": max_duration,
             "languages": languages,
             "require_caption": require_caption,
+            "visual_ocr_fallback": visual_ocr_fallback,
+            "visual_ocr_profile": visual_ocr_profile,
             "content_language": content_language,
             "program": str(item.get("program") or "")[:500],
             "rights": rights,
@@ -239,13 +272,22 @@ def load_manifest(path: Path) -> list[dict[str, Any]]:
 def build_job_key(item: dict[str, Any], part: int, cid: int) -> str:
     """Build the immutable artifact identity shared by collect and download."""
 
+    identity = [
+        item["bvid"], part, cid, item["max_height"], item["languages"],
+        item["require_caption"], item["source_revision"], JOB_IDENTITY_VERSION,
+        ENCODING_PROFILE,
+    ]
+    # Preserve every historical job key byte-for-byte.  OCR-enabled jobs opt
+    # into a new identity extension so two policies cannot share one bundle.
+    if item.get("visual_ocr_fallback"):
+        identity.extend([
+            CURRENT_SIDECAR_SCHEMA_VERSION,
+            True,
+            item.get("visual_ocr_profile") or DEFAULT_VISUAL_OCR_PROFILE,
+        ])
     fingerprint = hashlib.sha256(
         json.dumps(
-            [
-                item["bvid"], part, cid, item["max_height"], item["languages"],
-                item["require_caption"], item["source_revision"], SCHEMA_VERSION,
-                ENCODING_PROFILE,
-            ],
+            identity,
             separators=(",", ":"), ensure_ascii=False,
         ).encode("utf-8")
     ).hexdigest()[:12]
@@ -934,6 +976,47 @@ def _metadata_view(view: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _prepare_visual_ocr_bundle_payloads(
+    video: Path, stage: Path, job: dict[str, Any], media_duration_seconds: float,
+) -> tuple[dict[str, Any], dict[str, Path]]:
+    """Run the explicitly selected local Paddle backend and stage its closure."""
+
+    from bilibili_visual_ocr import VisualOcrConfig
+    from bilibili_visual_ocr_worker import prepare_visual_ocr_payloads_bounded
+
+    config = VisualOcrConfig(
+        language=str(job["content_language"]),
+        profile=str(job.get("visual_ocr_profile") or DEFAULT_VISUAL_OCR_PROFILE),
+    )
+    result = prepare_visual_ocr_payloads_bounded(video, config)
+    document = result.get("document")
+    payloads = result.get("payloads")
+    if not isinstance(document, dict) or not isinstance(payloads, dict):
+        raise ValueError("visual OCR backend returned an invalid payload contract")
+    validate_visual_ocr_document(
+        document,
+        media_sha256=sha256_file(video),
+        media_duration_seconds=media_duration_seconds,
+        content_language=job["content_language"],
+    )
+    expected = (
+        {"json", "vtt", "txt"}
+        if document.get("status") == "downloaded"
+        else {"json"}
+    )
+    if set(payloads) != expected:
+        raise ValueError("visual OCR backend returned an invalid file closure")
+    paths: dict[str, Path] = {}
+    for extension in sorted(expected):
+        payload = payloads[extension]
+        if not isinstance(payload, str):
+            raise ValueError("visual OCR payload must be UTF-8 text")
+        path = stage / f"visual_ocr.{extension}"
+        write_text_atomic(path, payload)
+        paths[extension] = path
+    return document, paths
+
+
 def _media_summary(path: Path) -> dict[str, Any]:
     try:
         result = subprocess.run([
@@ -975,6 +1058,11 @@ async def download_job(
             return destination
         stage = Path(output_root).resolve() / ".staging" / job["job_key"]
         stage.mkdir(parents=True, exist_ok=True)
+        # A prior interrupted attempt may have produced only derived text.
+        # These bounded staging files are reproducible from source.mp4 and must
+        # never leak into a later platform-caption-only closure.
+        for name in ("visual_ocr.json", "visual_ocr.vtt", "visual_ocr.txt"):
+            (stage / name).unlink(missing_ok=True)
         try:
             inventory, tracks, caption_status, inventory_attempts = (
                 await resolve_caption_inventory(
@@ -1026,6 +1114,16 @@ async def download_job(
             captions = [item["track"] for item in accepted]
             rejected_captions = [item["track"] for item in rejected]
 
+            visual_ocr_document: dict[str, Any] | None = None
+            visual_ocr_paths: dict[str, Path] = {}
+            if job.get("visual_ocr_fallback") and not captions:
+                visual_ocr_document, visual_ocr_paths = await asyncio.to_thread(
+                    _prepare_visual_ocr_bundle_payloads,
+                    video, stage, job, media_summary["duration_seconds"],
+                )
+                for extension, path in visual_ocr_paths.items():
+                    files[f"visual_ocr_{extension}"] = _file_record(path, stage)
+
             if sum(record["bytes"] for record in files.values()) > MAX_BUNDLE_BYTES:
                 raise ValueError("bundle exceeds the total byte limit")
             caption = {
@@ -1047,8 +1145,25 @@ async def download_job(
                     "rejected_track_count": len(rejected_captions),
                     "rejected_tracks": rejected_captions,
                 })
+            derived_text = None
+            if visual_ocr_document is not None:
+                visual_keys = {
+                    extension: f"visual_ocr_{extension}"
+                    for extension in visual_ocr_paths
+                }
+                visual_summary = {
+                    key: value for key, value in visual_ocr_document.items()
+                    if key not in {"cues", "frames", "observations"}
+                }
+                visual_summary["files"] = visual_keys
+                visual_summary["derivation_trigger"] = "acquisition_fallback"
+                derived_text = {"visual_ocr": visual_summary}
             sidecar = {
-                "schema_version": SCHEMA_VERSION,
+                "schema_version": (
+                    CURRENT_SIDECAR_SCHEMA_VERSION
+                    if job.get("visual_ocr_fallback")
+                    else LEGACY_SIDECAR_SCHEMA_VERSION
+                ),
                 "asset_type": "bilibili_parent",
                 "source": "bilibili",
                 "source_id": f"{job['bvid']}_p{job['part']}",
@@ -1081,6 +1196,10 @@ async def download_job(
                     "max_height": job["max_height"],
                     "max_duration_seconds": job["max_duration_seconds"],
                     "require_caption": job["require_caption"],
+                    "visual_ocr_fallback": bool(job.get("visual_ocr_fallback", False)),
+                    "visual_ocr_profile": (
+                        job.get("visual_ocr_profile") or DEFAULT_VISUAL_OCR_PROFILE
+                    ),
                     "source_revision": job["source_revision"],
                 },
                 "media": media_summary,
@@ -1091,6 +1210,8 @@ async def download_job(
                     "encoding_profile": ENCODING_PROFILE,
                 },
             }
+            if derived_text is not None:
+                sidecar["derived_text"] = derived_text
             for transient in (
                 raw_video, raw_audio,
                 raw_video.with_suffix(raw_video.suffix + ".state.json"),
@@ -1363,7 +1484,11 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
     sidecar_path = Path(sidecar_path).resolve()
     bundle = sidecar_path.parent
     metadata = json.loads(sidecar_path.read_text(encoding="utf-8"))
-    if metadata.get("schema_version") != SCHEMA_VERSION or metadata.get("asset_type") != "bilibili_parent":
+    schema_version = metadata.get("schema_version")
+    if (
+        schema_version not in SUPPORTED_SIDECAR_SCHEMA_VERSIONS
+        or metadata.get("asset_type") != "bilibili_parent"
+    ):
         raise ValueError("bundle sidecar has an unsupported schema or asset type")
     if metadata.get("job_key") != bundle.name:
         raise ValueError("bundle directory does not match job_key")
@@ -1493,6 +1618,19 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
         raise ValueError("bundle require_caption policy is invalid")
     if require_caption and caption["status"] != "downloaded":
         raise ValueError("require_caption bundle has no downloaded caption")
+    visual_ocr_fallback = policy.get("visual_ocr_fallback", False)
+    if not isinstance(visual_ocr_fallback, bool):
+        raise ValueError("bundle visual_ocr_fallback policy is invalid")
+    visual_ocr_profile = policy.get("visual_ocr_profile")
+    if visual_ocr_profile is not None and (
+        not isinstance(visual_ocr_profile, str)
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,119}", visual_ocr_profile)
+    ):
+        raise ValueError("bundle visual_ocr_profile policy is invalid")
+    if visual_ocr_fallback and visual_ocr_profile is None:
+        raise ValueError("OCR-enabled acquisition policy requires a profile")
+    if schema_version == LEGACY_SIDECAR_SCHEMA_VERSION and metadata.get("derived_text"):
+        raise ValueError("legacy sidecar cannot contain derived_text")
     need_login = caption.get("need_login_subtitle")
     if caption["status"] == "auth_required" and need_login is not True:
         raise ValueError("auth_required caption must record need_login_subtitle=true")
@@ -1624,6 +1762,83 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
         rejection = caption_timeline_rejection(cues, video["duration_seconds"])
         if rejection is None or track.get("timeline_rejection") != rejection:
             raise ValueError(f"rejected caption track {index} timeline evidence mismatch")
+
+    derived_text = metadata.get("derived_text")
+    if derived_text is not None and not isinstance(derived_text, dict):
+        raise ValueError("bundle derived_text namespace is invalid")
+    if isinstance(derived_text, dict) and set(derived_text) - {"visual_ocr"}:
+        raise ValueError("bundle derived_text contains an unsupported namespace")
+    visual_ocr = (
+        derived_text.get("visual_ocr") if isinstance(derived_text, dict) else None
+    )
+    if visual_ocr is not None:
+        if schema_version != CURRENT_SIDECAR_SCHEMA_VERSION:
+            raise ValueError("visual OCR requires sidecar schema version 2")
+        if not isinstance(visual_ocr, dict):
+            raise ValueError("bundle visual OCR summary is invalid")
+        derivation_trigger = visual_ocr.get("derivation_trigger")
+        expected_trigger = (
+            "acquisition_fallback" if visual_ocr_fallback
+            else "posthoc_backfill"
+        )
+        if derivation_trigger != expected_trigger:
+            raise ValueError("bundle visual OCR derivation trigger is invalid")
+        visual_files = visual_ocr.get("files")
+        status = visual_ocr.get("status")
+        expected_extensions = (
+            {"json", "vtt", "txt"}
+            if status == "downloaded"
+            else {"json"} if status == "no_stable_text_detected" else set()
+        )
+        if (
+            not expected_extensions
+            or not isinstance(visual_files, dict)
+            or set(visual_files) != expected_extensions
+            or any(key not in paths for key in visual_files.values())
+        ):
+            raise ValueError("bundle visual OCR file references are invalid")
+        expected_file_keys.update(visual_files.values())
+        document = json.loads(paths[visual_files["json"]].read_text(encoding="utf-8"))
+        canonical_visual_json = (
+            json.dumps(
+                document, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            ) + "\n"
+        )
+        if paths[visual_files["json"]].read_text(encoding="utf-8") != canonical_visual_json:
+            raise ValueError("bundle visual OCR JSON is not canonical")
+        validate_visual_ocr_document(
+            document,
+            media_sha256=files["video"]["sha256"],
+            media_duration_seconds=video["duration_seconds"],
+            content_language=metadata["content_language"],
+        )
+        if visual_ocr_fallback and visual_ocr_profile != document.get("profile"):
+            raise ValueError(
+                "bundle visual OCR profile differs from acquisition policy"
+            )
+        expected_summary = {
+            key: value for key, value in document.items()
+            if key not in {"cues", "frames", "observations"}
+        }
+        expected_summary["files"] = visual_files
+        expected_summary["derivation_trigger"] = expected_trigger
+        if visual_ocr != expected_summary:
+            raise ValueError("bundle visual OCR summary differs from its JSON evidence")
+        if status == "downloaded":
+            if (
+                paths[visual_files["vtt"]].read_text(encoding="utf-8")
+                != render_visual_ocr_vtt(document)
+            ):
+                raise ValueError("bundle visual OCR VTT is not derived from JSON")
+            if (
+                paths[visual_files["txt"]].read_text(encoding="utf-8")
+                != render_visual_ocr_text(document)
+            ):
+                raise ValueError("bundle visual OCR TXT is not derived from JSON")
+        elif any(extension in visual_files for extension in ("vtt", "txt")):
+            raise ValueError("no-text visual OCR cannot contain VTT or TXT")
+    elif visual_ocr_fallback and caption["status"] != "downloaded":
+        raise ValueError("visual OCR fallback policy has no derived result")
     if set(files) != expected_file_keys:
         raise ValueError("bundle files map has an unexpected closure")
     serialized = json.dumps(metadata, ensure_ascii=False).lower()
@@ -1665,6 +1880,8 @@ def audit_dataset(
             counts[f"caption_{metadata['caption']['status']}"] += 1
             for track in metadata["caption"]["tracks"]:
                 counts[f"caption_kind_{track['kind']}"] += 1
+            visual = ((metadata.get("derived_text") or {}).get("visual_ocr") or {})
+            counts[f"visual_ocr_{visual.get('status') or 'not_run'}"] += 1
         except Exception as exc:
             failures.append({"path": str(sidecar.relative_to(root)), "error": str(exc)[:2000]})
     staging = [path for path in (root / ".staging").glob("*") if path.is_dir()]

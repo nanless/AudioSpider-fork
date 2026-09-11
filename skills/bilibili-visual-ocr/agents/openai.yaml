@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bilibili Visual OCR"
+  short_description: "Extract and audit burned-in Bilibili subtitles"
+  default_prompt: "Use $bilibili-visual-ocr to extract and audit burned-in subtitles in AudioSpider bundles."

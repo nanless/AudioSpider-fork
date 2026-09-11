@@ -33,6 +33,9 @@ flowchart LR
 `bilibili_dataset.py` 和 `youtube_dataset.py` 不能代替这个流程；它们只保留兼容、
 修复和底层审计作用。
 
+B站批次可在媒体完成后显式增加视觉 OCR 回退；它仍回写同一 bundle/SQLite，不改变
+YouTube 流程，也不创建独立 OCR 数据集。
+
 ## 1. 完成定义
 
 “完成”不是“命令退出了”，而是同时满足：
@@ -45,6 +48,8 @@ flowchart LR
 5. 无字幕时不创建假 VTT/TXT，sidecar 明确记录 missing 或更细的不可用原因；
 6. 统一审计 `failure_count=0` 且 `orphan_count=0`；
 7. 最终报告单独统计本批，不拿全库历史总数冒充本批成果。
+8. 若启用 B站视觉 OCR，平台轨与 OCR 分开统计；OCR 始终标为未人工复核，不能冒充平台
+   字幕或人工验真文本。
 
 ## 2. 生产前门禁
 
@@ -351,6 +356,25 @@ B站 handler 默认会先在单任务内部最多尝试 3 次，按 10、20 秒�
 字幕生成来源与媒体 AI 来源是两条轴。自动字幕绝不自动推出媒体
 `ai_generation.status=declared`。
 
+### 11.1 可选：为 B站无同语言平台轨样本回填画面 OCR
+
+先对本批 1 条 dry-run，再 apply 和审计；参数以部署版本 `--help` 为准：
+
+```bash
+python scripts/backfill_bilibili_captions.py --help
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr --apply
+python scripts/audit_media_queue.py
+```
+
+确认 MP4/WAV 哈希未变，`visual_ocr.json` 记录 Paddle 模型/profile、固定 ROI、fps 时基、
+一个采样间隔的不确定度、置信度和跨帧计数，并可确定性重建非空 VTT/TXT。抽检字幕密集、无字幕、
+弹幕/台标、人名条和中英双语样本；统计 cue precision/recall、CER、边界 p95、误报/分钟、
+RTF、GPU 峰值和人工复核率。当前 `human_review_status=unreviewed`，技术门不是人工验真。
+
+扩量前保留脚本创建的 SQLite backup 与 rollback 目录。可捕获异常由工具恢复；若遭遇
+`SIGKILL`/断电，停止 writer，运行统一审计，再按报告、闭包哈希和备份恢复或重跑精确 job。
+
 ## 12. 最终统一审计与计数
 
 ```bash
@@ -379,7 +403,8 @@ ORDER BY source,status;"
 
 最终报告至少列：代码版本、baseline、目标/入队/done/failed、总时长、bundle 总字节、
 字幕 downloaded/missing、manual/automatic/unknown、B站各缺失原因、rights、
-speaker_count、media AI 状态和统一审计结果。
+speaker_count、media AI 状态、visual OCR downloaded/no_stable_text_detected/failed、OCR 引擎/
+profile、质量指标和统一审计结果。
 
 ## 13. 风险清单
 
@@ -387,6 +412,8 @@ speaker_count、media AI 状态和统一审计结果。
 - **平台变化**：搜索、字幕枚举、DASH、yt-dlp 都会变化，真实冒烟不可省。
 - **语言误标**：标题包含/排除词只是选择证据，不能替代声学或人工核验。
 - **字幕质量**：platform manual 不等于逐字验真；automatic 只能作弱标签。
+- **视觉 OCR**：只能识别可见像素；固定 ROI、模糊、花字、遮挡和场景文字会漏检/误报，
+  质量指标与平台字幕覆盖率必须分开。
 - **完整性**：不能用 clip、单独音频或缺音轨 MP4 冒充完整视频。
 - **凭据**：B站 Cookie 只允许最小范围、一次性内存注入。
 - **容量**：150 个长视频的峰值占用高于最终体积。

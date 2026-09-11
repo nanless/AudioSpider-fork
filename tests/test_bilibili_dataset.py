@@ -23,6 +23,7 @@ from bilibili_dataset import (
     download_job,
     caption_language_matches_content,
     build_jobs,
+    build_job_key,
     resolve_caption_inventory,
     select_dash_streams,
     select_caption_tracks,
@@ -81,6 +82,33 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(items[0]["parts"], [2, 1])
         self.assertEqual(items[0]["max_height"], 720)
         self.assertTrue(items[0]["require_caption"])
+        self.assertFalse(items[0]["visual_ocr_fallback"])
+        self.assertEqual(
+            items[0]["visual_ocr_profile"], "bilibili-visual-ocr-zh-v1"
+        )
+
+    def test_visual_ocr_policy_is_validated_and_changes_only_opt_in_job_keys(self):
+        legacy = validate_manifest({"items": [{
+            "bvid": "BV1xx411c7mD", "content_language": "zh",
+        }]})[0]
+        enabled = validate_manifest({"items": [{
+            "bvid": "BV1xx411c7mD", "content_language": "zh",
+            "visual_ocr_fallback": True,
+            "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+        }]})[0]
+        self.assertNotEqual(build_job_key(legacy, 1, 22), build_job_key(enabled, 1, 22))
+        legacy_without_new_fields = dict(legacy)
+        legacy_without_new_fields.pop("visual_ocr_fallback")
+        legacy_without_new_fields.pop("visual_ocr_profile")
+        self.assertEqual(
+            build_job_key(legacy, 1, 22),
+            build_job_key(legacy_without_new_fields, 1, 22),
+        )
+        for invalid in ("", "spaces are unsafe", "../escape"):
+            with self.subTest(profile=invalid), self.assertRaises(ValueError):
+                validate_manifest({"items": [{
+                    "bvid": "BV1xx411c7mD", "visual_ocr_profile": invalid,
+                }]})
 
     def test_url_page_is_inferred_and_conflicts_are_rejected(self):
         item = validate_manifest({"items": [{

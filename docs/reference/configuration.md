@@ -42,6 +42,8 @@ python discover.py --source podcastindex --keywords news --pi-max-pages 1
 | `AUDIOSPIDER_YOUTUBE_INSPECT_TIMEOUT` | `120` | 单个 YouTube 元数据/字幕核验子进程硬超时（秒） |
 | `AUDIOSPIDER_YOUTUBE_DOWNLOAD_TIMEOUT` | `14400` | 单个 YouTube 完整 bundle 下载子进程硬超时（秒） |
 | `AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE` | `zh` | B站受控搜索批次的内容语言；英文批次显式设为 `en` |
+| `AUDIOSPIDER_BILIBILI_VISUAL_OCR_FALLBACK` | `false` | 新 B站任务无同语言平台字幕时是否运行画面 OCR；开启会改变 `job_key`，且下载必须使用 `audiospider-ocr` 环境 |
+| `AUDIOSPIDER_BILIBILI_VISUAL_OCR_PROFILE` | `bilibili-visual-ocr-zh-v1` | 固定 OCR 采样、ROI 和后处理策略标识；开启 OCR 后参与任务身份 |
 | `AUDIOSPIDER_BILIBILI_CATEGORY` | 空 | 可选统一分类覆盖；例如访谈批次设为 `访谈` |
 | `AUDIOSPIDER_BILIBILI_KEYWORDS` | `config.py` 列表 | 逗号分隔的本轮 B站搜索词 |
 | `AUDIOSPIDER_BILIBILI_REQUIRED_TITLE_TERMS` | 空 | 标题至少命中一个词才保留 |
@@ -66,6 +68,18 @@ python doctor.py
 ```
 
 `main.py` 默认使用 4 个 downloader worker；`AUDIOSPIDER_MAX_WORKERS` 是允许用户传入的上限，不是默认并发数。
+
+画面 OCR 默认关闭，因此普通下载继续使用轻量的 `audiospider` 环境。需要让**新采集任务**在平台字幕缺失时自动 OCR，必须在采集和下载两步使用同一开关，并用 OCR 环境运行下载器：
+
+```bash
+AUDIOSPIDER_BILIBILI_VISUAL_OCR_FALLBACK=true \
+  python collect.py --spiders bilibili
+AUDIOSPIDER_BILIBILI_VISUAL_OCR_FALLBACK=true \
+  /root/miniforge3/envs/audiospider-ocr/bin/python main.py \
+  --source bilibili --artifact-kind video_bundle --limit 1 --workers 1 --format original
+```
+
+已有 bundle 不重新下载视频，应使用精确 `--job-key` 的字幕/OCR 回填命令。
 
 ### B站来源专用代理
 

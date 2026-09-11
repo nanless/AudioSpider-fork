@@ -36,6 +36,9 @@ downloads/bilibili/访谈/BVxxxx_p1/<job_key>/
 没有同语言字幕时，`require_caption=false` 的样本仍可包含 MP4、WAV 和
 `metadata.json` 并完成；程序不会用本地 ASR 伪造平台字幕。
 
+显式启用视觉 OCR 回退后，同一目录还可能有 `visual_ocr.json/.vtt/.txt`。它们来自
+`source.mp4` 像素，不是 B站字幕 API；无稳定 cue 时只保存 JSON。
+
 ## 2. 先做运行前检查
 
 ```bash
@@ -195,6 +198,15 @@ ASR。自动字幕也不能证明视频声音或画面本身由 AI 生成。
 中文内容只接受中文/普通话/粤语同族字幕，不拿英文字幕兜底。画面上的烧录字幕只是
 像素，不等于平台提供了可下载字幕轨。
 
+视觉 OCR 是第三类来源：`text_source=visual_ocr`、`extraction_kind=automatic`，原作者写
+`caption_authorship=unknown`。它不改变原来的 `caption.status`：平台仍为 `auth_required`
+时，即使 OCR 成功，也必须保留“平台轨无法判定”的事实。
+
+当前 v1 用 FFmpeg 对配置 ROI（默认下半画面）固定约 4 fps 抽帧；以 fps 输出帧序号恢复
+时间并保守记录一个采样间隔的不确定度。低置信度结果被过滤，至少两个连续采样的相似文本/位置才组成
+cue，覆盖过久的静态文字会按台标类覆盖层过滤。它尚不是自适应 ROI、变化帧跳过或 GPU
+批处理：快闪、移动、多区域、弹幕、人名条和中英双语都需要调参和人工抽检。
+
 ### 6.1 为什么 sidecar 会有 `inventory_attempts`
 
 B 站 player 字幕列表可能在短时间内波动。每次查询只保存原始轨道数、已选轨道数、
@@ -253,6 +265,28 @@ python scripts/backfill_bilibili_captions.py --limit 20 --apply \
   --allow-bilibili-cookie
 ```
 
+若同语言平台轨不可用，并且确实要识别画面烧录字幕，先只预览一条：
+
+```bash
+python scripts/backfill_bilibili_captions.py --help
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr --apply
+```
+
+本轮 Paddle 后端可通过 `--ocr-engine paddle` 选择，采样、区域、最低置信度和 profile 可用
+对应 `--ocr-*` 参数调整；以部署版本 `--help` 为准。OCR 读取本地 MP4，不需要
+`--allow-bilibili-cookie`；该门禁只用于经明确授权的平台 API 重查。两种回填共享 SQLite
+backup、精确 job lock、rollback 和 CAS，不改写 `source.mp4`/`audio.wav`。
+
+apply 后运行统一审计并抽看原画面。`downloaded` 只表示有 cue 通过置信度/连续帧技术门，
+文档仍是 `human_review_status=unreviewed`。批次级验收应在标注集报告 cue precision/recall、
+中文 CER、边界误差 p95、误报/分钟、RTF、GPU 峰值和复核率。可先以 precision ≥99%、
+recall ≥95%、CER ≤5%、边界 p95 ≤250 ms、误报 ≤0.02 cue/分钟、RTF ≤0.3 作为项目目标；
+它们不是 PaddleOCR 或当前实现的性能承诺，未实测前不能宣称达标。
+
+可捕获异常会恢复文件和 sidecar/SQLite。`SIGKILL`/断电后应保留 backup 与 rollback 目录，
+先运行审计，再按报告和闭包哈希恢复或重跑精确 job；不要盲删或手工改 DB。
+
 `invalid_timeline` 默认不再被每次回填重复选中，避免稳定错配的低 ID 样本
 占满 `--limit` 并饿死后续任务。只有确认平台轨道可能已更新时，才加
 `--retry-invalid-timeline`。
@@ -286,6 +320,10 @@ python scripts/audit_media_queue.py
 
 统一审计会核对：数据库 done 行、`bundle_path`、`source_id/job_key` 目录身份、MP4/WAV、
 字幕闭包、文件字节数、SHA-256、`local_path=.../source.mp4` 以及孤儿目录。
+
+OCR bundle 还要核对 `derived_text.visual_ocr`、输入视频哈希、引擎/模型/profile、ROI、采样
+时基与不确定度、cue 置信度/observations、质量计数，以及 JSON 能否确定性重建 VTT/TXT。
+Whisper/音画一致性只能是额外复核证据，不能用 ASR 强行改写 OCR cue/provenance。
 
 单条样本还应抽查：
 

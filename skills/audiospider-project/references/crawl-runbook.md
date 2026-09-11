@@ -54,6 +54,20 @@ Do not loosen the two-second media-tail tolerance to force acceptance. A quarant
 evidence, not a usable transcript; it contains preserved cue content and safe platform structure with
 transport credentials removed.
 
+For a completed Bilibili bundle without a valid same-language platform track, use the same repair path:
+
+```bash
+python scripts/backfill_bilibili_captions.py --help
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr
+/root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr --apply
+python scripts/audit_media_queue.py
+```
+
+Select the deployed Paddle backend and tuning only through the current `--ocr-*` flags shown by help.
+OCR needs no Cookie and must preserve MP4/WAV hashes. Apply shares backup, exact lock, rollback and CAS.
+`downloaded` remains unreviewed; report precision/recall, CER, timing, false-cue rate and RTF before
+production acceptance. After an unclean kill, preserve backup/rollback evidence and audit first.
+
 Declare a requested batch complete only by checking its baseline or manifest job keys and distinct
 `source_id` values: every intended row must be `done` and every bundle must pass its validator plus
 `scripts/audit_media_queue.py`. A process exit or a larger whole-database `done` total is not completion.

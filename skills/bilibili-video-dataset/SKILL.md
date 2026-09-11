@@ -1,6 +1,6 @@
 ---
 name: bilibili-video-dataset
-description: Collect, download, resume, audit, and document complete Bilibili per-part video bundles through AudioSpider's unified SQLite media pipeline on dev_L4_1gpus. Use for Bilibili video, DASH, CID, platform subtitles, or bundle provenance; do not route new formal work through the legacy audio-only or standalone dataset path.
+description: Collect, download, resume, audit, and document complete Bilibili per-part video bundles through AudioSpider's unified SQLite media pipeline on dev_L4_1gpus. Use for Bilibili video, DASH, CID, platform subtitles, burned-in subtitle visual OCR, or bundle provenance; do not route new formal work through the legacy audio-only or standalone dataset path.
 ---
 
 # Bilibili Video Bundle
@@ -80,6 +80,15 @@ mutates only with `--apply`. Then run `python scripts/audit_media_queue.py`.
 - Before mutation, recompute the old disk closure and require it to equal SQLite's saved size/hash. Keep
   ffprobe and large hashing outside the writer transaction. Recovery covers catchable exceptions but
   cannot promise filesystem/SQLite atomicity across `SIGKILL`, power loss or storage failure.
+- Visual OCR is the explicit `--visual-ocr` fallback in `scripts/backfill_bilibili_captions.py`, not a
+  new downloader or queue. Platform tracks remain first; OCR uses the completed MP4 only when no valid
+  same-language platform track exists.
+- Mark it `visual_ocr`, automatic extraction, unknown authorship and unreviewed. Bind input hash,
+  Paddle engine/model/profile, ROI, fps time basis/uncertainty, observations, confidence and quality
+  counters. Never overwrite/relabel platform provenance.
+- The committed statuses are `downloaded` and `no_stable_text_detected`; backend failures remain repair
+  failures. Static overlays, danmaku, lower thirds, tiny/blurred/animated/occluded and bilingual text are
+  known failure modes; absence of stable text is not proof of no burned-in subtitles.
 
 ## Credentials and rights
 
@@ -97,6 +106,10 @@ supplied lawful session must use the `--allow-bilibili-cookie` gate, remain proc
 and be sent only to `api.bilibili.com`; never persist, print or forward it to CDN/ffmpeg. Keep rights at
 `needs_review` unless independent evidence clears the intended use.
 
+If the user authorizes their current Edge Bilibili session, extract only the minimum Bilibili-origin
+allow-list through stdin or a one-shot memory bridge; never copy the profile or inspect other-origin
+cookies. OCR itself uses local pixels and must not receive the Cookie.
+
 ## Completion evidence
 
 Report exact BV/CID/part, queue job, output path, bytes, MP4/WAV ffprobe results, caption availability
@@ -104,3 +117,5 @@ and manual/automatic/unknown counts, rights/AI/speaker-review state, SHA-256 clo
 remaining staging. For a requested batch, reconcile its baseline/job keys and distinct `source_id` values;
 every target must be `done`, pass `validate_bundle`, and pass `scripts/audit_media_queue.py`. A worker exit
 or whole-database count is not completion. Synthetic tests never prove real caption coverage.
+For OCR also report platform status separately, OCR status/profile/model, cue precision/recall, CER,
+timing p95, false cues/minute, RTF, GPU peak and human-review state.

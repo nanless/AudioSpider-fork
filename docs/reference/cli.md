@@ -224,6 +224,46 @@ sidecar/DB 闭包指纹。工具不下载或改写 MP4/WAV。
 隔离保留 `.rejected.json` 和数值证据，不生成错配 VTT/TXT；全部轨道都错配时
 整体状态为 `invalid_timeline`。
 
+同一工具可显式启用画面字幕 OCR。它先遵守平台字幕判定；无合法同语言平台轨时才读取
+bundle 内现有 `source.mp4`，不建第二条队列，也不重下 MP4/WAV。默认仍是 dry-run：
+
+```bash
+python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr
+python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr --apply
+python scripts/audit_media_queue.py
+```
+
+| 参数 | 规则 |
+|---|---|
+| `--visual-ocr` | 仅在同语言平台轨不可用时尝试本地烧录字幕 OCR |
+| `--job-key` | 只处理完全匹配的一个任务，可重复传入；推荐用它做金丝雀测试 |
+| `--apply` | 唯一写入门禁；与平台回填共享 backup、job lock、rollback 和 CAS |
+| `--allow-bilibili-cookie` | 只授权平台 API 重查；构造 API client 后即从环境移除，OCR 不接收 Cookie |
+
+本轮实现还提供 `--ocr-engine paddle`、`--ocr-sample-fps`、`--ocr-region`、
+`--ocr-min-confidence`、`--ocr-profile` 与单 bundle 可终止硬门限
+`--ocr-timeout-seconds`；准确取值和默认值必须以当前部署的
+`python scripts/backfill_bilibili_captions.py --help` 为准。PaddleOCR/模型未就绪或处理异常时，
+报告应为 `phase=visual_ocr` 失败，不能伪装成平台 missing。无稳定 cue 时只提交
+`visual_ocr.json`，不会生成空 VTT/TXT。
+
+适配器不会自行 `pip install`；但 PaddleOCR 官方行为是在缓存缺失时下载官方模型。
+`scripts/bootstrap_ocr_conda.sh` 会把这一步作为明确的 PaddlePaddle 官方 ModelScope 仓库模型预热执行。生产机必须先在隔离、已验收的 OCR 环境中
+准备 PaddleOCR、Paddle/CUDA、OpenCV 和固定模型缓存，再做一条真实 smoke。不要在长批次
+运行时临时升级依赖或让多个 worker 各自占一份 L4 模型。普通 OCR worker 会在构造模型前
+校验缓存完整性，缓存缺失时失败关闭，不会在数据任务中临时下载；sidecar 的
+`engine.version/model_version` 保存完整运行栈版本和模型文件组合 SHA-256。
+
+仓库提供可重复的隔离环境安装器：
+
+```bash
+bash scripts/bootstrap_ocr_conda.sh
+/root/miniforge3/envs/audiospider/bin/python doctor.py --ocr
+```
+
+它固定 Python 3.11、CUDA 11.8 的 PaddlePaddle GPU 3.3.0、PaddleOCR 3.7.0
+及 `requirements-ocr-lock.txt` 中的 OCR 顶层依赖，不修改原 `audiospider` 环境。
+
 ```bash
 python scripts/backfill_bilibili_captions.py --limit 20
 python scripts/backfill_bilibili_captions.py --limit 20 --apply \

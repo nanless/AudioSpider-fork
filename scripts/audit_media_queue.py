@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import sqlite3
 import sys
@@ -36,6 +37,8 @@ def audit(db_path: Path, download_root: Path) -> dict:
 
     failures = []
     seen = set()
+    caption_counts: Counter[str] = Counter()
+    visual_ocr_counts: Counter[str] = Counter()
     for row in rows:
         try:
             bundle = Path(row["bundle_path"]).resolve()
@@ -47,7 +50,11 @@ def audit(db_path: Path, download_root: Path) -> dict:
             if row["source"] == "youtube":
                 validate_youtube_bundle(sidecar)
             elif row["source"] == "bilibili":
-                validate_bilibili_bundle(sidecar)
+                validated = validate_bilibili_bundle(sidecar)
+                metadata = validated["metadata"]
+                caption_counts[str(metadata["caption"]["status"])] += 1
+                visual = ((metadata.get("derived_text") or {}).get("visual_ocr") or {})
+                visual_ocr_counts[str(visual.get("status") or "not_run")] += 1
             else:
                 raise ValueError(f"unsupported video source: {row['source']}")
             _, fingerprint = bundle_fingerprint(bundle)
@@ -76,6 +83,8 @@ def audit(db_path: Path, download_root: Path) -> dict:
         "done_video_bundles": len(rows), "validated": len(rows) - len(failures),
         "failure_count": len(failures), "failures": failures,
         "orphan_count": len(orphans), "orphans": sorted(orphans),
+        "bilibili_platform_caption_status": dict(sorted(caption_counts.items())),
+        "bilibili_visual_ocr_status": dict(sorted(visual_ocr_counts.items())),
     }
 
 
