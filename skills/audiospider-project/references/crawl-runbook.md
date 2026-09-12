@@ -7,7 +7,8 @@ conda activate audiospider
 python doctor.py
 ```
 
-Start bounded. Collection writes metadata jobs; download writes large files.
+Start bounded. The following are ordinary non-batch probes; never reuse their unscoped download commands
+for `multispeaker-video-100-20260912`. Collection writes metadata jobs; download writes large files.
 
 ```bash
 python probe.py --source bilibili --keywords "人物访谈 长视频" --search-pages 1 --videos 1 --parts 1
@@ -35,6 +36,34 @@ repeat the exact command with `--apply`. Do not replace it with a broad manual S
 
 If disk is below the configured reserve, stop. Do not lower the reserve merely to force a run.
 Use `--allow-bilibili-cookie` only after explicit user authorization; otherwise ambient cookies are ignored.
+
+## Exact cross-platform multispeaker batch
+
+For `multispeaker-video-100-20260912`, use the total index plus both formal manifests; never substitute
+keyword search or an example file. The six required cells are Bilibili Chinese and YouTube English, each
+with `影视=20`, `访谈=20`, and `会议论坛=10`. Validate the immutable candidate set first:
+
+```bash
+python -m unittest tests.test_multispeaker_batch_manifests
+python scripts/audit_multispeaker_batch.py \
+  --batch-index config/multispeaker_video_100_20260912.batch.json \
+  --db audiospider.db
+AUDIOSPIDER_BILIBILI_MANIFEST=config/bilibili_multispeaker_50_20260912.json \
+python collect.py --spiders bilibili
+AUDIOSPIDER_YOUTUBE_MANIFEST=config/youtube_multispeaker_50_20260912.json \
+AUDIOSPIDER_YOUTUBE_MAX_ITEMS=50 python collect.py --spiders youtube
+```
+
+The entries deliberately retain `speaker_count=null/needs_review` and
+`candidate_metadata.multi_speaker_evidence.status=candidate_unverified`; discovery context must not be
+reported as acoustic verification. All items are complete platform videos, use same-language captions
+best effort, and never invoke YouTube clip generation.
+
+Keep one writer. Every normal or `--retry-failed` claim for this batch must include
+`--batch-id multispeaker-video-100-20260912`; source/category/language are additional bounds. Finish with
+`scripts/audit_media_queue.py` and the batch auditor's `--require-complete`; only its exact manifest IDs
+and six-cell counts establish completion. Full operating and credential details are in
+`skills/multispeaker-video-batch/references/runbook.md`.
 
 For Bilibili caption-only repair, dry-run first, then use `--apply` after reviewing the exact bundle set.
 The repair makes a SQLite backup, locks each job, verifies the old disk/DB fingerprint twice, displaces all

@@ -53,6 +53,41 @@ B站新采集不再产生纯音频任务；数据库里的历史 B站 `audio` �
 handler 完成。YouTube clip 不在默认主路径；只有用户明确要求时才可作为父 bundle
 的派生产物。
 
+## 跨平台批次分类与总控
+
+视频批次使用三组受控分类，B站和 YouTube 共用同一语义：
+
+| `content_kind` | `category/dataset_category` | 说明 |
+|---|---|---|
+| `screen_media` | `影视` | 影视、剧情、节目或平台发布的相关完整条目 |
+| `interview_roundtable` | `访谈` | 访谈、对谈、圆桌 |
+| `conference_forum` | `会议论坛` | 会议、论坛、峰会、panel |
+
+100 条候选批次由一个总控文件引用两个平台 manifest。B站清单模式与搜索模式互斥；设置
+`AUDIOSPIDER_BILIBILI_MANIFEST` 后，清单优先且不会在失败时回退搜索。YouTube 影视和
+会议分别使用 `youtube_screen_parents`、`youtube_conference_forums`，两者都属于完整父
+视频 profile，不会自动切片。
+
+```mermaid
+flowchart LR
+    I[批次总控]
+    B[B站精确 manifest]
+    Y[YouTube 精确 manifest]
+    C[collect.py]
+    Q[(audiospider.db)]
+    M[main.py<br/>--batch-id 精确领取]
+    D[downloads/source/category]
+    A[audit_multispeaker_batch.py]
+    I --> B --> C
+    I --> Y --> C
+    C --> Q --> M --> D
+    I --> A
+    Q --> A
+```
+
+总控和清单存在只证明候选集合与 20/20/10 配额可被静态核验。当前候选的语言和多人线索
+可为 `candidate_unverified`；在人工听审、真实下载和 bundle audit 前不能宣称批次完成。
+
 ## 状态机
 
 ```mermaid
@@ -161,6 +196,24 @@ AUDIOSPIDER_YOUTUBE_MAX_ITEMS=1 python collect.py --spiders youtube
 python main.py --source youtube --limit 1 --workers 1 --format original
 python main.py stats
 ```
+
+精确候选批次还可运行：
+
+```bash
+AUDIOSPIDER_BILIBILI_MANIFEST=config/bilibili_multispeaker_50_20260912.json \
+python collect.py --spiders bilibili
+AUDIOSPIDER_YOUTUBE_MANIFEST=config/youtube_multispeaker_50_20260912.json \
+python collect.py --spiders youtube
+python main.py --batch-id multispeaker-video-100-20260912 \
+  --source bilibili --artifact-kind video_bundle --category 影视 --limit 1 --workers 1
+python main.py --batch-id multispeaker-video-100-20260912 \
+  --source youtube --artifact-kind video_bundle --category 影视 --limit 1 --workers 1
+python scripts/audit_multispeaker_batch.py \
+  --batch-index config/multispeaker_video_100_20260912.batch.json
+```
+
+`--batch-id` 从两平台任务 metadata 精确过滤 pending 或 failed 行；`--source` 和
+`--category` 只是六格切片，不能单独保证批次隔离。
 
 `main.py --source` 同时过滤普通音频和视频 bundle。`--format` 只控制普通音频；视频
 handler 始终生成完整 MP4 与 WAV。YouTube 默认读取 `config/youtube_sources.initial.json`，

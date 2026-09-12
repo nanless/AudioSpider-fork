@@ -23,6 +23,8 @@ or an explicitly requested compatibility workflow; it is not the documented main
 
 Before acting, read `docs/DOWNLOAD-GUIDE.md`, `docs/architecture.md`, and
 `docs/SIDECAR-SCHEMA.md` in the live repository.
+For a fixed manifest batch, read [references/runbook.md](references/runbook.md) before network or queue
+work.
 
 ## Identity and bounds
 
@@ -43,6 +45,15 @@ Before acting, read `docs/DOWNLOAD-GUIDE.md`, `docs/architecture.md`, and
 - Treat configured `content_language=zh` and title/search filtering as selection evidence, not acoustic
   proof of spoken language. Report this limitation unless a separate authorized language audit ran.
 - Never use an example manifest as the user's target.
+- For an exact batch, set `AUDIOSPIDER_BILIBILI_MANIFEST` to its reviewed formal manifest. Manifest mode
+  must not fall back to search. Preserve `batch_id`, `selection_slot`, controlled `dataset_category` /
+  `content_kind`, and bounded arbitrary `candidate_metadata` through the queue job and sidecar.
+- The multispeaker candidate manifest uses Chinese-family content, `require_caption=false`, and the
+  three cells `影视/screen_media`, `访谈/interview_roundtable`, and
+  `会议论坛/conference_forum`. `candidate_unverified` is selection evidence only; it cannot be
+  promoted to `verified_manual` without reviewing actual media.
+- Every download and `--retry-failed` run for that exact batch must include
+  `--batch-id multispeaker-video-100-20260912`, even when source/category/language are also specified.
 
 ## Artifact closure
 

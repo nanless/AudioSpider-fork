@@ -7,6 +7,22 @@
 - 修复长视频批次超过两小时后 lease 过期、被其他来源 downloader 误回收的问题：活跃批次现在周期性续租，过期回收也限制在当前领取过滤范围内。
 - B 站同语言字幕若与当前分 P 时长明显错配，best-effort 任务现在保留完整视频和隔离的净化平台 JSON（保留 cue 与平台结构、移除传输凭据），逐轨记录版本化时间轴证据，不生成误导性 VTT/TXT；所有轨道都错配时标记 `invalid_timeline`，严格字幕任务仍失败。
 
+### 跨平台 100 条多人视频候选批次
+
+- B站 Spider 新增 `AUDIOSPIDER_BILIBILI_MANIFEST` 精确清单模式；变量非空时完全跳过
+  关键词搜索，清单加载或平台核验失败也不会回退到不稳定搜索结果。
+- B站与 YouTube 统一使用 `影视/screen_media`、`访谈/interview_roundtable`、
+  `会议论坛/conference_forum` 三组受控分类。
+- YouTube 新增完整父视频 profiles：`youtube_screen_parents` 和
+  `youtube_conference_forums`；仍保存完整视频，不生成 clip。
+- 新增批次总控、B站 50 条候选清单、YouTube 50 条候选清单和
+  `scripts/audit_multispeaker_batch.py` 精确父 ID 对账。
+- `main.py` 新增 `--batch-id` 精确领取：同时支持 pending 下载和 failed 重试，并分别匹配
+  B站 `download_task.batch_id` 与 YouTube `job.batch_id`；没有合法批次元数据的旧记录不会
+  混入本批。
+- 当前 100 条都是候选：未人工听审的多人/语言证据保留 `candidate_unverified`，
+  `speaker_count=null`、`speaker_count_status=needs_review`。配置和测试通过不代表视频已下载完成。
+
 ### B站画面字幕 OCR 回退
 
 - 在现有 `scripts/backfill_bilibili_captions.py` 增加显式 `--visual-ocr` 回退；先查

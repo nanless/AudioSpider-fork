@@ -13,6 +13,7 @@
 """
 
 import asyncio
+from pathlib import Path
 import re
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -24,9 +25,11 @@ from background import encode_metadata, metadata_envelope, plain_text
 from bilibili_proxy import get_bilibili_proxy, proxy_request_kwargs
 from bilibili_subtitles import classify_subtitle_inventory, sanitize_subtitle_track
 from bilibili_dataset import (
+    build_jobs,
     build_job_key,
     caption_language_matches_content,
     default_caption_languages,
+    load_manifest,
 )
 from config import SPIDER_CONFIGS
 from spiders.base import BaseSpider
@@ -58,6 +61,7 @@ class BilibiliSpider(BaseSpider):
     def __init__(self):
         super().__init__()
         cfg = SPIDER_CONFIGS.get(self.name, {})
+        self.manifest_path = str(cfg.get("manifest_path") or "").strip()
         self.keywords = cfg.get("search_keywords", SEARCH_KEYWORDS)
         self.max_videos_per_keyword = cfg.get("max_videos_per_keyword", 10)
         self.max_pages_per_video = cfg.get("max_pages_per_video", 20)
@@ -78,6 +82,7 @@ class BilibiliSpider(BaseSpider):
         if self.category_override and self.category_override not in {
             "有声书", "播客", "相声", "评书", "演讲", "脱口秀",
             "广播剧", "新闻", "访谈", "朗读", "视频",
+            "影视", "会议论坛",
         }:
             raise ValueError("bilibili.category_override is not a supported category")
         self.limiter = RateLimiter(rate=0.5, burst=3)
@@ -86,7 +91,9 @@ class BilibiliSpider(BaseSpider):
         self,
         on_batch: Callable[[list[AudioRecord]], tuple[int, int] | None] | None = None,
     ) -> list[AudioRecord]:
-        """边搜索边解析；解析完一页后立刻 on_batch 入库；同时预取下一页搜索。"""
+        """按正式清单或搜索解析，并通过同一个 on_batch 路径入库。"""
+        if self.manifest_path:
+            return await self._crawl_manifest(on_batch=on_batch)
         self.logger.info(
             f"开始爬取B站, 关键词: {len(self.keywords)} 个"
             f"（最多翻 {self.max_search_pages} 页/词，解析前 {self.max_videos_per_keyword} 个/词"
@@ -220,6 +227,81 @@ class BilibiliSpider(BaseSpider):
 
         self.logger.info(f"B站 共发现 {total_records} 个视频 bundle 任务")
         return records
+
+    async def _crawl_manifest(
+        self,
+        on_batch: Callable[[list[AudioRecord]], tuple[int, int] | None] | None = None,
+    ) -> list[AudioRecord]:
+        """采集不可变清单中的精确父 BV；不会回退到实时搜索。"""
+
+        items = load_manifest(Path(self.manifest_path))
+        records: list[AudioRecord] = []
+        self.logger.info("开始采集B站正式清单: %s（%d 个父 BV）", self.manifest_path, len(items))
+        async with aiohttp.ClientSession(headers=BILIBILI_HEADERS) as session:
+            for index, item in enumerate(items, 1):
+                await self.limiter.acquire()
+                batch = await self._extract_manifest_records(session, item)
+                if on_batch is None:
+                    records.extend(batch)
+                elif batch:
+                    on_batch(batch)
+                self.logger.info(
+                    "B站清单进度 %d/%d: %s，生成 %d 个分P任务",
+                    index, len(items), item["bvid"], len(batch),
+                )
+                await random_delay(0.5, 1.0)
+        return records
+
+    async def _extract_manifest_records(
+        self, session: aiohttp.ClientSession, item: dict,
+    ) -> list[AudioRecord]:
+        video_info = await self._get_video_info(session, item["bvid"])
+        if not video_info:
+            self.logger.warning("B站清单视频解析失败 %s: view API 无有效数据", item["bvid"])
+            return []
+        try:
+            jobs = build_jobs(item, video_info)
+        except ValueError as exc:
+            self.logger.warning("B站清单视频不符合策略 %s: %s", item["bvid"], exc)
+            return []
+        result = []
+        for job in jobs:
+            await self.limiter.acquire()
+            inventory = await self._get_subtitle_inventory(
+                session, job["bvid"], job["cid"]
+            )
+            subtitles = [
+                track for track in inventory["assets"]
+                if caption_language_matches_content(
+                    job["content_language"], track.get("language", "")
+                )
+            ]
+            page = next(
+                page for page in video_info.get("pages", [])
+                if int(page.get("page") or 0) == job["part"]
+            )
+            title = job.get("part_title") or video_info.get("title") or job["bvid"]
+            record = AudioRecord(
+                url=self._canonical_page_url(job["bvid"], job["part"]),
+                source=self.name,
+                title=title,
+                file_format="mp4",
+                artifact_kind="video_bundle",
+                job_key=job["job_key"],
+                duration=job["duration_seconds"],
+                language=job["content_language"],
+                category=job["dataset_category"],
+                speaker=str(job.get("program") or video_info.get("title") or "")[:30],
+                source_id=f"{job['bvid']}_p{job['part']}",
+            )
+            self._attach_metadata(
+                record, video_info, page, bvid=job["bvid"], cid=job["cid"],
+                page_num=job["part"], keyword=job["dataset_category"],
+                subtitles=subtitles, caption_inventory=inventory,
+                manifest_job=job,
+            )
+            result.append(record)
+        return result
 
     async def _search_page(self, session: aiohttp.ClientSession,
                            keyword: str, page: int) -> list[tuple[str, str, str]]:
@@ -369,7 +451,8 @@ class BilibiliSpider(BaseSpider):
                          page: dict, *, bvid: str, cid: int,
                          page_num: int, keyword: str,
                          subtitles: list[dict],
-                         caption_inventory: dict | None = None) -> AudioRecord:
+                         caption_inventory: dict | None = None,
+                         manifest_job: dict | None = None) -> AudioRecord:
         owner = video_info.get("owner") or {}
         record.webpage_url = self._canonical_page_url(bvid, page_num)
         record.description = plain_text(video_info.get("desc", ""))
@@ -415,7 +498,7 @@ class BilibiliSpider(BaseSpider):
                 # Portable, signed-URL-free download contract.  Its field names
                 # intentionally mirror bilibili_dataset.validate_manifest so a
                 # downloader can recreate the exact part job at transfer time.
-                "download_task": {
+                "download_task": ({
                     "artifact_kind": "video_bundle",
                     "bvid": bvid,
                     "cid": cid,
@@ -448,7 +531,35 @@ class BilibiliSpider(BaseSpider):
                         "max_duration_seconds": self.max_duration_seconds,
                     },
                     "source_revision": "current",
-                },
+                } if manifest_job is None else {
+                    "artifact_kind": "video_bundle",
+                    "bvid": manifest_job["bvid"],
+                    "cid": manifest_job["cid"],
+                    "page": manifest_job["part"],
+                    "canonical_url": record.webpage_url,
+                    "parts": [manifest_job["part"]],
+                    "max_parts": 1,
+                    "max_height": manifest_job["max_height"],
+                    "max_duration_seconds": manifest_job["max_duration_seconds"],
+                    "content_language": manifest_job["content_language"],
+                    "caption_policy": {
+                        "mode": "all_matching_public_tracks",
+                        "languages": manifest_job["languages"],
+                        "require_caption": manifest_job["require_caption"],
+                        "visual_ocr_fallback": manifest_job["visual_ocr_fallback"],
+                        "visual_ocr_profile": manifest_job["visual_ocr_profile"],
+                    },
+                    "rights": manifest_job["rights"],
+                    "ai_generation": manifest_job["ai_generation"],
+                    "speaker_count": manifest_job["speaker_count"],
+                    "speaker_count_status": manifest_job["speaker_count_status"],
+                    "source_revision": manifest_job["source_revision"],
+                    "batch_id": manifest_job.get("batch_id", ""),
+                    "content_kind": manifest_job.get("content_kind", ""),
+                    "dataset_category": manifest_job.get("dataset_category", ""),
+                    "selection_slot": manifest_job.get("selection_slot", ""),
+                    "candidate_metadata": manifest_job.get("candidate_metadata") or {},
+                }),
             },
             assets={"transcripts": subtitles},
             transcript_status=(

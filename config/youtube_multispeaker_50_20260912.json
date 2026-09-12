@@ -1,0 +1,2472 @@
+{
+  "schema_version": 2,
+  "batch_id": "multispeaker-video-100-20260912",
+  "platform": "youtube",
+  "content_language": "en",
+  "target_counts": {
+    "screen_media": 20,
+    "interview_roundtable": 20,
+    "conference_forum": 10
+  },
+  "selection_policy": {
+    "complete_platform_video": true,
+    "assistant_generated_clips": false,
+    "same_language_caption": "best_effort",
+    "keep_without_caption": true,
+    "rights": "needs_review",
+    "ai_generation": "unknown_without_evidence",
+    "speaker_count": "needs_review_until_manual_verification"
+  },
+  "items": [
+    {
+      "url": "https://www.youtube.com/watch?v=C72DLz-y9xQ",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Bob Trevino Likes It - Full Cast Q&A",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-01",
+      "candidate_metadata": {
+        "title_at_discovery": "Bob Trevino Likes It - Full Cast Q&A",
+        "channel_at_discovery": "Shade Studios Film and TV",
+        "duration_at_discovery": "29:10",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=0P6M_2wHSDU",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Official RWBY Cast Q&A",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-02",
+      "candidate_metadata": {
+        "title_at_discovery": "Official RWBY Cast Q&A",
+        "channel_at_discovery": "Streamily",
+        "duration_at_discovery": "49:11",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=KjvoXseBMQY",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Hazbin Hotel Q&A | GalaxyCon Raleigh 2025",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-03",
+      "candidate_metadata": {
+        "title_at_discovery": "Hazbin Hotel Q&A | GalaxyCon Raleigh 2025",
+        "channel_at_discovery": "GalaxyCon",
+        "duration_at_discovery": "53:21",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=ie-JIIriKjo",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "iCarly Cast Q&A",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-04",
+      "candidate_metadata": {
+        "title_at_discovery": "iCarly Cast Q&A",
+        "channel_at_discovery": "NickRewind",
+        "duration_at_discovery": "07:11",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=eGkcafswPPo",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Hazbin Hotel | OFFICIAL Full Panel",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-05",
+      "candidate_metadata": {
+        "title_at_discovery": "Hazbin Hotel | OFFICIAL Full Panel",
+        "channel_at_discovery": "FanX Comic Conventions",
+        "duration_at_discovery": "31:52",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=-TJebGf7u0Y",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Avatar: The Last Airbender Full Cast Reunion",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-06",
+      "candidate_metadata": {
+        "title_at_discovery": "Avatar: The Last Airbender Full Cast Reunion",
+        "channel_at_discovery": "Comic Con Revolution",
+        "duration_at_discovery": "48:25",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=SoADZun6flY",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Sense8 Cast Q&A - COMPLETE",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-07",
+      "candidate_metadata": {
+        "title_at_discovery": "Sense8 Cast Q&A - COMPLETE",
+        "channel_at_discovery": "Sense8 Worldwide",
+        "duration_at_discovery": "22:57",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=U54Y6XNHep0",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "JUMANJI: THE NEXT LEVEL - Cast Q&A",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-08",
+      "candidate_metadata": {
+        "title_at_discovery": "JUMANJI: THE NEXT LEVEL - Cast Q&A",
+        "channel_at_discovery": "Sony Pictures Entertainment",
+        "duration_at_discovery": "23:09",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=6qUUaKPMwGU",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Cast Q&A (Season 8 Finale Event) | Heartland",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-09",
+      "candidate_metadata": {
+        "title_at_discovery": "Cast Q&A (Season 8 Finale Event) | Heartland",
+        "channel_at_discovery": "Heartland",
+        "duration_at_discovery": "41:42",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=FXmZdzv6v3A",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "ONE PIECE Q&A with Actors Taz Skyler & Mackenyu",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-10",
+      "candidate_metadata": {
+        "title_at_discovery": "ONE PIECE Q&A with Actors Taz Skyler & Mackenyu",
+        "channel_at_discovery": "Cinema Daily US",
+        "duration_at_discovery": "17:25",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=a06xMrjorlg",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "The Amazing Digital Circus Cast Q&A",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-11",
+      "candidate_metadata": {
+        "title_at_discovery": "The Amazing Digital Circus Cast Q&A",
+        "channel_at_discovery": "Streamily",
+        "duration_at_discovery": "1:12:32",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=kNzuLfPSizs",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Avatar: The Last Airbender Cast Answer Questions",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-12",
+      "candidate_metadata": {
+        "title_at_discovery": "Avatar: The Last Airbender Cast Answer Questions",
+        "channel_at_discovery": "WIRED",
+        "duration_at_discovery": "10:36",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=VmdlR7F1Qa0",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "The King of Queens Reunion - Full Cast Table Read and Q&A",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-13",
+      "candidate_metadata": {
+        "title_at_discovery": "The King of Queens Reunion - Full Cast Table Read and Q&A",
+        "channel_at_discovery": "Throwback TV Clips",
+        "duration_at_discovery": "1:34:31",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=SWI22UymfeY",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Oslo, August 31st Q&A",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-14",
+      "candidate_metadata": {
+        "title_at_discovery": "Oslo, August 31st Q&A",
+        "channel_at_discovery": "Film at Lincoln Center",
+        "duration_at_discovery": "28:53",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=Qr6Ns1WYIQ4",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "IT MUST BE HEAVEN Director Q&A",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-15",
+      "candidate_metadata": {
+        "title_at_discovery": "IT MUST BE HEAVEN Director Q&A",
+        "channel_at_discovery": "TIFF",
+        "duration_at_discovery": "21:38",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=3yXORYk-FgM",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Obsession Q&A with Inde Navarrette & Curry Barker",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-16",
+      "candidate_metadata": {
+        "title_at_discovery": "Obsession Q&A with Inde Navarrette & Curry Barker",
+        "channel_at_discovery": "The Movie Buddy",
+        "duration_at_discovery": "40:14",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=nz-jba7x_JE",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Raw Q&A | Julia Ducournau & Garance Marillier",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-17",
+      "candidate_metadata": {
+        "title_at_discovery": "Raw Q&A | Julia Ducournau & Garance Marillier",
+        "channel_at_discovery": "Film at Lincoln Center",
+        "duration_at_discovery": "20:49",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=7seLx57WVNE",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Minari Q&A with J.J. Abrams, Lee Isaac Chung and Steven Yeun",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-18",
+      "candidate_metadata": {
+        "title_at_discovery": "Minari Q&A with J.J. Abrams, Lee Isaac Chung and Steven Yeun",
+        "channel_at_discovery": "A24",
+        "duration_at_discovery": "36:02",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=S6blPBI75oo",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "I AM NOT A WITCH Q&A",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-19",
+      "candidate_metadata": {
+        "title_at_discovery": "I AM NOT A WITCH Q&A",
+        "channel_at_discovery": "BFI",
+        "duration_at_discovery": "19:36",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=fT85tzdnu7o",
+      "profile": "youtube_screen_parents",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "AMMONITE Q&A",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-screen-20",
+      "candidate_metadata": {
+        "title_at_discovery": "AMMONITE Q&A",
+        "channel_at_discovery": "BFI",
+        "duration_at_discovery": "16:56",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "cast_or_filmmaker_q_and_a_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=ibPkLdbG4VU",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Actors Roundtable: Driver, LaBeouf, De Niro, Hanks, Foxx",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-01",
+      "candidate_metadata": {
+        "title_at_discovery": "Actors Roundtable: Driver, LaBeouf, De Niro, Hanks, Foxx",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "58:36",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=4OK0nnxG6dU",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "THR Actor Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-02",
+      "candidate_metadata": {
+        "title_at_discovery": "THR Actor Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "57:12",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=yG9KMfYfgEo",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Actress Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-03",
+      "candidate_metadata": {
+        "title_at_discovery": "Actress Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "58:44",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=K_mMjGiChLs",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Full Actors Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-04",
+      "candidate_metadata": {
+        "title_at_discovery": "Full Actors Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "57:46",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=zk3CB8nxo0E",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "THR Comedy Actress Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-05",
+      "candidate_metadata": {
+        "title_at_discovery": "THR Comedy Actress Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "56:54",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=K5PpS9h9RqQ",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "THR Drama Actress Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-06",
+      "candidate_metadata": {
+        "title_at_discovery": "THR Drama Actress Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "1:00:08",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=jqqP2HZuFGE",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Oscar Actresses Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-07",
+      "candidate_metadata": {
+        "title_at_discovery": "Oscar Actresses Roundtable",
+        "channel_at_discovery": "Los Angeles Times",
+        "duration_at_discovery": "46:50",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=4f72FZlwBIM",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Full Comedy Actor Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-08",
+      "candidate_metadata": {
+        "title_at_discovery": "Full Comedy Actor Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "54:59",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=lUxa5122WJU",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "THR Actors Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-09",
+      "candidate_metadata": {
+        "title_at_discovery": "THR Actors Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "53:29",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=egzvLWeMK_U",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Full Actors Roundtable: Hanks, Oldman, Boyega, Franco",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-10",
+      "candidate_metadata": {
+        "title_at_discovery": "Full Actors Roundtable: Hanks, Oldman, Boyega, Franco",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "53:46",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=O88CrYUPW2M",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Full Songwriters Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-11",
+      "candidate_metadata": {
+        "title_at_discovery": "Full Songwriters Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "58:47",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=fGw2EHZnJK0",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "THR Songwriters Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-12",
+      "candidate_metadata": {
+        "title_at_discovery": "THR Songwriters Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "56:41",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=Y5vpAn7HEdE",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Full THR Drama Actor Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-13",
+      "candidate_metadata": {
+        "title_at_discovery": "Full THR Drama Actor Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "55:15",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=B1IVnPpBCT0",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Full Drama Actress Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-14",
+      "candidate_metadata": {
+        "title_at_discovery": "Full Drama Actress Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "1:00:04",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=qJzvAhC4mR4",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "THR Actress Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-15",
+      "candidate_metadata": {
+        "title_at_discovery": "THR Actress Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "53:15",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=KA-r9NEI_Ts",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Full Actress Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-16",
+      "candidate_metadata": {
+        "title_at_discovery": "Full Actress Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "56:48",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=lfHkTMdWIMU",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Full Comedy Actress Roundtable",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-17",
+      "candidate_metadata": {
+        "title_at_discovery": "Full Comedy Actress Roundtable",
+        "channel_at_discovery": "The Hollywood Reporter",
+        "duration_at_discovery": "55:13",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=J4v_34RRCeE",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Mastery | Robert Greene | Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-18",
+      "candidate_metadata": {
+        "title_at_discovery": "Mastery | Robert Greene | Talks at Google",
+        "channel_at_discovery": "Talks at Google",
+        "duration_at_discovery": "58:58",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=df1DHR44FNs",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Passion & Innovation | Nicholas Tse | Talks at Google",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-19",
+      "candidate_metadata": {
+        "title_at_discovery": "Passion & Innovation | Nicholas Tse | Talks at Google",
+        "channel_at_discovery": "Talks at Google",
+        "duration_at_discovery": "52:18",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=thzDy5A-KfE",
+      "profile": "youtube_interviews",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Creating High Performance Culture | Patty McCord",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-interview-20",
+      "candidate_metadata": {
+        "title_at_discovery": "Creating High Performance Culture | Patty McCord",
+        "channel_at_discovery": "Talks at Google",
+        "duration_at_discovery": "40:50",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_host_guest_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=VoRbPxyo2uU",
+      "profile": "youtube_conference_forums",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "An Honest Conversation on AI and Humanity",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-conference-01",
+      "candidate_metadata": {
+        "title_at_discovery": "An Honest Conversation on AI and Humanity",
+        "channel_at_discovery": "World Economic Forum",
+        "duration_at_discovery": "35:28",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "panel_or_moderated_session_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=iGFbNTC1NoU",
+      "profile": "youtube_conference_forums",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Debating Education",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-conference-02",
+      "candidate_metadata": {
+        "title_at_discovery": "Debating Education",
+        "channel_at_discovery": "World Economic Forum",
+        "duration_at_discovery": "45:53",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "panel_or_moderated_session_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=EXC_3G2yYJM",
+      "profile": "youtube_conference_forums",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Preventing Jobless Growth",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-conference-03",
+      "candidate_metadata": {
+        "title_at_discovery": "Preventing Jobless Growth",
+        "channel_at_discovery": "World Economic Forum",
+        "duration_at_discovery": "47:22",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "panel_or_moderated_session_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=34WoOp1EEfo",
+      "profile": "youtube_conference_forums",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Building AI for the Long Term",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-conference-04",
+      "candidate_metadata": {
+        "title_at_discovery": "Building AI for the Long Term",
+        "channel_at_discovery": "World Economic Forum",
+        "duration_at_discovery": "50:39",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "panel_or_moderated_session_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=m8JQRfH_9Oo",
+      "profile": "youtube_conference_forums",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Geopolitics of Materials",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-conference-05",
+      "candidate_metadata": {
+        "title_at_discovery": "Geopolitics of Materials",
+        "channel_at_discovery": "World Economic Forum",
+        "duration_at_discovery": "46:36",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "panel_or_moderated_session_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=4pHMJuWj0iM",
+      "profile": "youtube_conference_forums",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Can We Save the Middle Class?",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-conference-06",
+      "candidate_metadata": {
+        "title_at_discovery": "Can We Save the Middle Class?",
+        "channel_at_discovery": "World Economic Forum",
+        "duration_at_discovery": "48:41",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "panel_or_moderated_session_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=EmluFRbWw3E",
+      "profile": "youtube_conference_forums",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Banking Accelerated",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-conference-07",
+      "candidate_metadata": {
+        "title_at_discovery": "Banking Accelerated",
+        "channel_at_discovery": "World Economic Forum",
+        "duration_at_discovery": "50:26",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "panel_or_moderated_session_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=hoDYYCyxMuE",
+      "profile": "youtube_conference_forums",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Conversation with Jensen Huang",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-conference-08",
+      "candidate_metadata": {
+        "title_at_discovery": "Conversation with Jensen Huang",
+        "channel_at_discovery": "World Economic Forum",
+        "duration_at_discovery": "35:13",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "panel_or_moderated_session_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=LcArkunOT7k",
+      "profile": "youtube_conference_forums",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Climate Adaptation for Resilience",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-conference-09",
+      "candidate_metadata": {
+        "title_at_discovery": "Climate Adaptation for Resilience",
+        "channel_at_discovery": "World Economic Forum",
+        "duration_at_discovery": "51:14",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "panel_or_moderated_session_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=BwhZbRxSles",
+      "profile": "youtube_conference_forums",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "require_caption": false,
+      "content_language": "en",
+      "languages": [
+        "en",
+        "en-US",
+        "en-GB"
+      ],
+      "max_parent_duration_seconds": 14400,
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "Scaling AI: Now Comes the Hard Part",
+      "rights": {
+        "status": "needs_review",
+        "note": "Public availability does not establish download, training, or redistribution rights."
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "youtube-conference-10",
+      "candidate_metadata": {
+        "title_at_discovery": "Scaling AI: Now Comes the Hard Part",
+        "channel_at_discovery": "World Economic Forum",
+        "duration_at_discovery": "46:11",
+        "full_parent_video": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "English title/program context; platform inspection still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "panel_or_moderated_session_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title or participant framing does not prove that every named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    }
+  ]
+}

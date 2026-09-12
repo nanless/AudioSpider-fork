@@ -32,6 +32,7 @@ SQLite `audio_urls.artifact_kind` 区分 `audio` 与 `video_bundle`；视频行�
 | `schema_version` | 是 | 正整数；验证器按已知版本分派 |
 | `artifact_kind` | 数据库 | `audio` 或 `video_bundle` |
 | `job_key` | 视频必需 | 不可变任务键；同 URL 的不同策略/修订不会互相覆盖 |
+| `content_kind/dataset_category` | YouTube 批次父视频 | `screen_media/影视`、`interview_roundtable/访谈` 或 `conference_forum/会议论坛` |
 | `source/source_id` | 是 | source 受控；source ID稳定且无签名 query |
 | `title/category` | 是 | 展示字段，不能作为唯一身份或未净化路径 |
 | `language/content_language` | 是 | 未知用空值或 `und`，按具体 schema |
@@ -41,6 +42,7 @@ SQLite `audio_urls.artifact_kind` 区分 `audio` 与 `video_bundle`；视频行�
 | `rights` | 视频必需 | 默认 `needs_review` |
 | `ai_generation` | 视频必需 | 与 caption kind 独立 |
 | `speaker_count/status` | 视频必需 | 未核验为 null/`needs_review` |
+| `candidate_metadata` | YouTube 候选父视频可选 | 发现证据；`candidate_unverified` 不等于已核验事实 |
 | `files` | 视频必需 | bundle 所有正式 payload 闭包 |
 | `toolchain` | 视频必需 | ffmpeg/yt-dlp/schema profile |
 | `acquired_at` | 是 | 带时区 ISO 8601 |
@@ -126,6 +128,16 @@ SQLite `audio_urls.artifact_kind` 区分 `audio` 与 `video_bundle`；视频行�
 
 对 B站还要保留 BV、aid、CID、part 和无签名表示层 descriptor；对 YouTube 保留 video
 ID、profile 与 yt-dlp 版本，但不能保存完整 format 字典或临时媒体 URL。
+
+当前多人候选批次允许保守值：`speaker_count=null`、
+`speaker_count_status=needs_review`。manifest 和 SQLite 的平台 `download_task/job` 在
+`candidate_metadata.multi_speaker_evidence.status=candidate_unverified` 保存发现线索；
+YouTube 父 sidecar 也保留该对象。它不能被解释为“至少两位说话者已人工确认”。
+
+`batch_id`、`selection_slot` 和 B站的批次分类证据当前由 manifest 与 SQLite 任务元数据
+承担，批次审计器从 SQLite 读取；它们不是 B站 v1/v2 bundle sidecar 的通用顶层字段。
+B站批次分类会参与扩展任务身份；YouTube profile、字幕策略、来源修订及必要的分类覆盖
+共同参与 `job_key`。
 
 ## 字幕结构
 

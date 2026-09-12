@@ -34,7 +34,8 @@ flowchart LR
 ### 收集：`collect.py`
 
 负责有界来源适配与元数据入库，不下载大媒体。当前实现包含固定 RSS、LibriVox、
-小宇宙、喜马拉雅、B站和 YouTube。B站新任务默认是完整分P `video_bundle`；
+小宇宙、喜马拉雅、B站和 YouTube。B站新任务默认是完整分P `video_bundle`；设置
+`AUDIOSPIDER_BILIBILI_MANIFEST` 后只读取精确清单，清单模式优先于搜索且失败时不会回退搜索。
 YouTube 从受控 manifest 核验完整母视频后入队。同语言平台字幕优先人工轨，
 再选自动轨；`require_caption=false` 时无同语言字幕也保留完整 MP4/WAV，并在
 sidecar 明确标注 `missing` 或 `no_matching_language`，不生成假字幕文件。
@@ -80,23 +81,44 @@ python main.py --limit 5000 --workers 4 --format original --background all
 - B站没有可用的同语言平台轨时，可显式启用**画面字幕 OCR**：它从已经下载的
   `source.mp4` 像素中识别烧录字幕，仍写回同一个 bundle 和 SQLite 闭包，不另建队列或
   `datasets/` 根目录。OCR 结果必须标成 `visual_ocr`，不能冒充平台人工/自动字幕。
+- 批次分类固定为 `影视/screen_media`、`访谈/interview_roundtable`、
+  `会议论坛/conference_forum`；分类不是自由文本。
+- 候选清单里的 `candidate_unverified` 只表示标题、节目形态等发现线索尚未人工核验；它
+  不能升级成精确说话人数，也不能作为“多人样本已经确认”的证据。
 
 正式操作示例：
 
 ```bash
-# B站：按 config.py 的有界搜索配置采集完整分P任务，再下载一条
+# B站：精确清单模式；设置后不会执行关键词搜索
+AUDIOSPIDER_BILIBILI_MANIFEST=config/bilibili_multispeaker_50_20260912.json \
 python collect.py --spiders bilibili
-python main.py --source bilibili --artifact-kind video_bundle --limit 1 --workers 1 --format original
+python main.py --batch-id multispeaker-video-100-20260912 \
+  --source bilibili --artifact-kind video_bundle --category 影视 \
+  --limit 1 --workers 1 --format original
 
 # 可选：先预览一条已完成 B站 bundle 的平台字幕/OCR 回填，再显式写入
 bash scripts/bootstrap_ocr_conda.sh
 /root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr
 /root/miniforge3/envs/audiospider-ocr/bin/python scripts/backfill_bilibili_captions.py --job-key '<完整 job_key>' --limit 1 --visual-ocr --apply
 
-# YouTube：默认读取 config/youtube_sources.initial.json；先限制一条
-AUDIOSPIDER_YOUTUBE_MAX_ITEMS=1 python collect.py --spiders youtube
-python main.py --source youtube --artifact-kind video_bundle --limit 1 --workers 1 --format original
+# YouTube：本批精确 manifest；先限制一条下载 canary
+AUDIOSPIDER_YOUTUBE_MANIFEST=config/youtube_multispeaker_50_20260912.json \
+AUDIOSPIDER_YOUTUBE_MAX_ITEMS=50 \
+python collect.py --spiders youtube
+python main.py --batch-id multispeaker-video-100-20260912 \
+  --source youtube --artifact-kind video_bundle --category 影视 \
+  --limit 1 --workers 1 --format original
+
+# 只读对账候选批次；加 --require-complete 后，不完整会返回非零
+python scripts/audit_multispeaker_batch.py \
+  --batch-index config/multispeaker_video_100_20260912.batch.json
 ```
+
+仓库已经提供 100 个候选父视频的三个配置文件和对账脚本，但这不表示平台核验、人工听审、
+下载或 bundle 验收已经完成。执行批次前请看
+[100 条跨平台多人视频小白手册](docs/guides/multispeaker-video-batch-100.md)。
+本批下载命令必须保留 `--batch-id multispeaker-video-100-20260912`；只写平台、分类和 limit
+仍可能领取历史同类任务。
 
 `--format` 只控制普通音频；视频包始终保存 MP4 和 WAV。`bilibili_dataset.py`、
 `youtube_dataset.py` 保留为兼容、修复和审计工具，不是新手正式下载入口。完整流程见
@@ -327,7 +349,9 @@ downloads/
 │       ├── episode_xxx.mp3
 │       └── episode_xxx.json
 ├── bilibili/               # 默认完整分P video_bundle
-│   └── 访谈/<source-id>/<job-key>/
+│   ├── 影视/<source-id>/<job-key>/
+│   ├── 访谈/<source-id>/<job-key>/
+│   └── 会议论坛/<source-id>/<job-key>/
 │       ├── source.mp4
 │       ├── audio.wav
 │       ├── captions.*.json/.vtt/.txt  # 平台字幕；条件存在
@@ -335,7 +359,9 @@ downloads/
 │       ├── visual_ocr.json/.vtt/.txt  # 视觉 OCR；无稳定 cue 时仅 JSON
 │       └── metadata.json
 ├── youtube/                # 完整母视频，不默认 clip
-│   └── 访谈/<source-id>/<job-key>/
+│   ├── 影视/<source-id>/<job-key>/
+│   ├── 访谈/<source-id>/<job-key>/
+│   └── 会议论坛/<source-id>/<job-key>/
 │       ├── source.mp4
 │       ├── audio.wav
 │       └── metadata.json
@@ -538,7 +564,9 @@ python main.py background --limit 10000 --workers 4 --background all
 - [背景信息深度研究](docs/research/2026-09-09-background-metadata-research.md)
 - [YouTube 视频与字幕数据集](docs/guides/youtube-datasets.md)
 - [B 站视频、WAV 与平台字幕](docs/guides/bilibili-video-datasets.md)
+- [100 条跨平台多人视频小白手册](docs/guides/multispeaker-video-batch-100.md)
 - [B 站视频 sidecar](docs/reference/bilibili-video-sidecars.md)
+- [批次 Manifest 参考](docs/reference/batch-manifests.md)
 
 ### 设计与开发
 
@@ -553,6 +581,7 @@ python main.py background --limit 10000 --workers 4 --background all
 - [统一媒体流水线实施计划](docs/plans/2026-09-10-unified-media-pipeline.md)
 - [B 站错配字幕时间轴设计](docs/plans/2026-09-10-bilibili-invalid-caption-timeline-design.md)
 - [B 站错配字幕时间轴实施计划](docs/plans/2026-09-10-bilibili-invalid-caption-timeline.md)
+- [跨平台 100 条多人视频批次设计](docs/plans/2026-09-12-multispeaker-video-batch-design.md)
 - [安全问题报告](SECURITY.md)
 - [变更记录](CHANGELOG.md)
 - [dev_L4_1gpus 服务器验收报告](docs/reports/2026-09-08-dev-l4-validation.md)

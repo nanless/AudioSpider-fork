@@ -31,3 +31,11 @@ Platform captions always have priority. Run visual OCR only when the refreshed
 same-language platform result is still absent or unusable. Treat
 `no_stable_text_detected` as an extractor outcome, not proof that the video has
 no visible subtitles.
+
+For an exact multispeaker batch, select only completed Bilibili manifest jobs with
+`visual_ocr_fallback=true` and their bound `visual_ocr_profile`; use exact job keys and preserve
+`batch_id`, six-cell category, and `candidate_unverified` review state. OCR text cannot upgrade speaker,
+language, rights, AI-generation, or human-review claims.
+
+The preceding formal Bilibili download and any failed-row retry must use
+`main.py --batch-id multispeaker-video-100-20260912`; OCR backfill itself remains exact-job-key scoped.

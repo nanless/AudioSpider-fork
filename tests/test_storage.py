@@ -1,4 +1,5 @@
 import os
+import json
 import tempfile
 import unittest
 
@@ -364,6 +365,36 @@ class StorageTests(unittest.TestCase):
             [(row["status"], row["claimed_by"]) for row in statuses],
             [("downloading", "worker-a"), ("downloading", "worker-b")],
         )
+
+    def test_batch_id_claim_is_exact_and_tolerates_legacy_metadata(self):
+        storage = Storage(self.db_path)
+        def metadata(source, batch_id):
+            leaf = "job" if source == "youtube" else "download_task"
+            return json.dumps({"source_data": {source: {leaf: {"batch_id": batch_id}}}})
+
+        storage.add_urls_batch([
+            AudioRecord(
+                url="https://example.test/a", source="youtube", job_key="a",
+                artifact_kind="video_bundle", metadata_json=metadata("youtube", "batch-a"),
+            ),
+            AudioRecord(
+                url="https://example.test/b", source="youtube", job_key="b",
+                artifact_kind="video_bundle", metadata_json=metadata("youtube", "batch-b"),
+            ),
+            AudioRecord(
+                url="https://example.test/legacy", source="youtube", job_key="legacy",
+                artifact_kind="video_bundle", metadata_json="not-json",
+            ),
+        ])
+        claimed = storage.claim_pending(
+            10, "worker-a", 3600, source="youtube",
+            artifact_kind="video_bundle", batch_id="batch-a",
+        )
+        self.assertEqual([row["job_key"] for row in claimed], ["a"])
+        remaining = storage.get_pending(
+            10, source="youtube", artifact_kind="video_bundle", batch_id="batch-b",
+        )
+        self.assertEqual([row["job_key"] for row in remaining], ["b"])
 
     def test_expired_lease_recovery_is_scoped_to_current_claim(self):
         storage = Storage(self.db_path)

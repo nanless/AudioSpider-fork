@@ -1,0 +1,6 @@
+interface:
+  display_name: "Multispeaker Video Batch"
+  short_description: "精确运行并审计跨平台多人完整视频批次"
+  default_prompt: "Use $multispeaker-video-batch to validate and safely run the exact six-cell AudioSpider video batch."
+policy:
+  allow_implicit_invocation: true

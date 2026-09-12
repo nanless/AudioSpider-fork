@@ -131,7 +131,12 @@ YouTube 完整父视频使用统一 SQLite 媒体队列；受控 manifest 由 `c
 ## B 站视频层级数据流
 
 ```text
-collect.py 受控搜索 -> audiospider.db -> main.py -> view API -> 分 P/CID
+                 +-- AUDIOSPIDER_BILIBILI_MANIFEST 非空 --> 精确清单
+collect.py ------|
+                 +-- 未设置 manifest ------------------> 有界搜索
+                                      |
+                                      v
+audiospider.db -> main.py -> view API -> 分 P/CID
                      |
                      +-> player API -> 字幕可用性和逐轨来源
                      |
@@ -147,4 +152,36 @@ collect.py 受控搜索 -> audiospider.db -> main.py -> view API -> 分 P/CID
                     downloads/bilibili/<category>/<source_id>/<job_key>/
 ```
 
+两条发现分支互斥：manifest 非空时优先，清单错误或平台失败不会回退搜索。两条分支最终都
+生成统一 `video_bundle` 行并由 `main.py` 下载。完整分 P 是最小媒体单位；`parts=[]` 可选择
+一个 BV 在 `max_parts` 边界内的所有完整分 P，但不会从任何分 P 内切片。
+
 `need_login_subtitle=true` 与“公开无字幕”是两种状态；网络/API 失败不允许伪装成任一状态。签名 URL 只在本次请求内使用，resume 绑定无签名的表示层指纹。
+
+## 跨平台候选批次对账
+
+```mermaid
+flowchart LR
+    I[batch index<br/>100 parents]
+    B[B站 manifest<br/>20/20/10]
+    Y[YouTube manifest<br/>20/20/10]
+    C[collect.py]
+    DB[(audiospider.db)]
+    D[main.py<br/>--batch-id 精确领取]
+    F[downloads/source/category]
+    A[audit_multispeaker_batch.py]
+    I --> B --> C
+    I --> Y --> C
+    C --> DB --> D --> F
+    DB --> A
+    I --> A
+```
+
+对账脚本按 `batch_id`、父 BV/video ID 和六格分类统计 expected、queued、done、missing 与
+extras；B站一个父 BV 可对应多个完整分 P 行，只有相关行都 done 才计为 done parent。
+`--require-complete` 只适合最终门禁。清单内的 `candidate_unverified` 与
+`speaker_count=null/needs_review` 表示仍待人工听审，不能因静态 100/50/50 校验通过就宣布
+数据下载或多人核验完成。
+
+下载器的 `--batch-id` 从 SQLite 两平台 metadata 精确匹配 pending 或 failed 任务；
+`--source`、`--category` 只负责进一步切分六格，不能替代批次过滤。

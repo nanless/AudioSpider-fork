@@ -36,6 +36,38 @@ from youtube_dataset import write_json_atomic
 
 
 class ManifestTests(unittest.TestCase):
+    def test_batch_manifest_preserves_controlled_category_and_candidate_evidence(self):
+        item = validate_manifest({"items": [{
+            "bvid": "BV1xx411c7mD",
+            "content_language": "zh",
+            "languages": ["zh", "ai-zh"],
+            "batch_id": "multispeaker-video-100-20260912",
+            "content_kind": "conference_forum",
+            "dataset_category": "会议论坛",
+            "selection_slot": "bilibili-conference-01",
+            "source_revision": "multispeaker-video-100-20260912",
+            "candidate_metadata": {
+                "multi_speaker_evidence": {
+                    "status": "candidate_unverified",
+                    "evidence_kind": "title_panel_description",
+                }
+            },
+        }]})[0]
+        self.assertEqual(item["dataset_category"], "会议论坛")
+        self.assertEqual(item["content_kind"], "conference_forum")
+        self.assertEqual(item["speaker_count_status"], "needs_review")
+        self.assertEqual(
+            item["candidate_metadata"]["multi_speaker_evidence"]["status"],
+            "candidate_unverified",
+        )
+
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            validate_manifest({"items": [{
+                "bvid": "BV1xx411c7mD",
+                "content_kind": "screen_media",
+                "dataset_category": "会议论坛",
+            }]})
+
     def test_caption_language_must_match_content_language(self):
         self.assertTrue(caption_language_matches_content("en", "en-US"))
         self.assertTrue(caption_language_matches_content("zh", "zh-Hans"))

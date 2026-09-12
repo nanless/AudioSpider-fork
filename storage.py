@@ -455,6 +455,7 @@ class Storage:
         published_since: str | None = None,
         published_before: str | None = None,
         artifact_kind: str | None = None,
+        batch_id: str | None = None,
     ) -> list[dict]:
         if limit <= 0:
             raise ValueError("limit must be positive")
@@ -463,14 +464,15 @@ class Storage:
         group_col = "source" if per_source else "category" if per_category else None
         return self._select_records(
             self._get_conn(), "pending", limit, source, category, language,
-            group_col, published_since, published_before, artifact_kind,
+            group_col, published_since, published_before, artifact_kind, batch_id,
         )
 
     @staticmethod
     def _filters(status: str, source: str | None, category: str | None,
                  language: str | None, published_since: str | None,
                  published_before: str | None,
-                 artifact_kind: str | None = None) -> tuple[list[str], list]:
+                 artifact_kind: str | None = None,
+                 batch_id: str | None = None) -> tuple[list[str], list]:
         conditions = ["status=?"]
         params: list = [status]
         if source:
@@ -485,6 +487,14 @@ class Storage:
         if artifact_kind:
             conditions.append("artifact_kind=?")
             params.append(artifact_kind)
+        if batch_id:
+            conditions.append(
+                "CASE WHEN json_valid(metadata_json) THEN COALESCE("
+                "json_extract(metadata_json, '$.source_data.youtube.job.batch_id'),"
+                "json_extract(metadata_json, '$.source_data.bilibili.download_task.batch_id'),"
+                "'') ELSE '' END=?"
+            )
+            params.append(batch_id)
         if published_since:
             conditions.append("published_at >= ?")
             params.append(published_since)
@@ -503,10 +513,12 @@ class Storage:
                         language: str | None = None, group_col: str | None = None,
                         published_since: str | None = None,
                         published_before: str | None = None,
-                        artifact_kind: str | None = None) -> list[dict]:
+                        artifact_kind: str | None = None,
+                        batch_id: str | None = None) -> list[dict]:
         conditions, params = self._filters(
             status, source, category, language, published_since, published_before,
             artifact_kind,
+            batch_id,
         )
         where = " AND ".join(conditions)
         if group_col:
@@ -542,7 +554,8 @@ class Storage:
                group_col: str | None = None,
                published_since: str | None = None,
                published_before: str | None = None,
-               artifact_kind: str | None = None) -> list[dict]:
+               artifact_kind: str | None = None,
+               batch_id: str | None = None) -> list[dict]:
         if limit <= 0 or lease_seconds <= 0:
             raise ValueError("limit and lease_seconds must be positive")
         conn = self._get_conn()
@@ -554,6 +567,7 @@ class Storage:
             expired_conditions, expired_params = self._filters(
                 "downloading", source, category, language,
                 published_since, published_before, artifact_kind,
+                batch_id,
             )
             expired_conditions.extend([
                 "COALESCE(lease_expires_at, '')!=''",
@@ -567,6 +581,7 @@ class Storage:
             records = self._select_records(
                 conn, status, limit, source, category, language, group_col,
                 published_since, published_before, artifact_kind,
+                batch_id,
             )
             ids = [record["id"] for record in records]
             if ids:
@@ -594,13 +609,15 @@ class Storage:
                       per_category: bool = False,
                       published_since: str | None = None,
                       published_before: str | None = None,
-                      artifact_kind: str | None = None) -> list[dict]:
+                      artifact_kind: str | None = None,
+                      batch_id: str | None = None) -> list[dict]:
         if per_source and per_category:
             raise ValueError("per_source and per_category are mutually exclusive")
         group_col = "source" if per_source else "category" if per_category else None
         return self._claim(
             "pending", limit, worker_id, lease_seconds, source, category,
             language, group_col, published_since, published_before, artifact_kind,
+            batch_id,
         )
 
     def claim_failed(self, limit: int, worker_id: str, lease_seconds: int,
@@ -611,13 +628,15 @@ class Storage:
                      per_category: bool = False,
                      published_since: str | None = None,
                      published_before: str | None = None,
-                     artifact_kind: str | None = None) -> list[dict]:
+                     artifact_kind: str | None = None,
+                     batch_id: str | None = None) -> list[dict]:
         if per_source and per_category:
             raise ValueError("per_source and per_category are mutually exclusive")
         group_col = "source" if per_source else "category" if per_category else None
         return self._claim(
             "failed", limit, worker_id, lease_seconds, source, category,
             language, group_col, published_since, published_before, artifact_kind,
+            batch_id,
         )
 
     def renew_claims(self, record_ids: list[int], worker_id: str,

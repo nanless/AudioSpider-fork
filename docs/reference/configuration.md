@@ -41,10 +41,11 @@ python discover.py --source podcastindex --keywords news --pi-max-pages 1
 | `AUDIOSPIDER_YOUTUBE_MANIFEST` | `config/youtube_sources.initial.json` | YouTube 正式采集使用的受控 manifest；建议绝对路径 |
 | `AUDIOSPIDER_YOUTUBE_INSPECT_TIMEOUT` | `120` | 单个 YouTube 元数据/字幕核验子进程硬超时（秒） |
 | `AUDIOSPIDER_YOUTUBE_DOWNLOAD_TIMEOUT` | `14400` | 单个 YouTube 完整 bundle 下载子进程硬超时（秒） |
-| `AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE` | `zh` | B站受控搜索批次的内容语言；英文批次显式设为 `en` |
-| `AUDIOSPIDER_BILIBILI_VISUAL_OCR_FALLBACK` | `false` | 新 B站任务无同语言平台字幕时是否运行画面 OCR；开启会改变 `job_key`，且下载必须使用 `audiospider-ocr` 环境 |
-| `AUDIOSPIDER_BILIBILI_VISUAL_OCR_PROFILE` | `bilibili-visual-ocr-zh-v1` | 固定 OCR 采样、ROI 和后处理策略标识；开启 OCR 后参与任务身份 |
-| `AUDIOSPIDER_BILIBILI_CATEGORY` | 空 | 可选统一分类覆盖；例如访谈批次设为 `访谈` |
+| `AUDIOSPIDER_BILIBILI_MANIFEST` | 空 | B站正式精确清单；非空时优先于并关闭关键词搜索，不回退 |
+| `AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE` | `zh` | B站受控搜索模式的内容语言；manifest 模式读取条目值 |
+| `AUDIOSPIDER_BILIBILI_VISUAL_OCR_FALLBACK` | `false` | 搜索模式新任务的 OCR 回退；manifest 模式读取条目值；开启会改变 `job_key` |
+| `AUDIOSPIDER_BILIBILI_VISUAL_OCR_PROFILE` | `bilibili-visual-ocr-zh-v1` | 搜索模式 OCR profile；manifest 模式读取条目值；启用后参与任务身份 |
+| `AUDIOSPIDER_BILIBILI_CATEGORY` | 空 | 搜索模式可选统一分类覆盖；例如访谈批次设为 `访谈` |
 | `AUDIOSPIDER_BILIBILI_KEYWORDS` | `config.py` 列表 | 逗号分隔的本轮 B站搜索词 |
 | `AUDIOSPIDER_BILIBILI_REQUIRED_TITLE_TERMS` | 空 | 标题至少命中一个词才保留 |
 | `AUDIOSPIDER_BILIBILI_EXCLUDED_TITLE_TERMS` | 空 | 标题命中任一词就排除；仅是候选选择证据 |
@@ -69,7 +70,23 @@ python doctor.py
 
 `main.py` 默认使用 4 个 downloader worker；`AUDIOSPIDER_MAX_WORKERS` 是允许用户传入的上限，不是默认并发数。
 
-画面 OCR 默认关闭，因此普通下载继续使用轻量的 `audiospider` 环境。需要让**新采集任务**在平台字幕缺失时自动 OCR，必须在采集和下载两步使用同一开关，并用 OCR 环境运行下载器：
+### B站清单模式与搜索模式
+
+这两种模式一次只运行一种。`AUDIOSPIDER_BILIBILI_MANIFEST` 非空时，Spider 直接调用清单
+路径，所有 `AUDIOSPIDER_BILIBILI_KEYWORDS`、标题词和搜索页设置不会参与发现；清单错误或
+平台核验失败也不会回退搜索。变量未设置或为空时，才使用搜索相关配置。
+
+```bash
+AUDIOSPIDER_BILIBILI_MANIFEST=config/bilibili_multispeaker_50_20260912.json \
+python collect.py --spiders bilibili
+```
+
+路径可相对仓库当前目录或使用明确绝对路径。manifest 不得包含 Cookie、签名媒体 URL 或
+代理凭据。
+
+画面 OCR 默认关闭，因此普通下载继续使用轻量的 `audiospider` 环境。在**搜索模式**下要让
+新任务在平台字幕缺失时自动 OCR，必须在采集和下载两步使用同一开关，并用 OCR 环境运行
+下载器：
 
 ```bash
 AUDIOSPIDER_BILIBILI_VISUAL_OCR_FALLBACK=true \
@@ -78,6 +95,10 @@ AUDIOSPIDER_BILIBILI_VISUAL_OCR_FALLBACK=true \
   /root/miniforge3/envs/audiospider-ocr/bin/python main.py \
   --source bilibili --artifact-kind video_bundle --limit 1 --workers 1 --format original
 ```
+
+manifest 模式不读取这些环境变量来覆盖条目；应在每项写
+`visual_ocr_fallback/visual_ocr_profile`。策略随任务进入 SQLite，下载时仍需使用具备 OCR
+依赖的 `audiospider-ocr` 环境，但不要用环境变量静默改变已入队身份。
 
 已有 bundle 不重新下载视频，应使用精确 `--job-key` 的字幕/OCR 回填命令。
 
@@ -158,6 +179,34 @@ LibriVox 的 `max_items` 限制书数，`max_tracks_per_book` 限制每书章数
 ```
 
 添加前先确认 RSS 中的媒体地址允许按你的用途访问。
+
+## 多人完整视频批次配置
+
+当前仓库提供：
+
+- `config/multispeaker_video_100_20260912.batch.json`：批次总控和六格目标；
+- `config/bilibili_multispeaker_50_20260912.json`：B站中文候选父 BV；
+- `config/youtube_multispeaker_50_20260912.json`：YouTube 英文候选父视频。
+
+YouTube 的完整父视频 profiles 包括 `youtube_interviews`、`youtube_screen_parents` 和
+`youtube_conference_forums`。三分类机器值固定为 `screen_media`、
+`interview_roundtable`、`conference_forum`，对应 `影视`、`访谈`、`会议论坛`。
+
+清单采集入库后，用同一个批次 ID 精确领取，而不是只靠来源或分类：
+
+```bash
+python main.py --batch-id multispeaker-video-100-20260912 \
+  --source bilibili --category 影视 --artifact-kind video_bundle --limit 1 --workers 1
+python main.py --batch-id multispeaker-video-100-20260912 \
+  --source youtube --category 影视 --artifact-kind video_bundle --limit 1 --workers 1
+```
+
+该过滤同样适用于 `--retry-failed`；没有合法批次 metadata 的旧任务不会被领取。
+
+用 `python scripts/audit_multispeaker_batch.py --batch-index
+config/multispeaker_video_100_20260912.batch.json` 验证清单与数据库对账；CI/验收要求全量
+完成时再加 `--require-complete`。候选证据为 `candidate_unverified` 不代表已人工确认多人，
+也不表示媒体已经下载。
 
 ## 不建议的配置
 

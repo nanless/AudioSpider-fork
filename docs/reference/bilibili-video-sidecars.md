@@ -15,6 +15,12 @@ downloads/bilibili/<category>/<source_id>/<job_key>/
 
 `metadata.json` 是完成标记，但程序不会仅凭文件存在就复用：重跑会重新检查 schema、文件闭包、字节数、SHA-256、ffprobe 和字幕派生一致性。
 
+精确 manifest 模式下，清单分类与批次字段进入 SQLite 的 `download_task`；新批次的分类
+也参与扩展任务身份。候选清单使用 `speaker_count=null`、
+`speaker_count_status=needs_review`，并在任务元数据的
+`candidate_metadata.multi_speaker_evidence.status=candidate_unverified` 保留线索。只有后续
+人工核验实际媒体后才能写精确人数；标题或画面人数不能替代听审。
+
 ## 顶层字段
 
 | 字段 | 含义 |
@@ -35,7 +41,14 @@ downloads/bilibili/<category>/<source_id>/<job_key>/
 | `rights` | 项目侧权利审核，不由平台 `copyright` 自动推导 |
 | `ai_generation` | 媒体内容 AI 来源，与字幕 kind 独立 |
 | `speaker_count` | 人工核验前为 null |
+| `speaker_count_status` | 未核验为 `needs_review`；非空人数必须是 `verified_manual` |
 | `toolchain` | 编码 profile |
+
+注意：`batch_id`、`content_kind/dataset_category`、`selection_slot` 和
+`candidate_metadata` 当前保存在 manifest 与 SQLite `download_task` 中，供精确批次对账，
+不是 B站 v1/v2 bundle sidecar 的顶层字段。磁盘 sidecar 仍通过 `job_key`、
+`source_revision`、媒体身份和上述说话人数/rights/AI 字段闭合；不要在读取端假设批次字段
+一定存在于 `metadata.json`。
 
 ## `caption.status`
 

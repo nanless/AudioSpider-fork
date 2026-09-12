@@ -56,13 +56,42 @@ df -h .
 确认没有另一个正式 writer 正在迁移数据库或竞争同一批任务。不要删除
 `audiospider.db`、`audiospider.db-wal` 或 `audiospider.db-shm`。
 
-## 3. 用环境变量限定本轮搜索
+## 3. 选择精确清单或有界搜索
 
-B站来源不是读取 standalone manifest，而是由 `collect.py` 使用受控搜索参数发现任务。
-常用变量如下：
+B站正式 Spider 已实现 manifest，不需要走 standalone CLI：
+
+```bash
+AUDIOSPIDER_BILIBILI_MANIFEST=config/bilibili_multispeaker_50_20260912.json \
+python collect.py --spiders bilibili
+python main.py --batch-id multispeaker-video-100-20260912 \
+  --source bilibili --category 影视 --artifact-kind video_bundle \
+  --limit 1 --workers 1 --format original
+```
+
+当 `AUDIOSPIDER_BILIBILI_MANIFEST` 非空时，`collect.py` 只按清单逐个解析 BV 和完整分 P，
+不会执行关键词搜索，也不会在清单加载、核验或平台请求失败后回退搜索。清单模式优先；要
+恢复搜索模式必须取消该变量或设为空。
+
+上面的 `--batch-id` 从 B站任务的 `download_task.batch_id` 精确领取本批 SQLite 行。其余
+分类 canary 分别把 `--category` 改为 `访谈` 和 `会议论坛`；不能只靠平台和分类隔离历史任务。
+
+内容语言、分类、字幕策略与 OCR 开关在 manifest 模式下逐项读取；同名搜索环境变量不会
+覆盖条目。`visual_ocr_fallback=true` 的清单任务下载时仍必须使用 `audiospider-ocr` 环境。
+
+清单中的 `parts=[]` 表示最多按 `max_parts` 保留该 BV 的所有完整分 P；`parts=[1]` 表示
+只保留完整 P1。它们都不从分 P 内截取片段。新批次分类必须使用：
+
+| `content_kind` | `dataset_category` |
+|---|---|
+| `screen_media` | `影视` |
+| `interview_roundtable` | `访谈` |
+| `conference_forum` | `会议论坛` |
+
+不设置 manifest 时才进入有界搜索模式。搜索模式常用变量如下：
 
 | 变量 | 含义 |
 |---|---|
+| `AUDIOSPIDER_BILIBILI_MANIFEST` | 精确清单路径；非空时优先并关闭搜索 |
 | `AUDIOSPIDER_BILIBILI_CONTENT_LANGUAGE` | 内容主要语言；中文批次设为 `zh` |
 | `AUDIOSPIDER_BILIBILI_CATEGORY` | 可选统一分类覆盖；访谈批次设为 `访谈` |
 | `AUDIOSPIDER_BILIBILI_KEYWORDS` | 逗号分隔的搜索词 |
@@ -250,6 +279,9 @@ python main.py --retry-failed --source bilibili --category 访谈 --language zh 
   --format original --allow-bilibili-cookie
 ```
 
+若重试跨平台 100 条候选批次，还必须增加
+`--batch-id multispeaker-video-100-20260912`，以免领取历史 failed 行。
+
 不要无边界地反复重试下架、地区限制、权利受限或长期不可访问的视频。
 
 ### 7.1 只回填字幕，不重下 MP4/WAV
@@ -355,5 +387,8 @@ python -m json.tool \
 旧目录应通过默认 dry-run 的 `scripts/migrate_video_bundles.py` 迁入统一树；不要把新正式
 批次继续下载到旧根目录。迁移后再次运行 `scripts/audit_media_queue.py`。
 
-本次 100+50 访谈批次的完整步骤见
+跨平台候选批次的完整步骤见
+[100 条跨平台多人视频小白手册](multispeaker-video-batch-100.md)。清单中的
+`candidate_unverified` 是待复核线索；在人工听审、下载和统一审计前不能宣布完成。
+历史 100+50 访谈任务仍见
 [150 个中英文完整访谈批次运行手册](interview-batches-150.md)。

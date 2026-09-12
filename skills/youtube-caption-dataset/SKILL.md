@@ -24,6 +24,7 @@ Collection inspects the configured manifest and writes a bounded complete-parent
 
 Before acting, read `docs/DOWNLOAD-GUIDE.md`, `docs/architecture.md`, and
 `docs/SIDECAR-SCHEMA.md` in the live repository.
+For exact batches or real downloads, also read [references/runbook.md](references/runbook.md).
 
 ## Parent-only contract
 
@@ -33,6 +34,13 @@ Before acting, read `docs/DOWNLOAD-GUIDE.md`, `docs/architecture.md`, and
   VTT/TXT only when a matching platform track exists; never create placeholder or local-ASR text.
 - Do not generate clips by default. A clip requires an explicit separate user request, an explicit
   authorization gate, and a parent-hash reference; it never replaces the parent.
+- Use `youtube_screen_parents` for complete screen-media entries, `youtube_interviews` for complete
+  interview/roundtable parents, and `youtube_conference_forums` for complete conference/forum parents.
+  The legacy `youtube_screen_clips` profile remains compatible but is not an exact parent-video batch
+  profile and must never be selected merely because the category is `影视`.
+- `dataset_category` and `content_kind` are controlled semantic fields, independent of profile:
+  `影视/screen_media`, `访谈/interview_roundtable`, `会议论坛/conference_forum`. Preserve
+  arbitrary bounded `candidate_metadata` through manifest normalization, queue metadata and sidecar.
 - Keep signed yt-dlp media/caption URLs and full format dictionaries out of persistent metadata.
 - Mark done only after the policy-dependent closure passes: strict jobs require MP4/WAV/caption/TXT/
   sidecar; best-effort captionless jobs require MP4/WAV/sidecar with zero fake caption files.
@@ -72,6 +80,13 @@ logs. Keep the proxy and tunnel alive for the whole batch, then stop them and re
 Public visibility does not clear download, training or redistribution rights. Keep rights at
 `needs_review` without evidence. Keep unreviewed speaker counts null/needs_review and media AI status
 unknown unless directly supported.
+
+Candidate search metadata remains `candidate_unverified`: titles, guest lists and thumbnails may select
+an item for inspection but do not prove English speech, multiple audible speakers, exact speaker count,
+rights, or media AI status.
+
+Every download and `--retry-failed` run for the exact multispeaker batch must include
+`--batch-id multispeaker-video-100-20260912`; source/category/language remain additional filters.
 
 ## Completion evidence
 

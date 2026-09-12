@@ -70,10 +70,29 @@ python -m json.tool /path/to/downloaded-audio.json
 只有单条验证通过后才逐步增加 `--limit` 和 `--workers`。不要使用无限 limit、零循环
 间隔或一开始运行所有来源。
 
-## 3. B站完整分P
+## 3. B站完整分P：精确清单或有界搜索
 
-先检查 `config.py` 的 B站关键词、搜索页、视频和分P上限。正式采集会按该有界配置
-搜索并把每个分P写成 `video_bundle`：
+B站正式 Spider 已支持两种互斥运行模式：
+
+- `AUDIOSPIDER_BILIBILI_MANIFEST` 非空：精确清单模式优先，只处理清单中的 BV/分 P；
+- 未设置或值为空：才使用 `config.py` 和 `AUDIOSPIDER_BILIBILI_*` 的有界搜索模式。
+
+精确清单加载、条目校验或平台请求失败时不会退回搜索。不要同时期待“固定清单身份”和
+“实时搜索补足数量”。100 条候选批次的 B站部分可这样采集元数据：
+
+```bash
+AUDIOSPIDER_BILIBILI_MANIFEST=config/bilibili_multispeaker_50_20260912.json \
+python collect.py --spiders bilibili
+python main.py --batch-id multispeaker-video-100-20260912 \
+  --source bilibili --category 影视 --artifact-kind video_bundle \
+  --limit 1 --workers 1 --format original
+python main.py stats
+```
+
+清单的 `parts=[]` 表示保存该 BV 通过边界检查的所有完整分 P，最多 `max_parts`；显式
+`parts=[1]` 才只选 P1。两种写法都保存完整分 P，绝不从视频中切 clip。
+
+若没有设置 manifest，先检查 B站关键词、搜索页、视频和分P上限，再运行：
 
 ```bash
 python collect.py --spiders bilibili
@@ -126,6 +145,12 @@ backup、同文件系统持久 journal、sidecar/闭包复验与短事务 CAS。
 强杀或机器重启后，下次 `--apply` 会先按 journal 与 SQLite 精确指纹决定回滚或完成提交，
 第三种歧义状态会停止并保留证据，不静默跳过。
 
+只有用户明确授权使用自己的 B站登录态时，才可在服务器私下设置
+`BILIBILI_COOKIE` 并为本次 `main.py` 命令加 `--allow-bilibili-cookie`。
+不加该开关时，即使环境中残留 Cookie 也会强制匿名。下载器只读取一次该变量并立即从
+进程环境移除；Cookie 只发给 `api.bilibili.com`，字幕/媒体 CDN、FFmpeg、OCR 和其他来源
+都收不到它。
+
 ## 4. YouTube 完整母视频
 
 YouTube 来源读取受控 manifest。默认路径是 `config/youtube_sources.initial.json`；也可用
@@ -139,18 +164,14 @@ python collect.py --spiders youtube
 python main.py --source youtube --artifact-kind video_bundle --limit 1 --workers 1 --format original
 ```
 
+当前完整父视频 profiles 为：`youtube_interviews`（25.5–60.6 分钟访谈）、
+`youtube_screen_parents`（0.418 秒–4 小时影视/节目父视频）和
+`youtube_conference_forums`（5 分钟–4 小时会议/论坛）。历史
+`youtube_screen_clips` 只描述显式派生短片，不属于本批完整视频路径。
+
 YouTube 核验和下载分别运行在可终止子进程中；默认硬超时为 120 秒和
 14,400 秒，可通过 `AUDIOSPIDER_YOUTUBE_INSPECT_TIMEOUT` 与
 `AUDIOSPIDER_YOUTUBE_DOWNLOAD_TIMEOUT` 调整。超时不会把未完整 bundle 提交为 `done`。
-
-只有用户明确授权使用自己的 B站登录态时，才可在服务器私下设置
-`BILIBILI_COOKIE` 并为本次 `main.py` 命令加 `--allow-bilibili-cookie`。
-不加该开关时，即使环境中残留 Cookie 也会强制匿名。
-
-`main.py` 创建统一下载器时只读取一次该变量，校验后立即从进程环境移除；同一批 B站
-任务共享内存中的只读值。下载 HTTP 会话禁用持久 CookieJar，也不再访问 B站首页做匿名
-Cookie 预热，因此平台响应不能混入或覆盖已授权字段。显式 Cookie header 仍只发给
-`api.bilibili.com`，字幕/媒体 CDN、FFmpeg、OCR 和其他来源都收不到它。
 
 采集阶段用 yt-dlp structured info 核验完整视频和同语言平台字幕，只写数据库；下载
 阶段保存：
@@ -173,6 +194,40 @@ Cookie 预热，因此平台响应不能混入或覆盖已授权字段。显式 
 英文 fallback。平台完全没有字幕轨时记录 `caption.status=missing`；有其他语言轨但
 没有同语言轨时记录 `no_matching_language`。这两种 bundle 不生成空 VTT/TXT。网络、
 API 或解析异常仍然是失败，不能冒充无字幕。
+
+### 4.1 跨平台 100 条候选批次
+
+```text
+config/multispeaker_video_100_20260912.batch.json
+├── config/bilibili_multispeaker_50_20260912.json
+└── config/youtube_multispeaker_50_20260912.json
+```
+
+六格目标是每个平台“影视 20、访谈 20、会议论坛 10”。先做只读对账：
+
+```bash
+python scripts/audit_multispeaker_batch.py \
+  --batch-index config/multispeaker_video_100_20260912.batch.json
+```
+
+该命令会验证清单结构并按批次 ID 对账 SQLite。只有准备以“不完整即失败”作为自动化门禁
+时才加 `--require-complete`。当前清单保守写为 `candidate_unverified`、
+`speaker_count=null/needs_review`；它们是待平台核验和人工听审的候选，不是已经下载完成、
+语言已声学确认或人数已验证的数据。
+
+采集完成后，各平台先做一条精确 canary。`--batch-id` 是防止历史同类任务混入的必要条件：
+
+```bash
+python main.py --batch-id multispeaker-video-100-20260912 \
+  --source bilibili --category 影视 --artifact-kind video_bundle \
+  --limit 1 --workers 1 --format original
+python main.py --batch-id multispeaker-video-100-20260912 \
+  --source youtube --category 影视 --artifact-kind video_bundle \
+  --limit 1 --workers 1 --format original
+```
+
+其余四格替换 `--category`。B站一个父 BV 可对应多个完整分 P 行，所以 `--limit` 是领取
+行数，不是批次父视频完成数；父视频完成数以批次审计为准。
 
 ## 5. 输出解释
 
@@ -230,6 +285,9 @@ python main.py --retry-failed --source podcast_rss --limit 20 --workers 1
 python main.py --retry-failed --source bilibili --limit 1 --workers 1 --format original
 python main.py --retry-failed --source youtube --limit 1 --workers 1 --format original
 ```
+
+若重试的是本批，必须再加
+`--batch-id multispeaker-video-100-20260912`，否则可能领取历史 failed 任务。
 
 `--format` 只影响普通音频，不改变视频 bundle 的 MP4+WAV 契约。
 

@@ -58,8 +58,8 @@ class YoutubeDatasetTests(unittest.TestCase):
                 observed = dataset._download_item_locked(
                     item, root, {}, caption, destination=destination
                 )
-        self.assertEqual(observed, destination)
-        validator.assert_called_once_with(sidecar)
+        self.assertEqual(observed, destination.resolve())
+        validator.assert_called_once_with(sidecar.resolve())
 
     def test_caption_language_must_match_content_language(self):
         self.assertTrue(dataset.caption_language_matches_content("en", "en-US"))
@@ -81,11 +81,94 @@ class YoutubeDatasetTests(unittest.TestCase):
     def test_profile_bounds(self):
         interview = dataset.PROFILES["youtube_interviews"]
         screen = dataset.PROFILES["youtube_screen_clips"]
+        screen_parent = dataset.PROFILES["youtube_screen_parents"]
+        conference = dataset.PROFILES["youtube_conference_forums"]
         self.assertTrue(interview.accepts_duration(25.5 * 60))
         self.assertTrue(interview.accepts_duration(60.6 * 60))
         self.assertFalse(interview.accepts_duration(25.5 * 60 - 0.001))
         self.assertTrue(screen.accepts_duration(0.418))
         self.assertTrue(screen.accepts_duration(29.888))
+        self.assertTrue(screen_parent.accepts_duration(90 * 60))
+        self.assertTrue(conference.accepts_duration(3 * 60 * 60))
+
+    def test_manifest_normalizes_classification_and_preserves_candidate_metadata(self):
+        candidate_metadata = {
+            "search_query": "ensemble cast full movie",
+            "evidence": {"signals": ["cast interview", "multiple speakers"]},
+            "unrecognized_future_field": [1, {"value": True}],
+        }
+        screen, conference = dataset.validate_manifest({"items": [
+            {
+                "url": "https://youtu.be/dQw4w9WgXcQ",
+                "profile": "youtube_screen_parents",
+                "dataset_category": "影视",
+                "content_kind": "screen_media",
+                "content_language": "en",
+                "require_caption": False,
+                "candidate_metadata": candidate_metadata,
+            },
+            {
+                "url": "https://youtu.be/u7TwqpWiY5s",
+                "profile": "youtube_conference_forums",
+                "content_language": "en",
+                "require_caption": False,
+            },
+        ]})
+        self.assertEqual(screen["dataset_category"], "影视")
+        self.assertEqual(screen["content_kind"], "screen_media")
+        self.assertEqual(screen["candidate_metadata"], candidate_metadata)
+        self.assertEqual(conference["dataset_category"], "会议论坛")
+        self.assertEqual(conference["content_kind"], "conference_forum")
+
+    def test_manifest_rejects_unknown_or_inconsistent_classification(self):
+        base = {
+            "url": "https://youtu.be/dQw4w9WgXcQ",
+            "profile": "youtube_screen_parents",
+            "content_language": "en",
+        }
+        for override in (
+            {"dataset_category": "其他"},
+            {"content_kind": "movie"},
+            {"dataset_category": "影视", "content_kind": "conference_forum"},
+        ):
+            with self.subTest(override=override), self.assertRaises(ValueError):
+                dataset.validate_manifest({"items": [base | override]})
+
+    def test_legacy_profile_classification_keeps_job_identity(self):
+        base = {
+            "url": "https://youtu.be/dQw4w9WgXcQ",
+            "profile": "youtube_interviews",
+            "content_language": "en",
+            "languages": ["en"],
+        }
+        legacy = dataset.validate_manifest({"items": [base]})[0]
+        explicit = dataset.validate_manifest({"items": [base | {
+            "dataset_category": "访谈",
+            "content_kind": "interview_roundtable",
+        }]})[0]
+        self.assertEqual(legacy["dataset_category"], "访谈")
+        self.assertEqual(legacy["content_kind"], "interview_roundtable")
+        self.assertEqual(legacy["job_key"], explicit["job_key"])
+        self.assertEqual(
+            legacy["job_key"],
+            "dQw4w9WgXcQ-youtube_interviews-en-fa8a0df7be67",
+        )
+
+    def test_classification_is_decoupled_from_profile_but_changes_identity(self):
+        base = {
+            "url": "https://youtu.be/dQw4w9WgXcQ",
+            "profile": "youtube_interviews",
+            "content_language": "en",
+            "languages": ["en"],
+        }
+        default = dataset.validate_manifest({"items": [base]})[0]
+        conference = dataset.validate_manifest({"items": [base | {
+            "dataset_category": "会议论坛",
+            "content_kind": "conference_forum",
+        }]})[0]
+        self.assertEqual(conference["profile"], "youtube_interviews")
+        self.assertEqual(conference["dataset_category"], "会议论坛")
+        self.assertNotEqual(default["job_key"], conference["job_key"])
 
     def test_accepts_supported_youtube_urls_only(self):
         self.assertEqual(
@@ -173,6 +256,21 @@ class YoutubeDatasetTests(unittest.TestCase):
             self.assertEqual(paths["audio"].name, "audio.wav")
             with self.assertRaises(ValueError):
                 dataset.output_paths(Path(root), "youtube_interviews", "../escape", "en")
+
+    def test_output_paths_support_all_dataset_categories(self):
+        with tempfile.TemporaryDirectory() as root:
+            cases = [
+                ("youtube_interviews", "访谈", "interviews"),
+                ("youtube_screen_parents", "影视", "screen_sources"),
+                ("youtube_conference_forums", "会议论坛", "conference_forums"),
+            ]
+            for profile, category, section in cases:
+                with self.subTest(category=category):
+                    paths = dataset.output_paths(
+                        Path(root), profile, "dQw4w9WgXcQ", "en",
+                        dataset_category=category,
+                    )
+                    self.assertEqual(paths["directory"].relative_to(Path(root).resolve()).parts[0], section)
 
     def test_download_options_are_bounded_and_do_not_use_cookies(self):
         options = dataset.build_download_options(Path("/tmp/job"), dataset.CaptionSelection(

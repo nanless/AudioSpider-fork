@@ -76,6 +76,11 @@ CLEARED_RIGHTS = {
     "licensed", "permission_granted", "public_domain", "creative_commons",
 }
 AI_GENERATION_STATUSES = {"declared", "not_declared", "suspected", "unknown"}
+CONTENT_KIND_CATEGORIES = {
+    "screen_media": "影视",
+    "interview_roundtable": "访谈",
+    "conference_forum": "会议论坛",
+}
 CAPTION_INVENTORY_RETRY_SECONDS = 1.0
 CAPTION_TIMELINE_TOLERANCE_SECONDS = 2.0
 CAPTION_TIMELINE_RULE_VERSION = "bilibili-caption-timeline-v1"
@@ -240,6 +245,32 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
             if speaker_status != "needs_review":
                 raise ValueError("missing speaker_count must stay needs_review")
 
+        content_kind = str(item.get("content_kind") or "").strip()
+        dataset_category = str(
+            item.get("dataset_category") or item.get("category") or ""
+        ).strip()
+        if content_kind or dataset_category:
+            if content_kind not in CONTENT_KIND_CATEGORIES:
+                raise ValueError(f"item {index} has invalid content_kind")
+            if dataset_category != CONTENT_KIND_CATEGORIES[content_kind]:
+                raise ValueError(
+                    f"item {index} dataset_category does not match content_kind"
+                )
+        batch_id = str(item.get("batch_id") or "").strip()
+        if batch_id and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", batch_id):
+            raise ValueError(f"item {index} batch_id is invalid")
+        candidate_metadata = item.get("candidate_metadata") or {}
+        if not isinstance(candidate_metadata, dict):
+            raise ValueError(f"item {index} candidate_metadata must be an object")
+        try:
+            candidate_metadata = json.loads(json.dumps(candidate_metadata, ensure_ascii=False))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"item {index} candidate_metadata must be JSON serializable"
+            ) from exc
+        if len(json.dumps(candidate_metadata, ensure_ascii=False).encode("utf-8")) > 32 * 1024:
+            raise ValueError(f"item {index} candidate_metadata exceeds 32 KiB")
+
         normalized.append({
             "bvid": bvid,
             "url": f"https://www.bilibili.com/video/{bvid}",
@@ -258,6 +289,11 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
             "speaker_count": speaker_count,
             "speaker_count_status": speaker_status,
             "source_revision": str(item.get("source_revision") or "current")[:80],
+            "batch_id": batch_id,
+            "content_kind": content_kind,
+            "dataset_category": dataset_category,
+            "selection_slot": str(item.get("selection_slot") or "")[:80],
+            "candidate_metadata": candidate_metadata,
         })
     return normalized
 
@@ -284,6 +320,13 @@ def build_job_key(item: dict[str, Any], part: int, cid: int) -> str:
             CURRENT_SIDECAR_SCHEMA_VERSION,
             True,
             item.get("visual_ocr_profile") or DEFAULT_VISUAL_OCR_PROFILE,
+        ])
+    # Keep every historical identity byte-for-byte.  Batch classification is
+    # appended only for new manifests that opt into the explicit batch schema.
+    if item.get("batch_id") or item.get("content_kind"):
+        identity.extend([
+            item.get("batch_id", ""), item.get("content_kind", ""),
+            item.get("dataset_category", ""),
         ])
     fingerprint = hashlib.sha256(
         json.dumps(

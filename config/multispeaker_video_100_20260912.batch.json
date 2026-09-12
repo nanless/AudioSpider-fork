@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "batch_id": "multispeaker-video-100-20260912",
+  "baseline_snapshot": {
+    "database": "backups/audiospider-before-multispeaker-100-20260912.db",
+    "hash_rule": "sha256 of sorted distinct parent IDs joined by LF",
+    "bilibili": {
+      "parent_count": 117,
+      "sha256": "de0a511f4e7a2b2c6c3713bedf416a6319b5549713f16be15e5ebd94aa0c2c49"
+    },
+    "youtube": {
+      "parent_count": 57,
+      "sha256": "da1f1482834cc7ad519c211d888dd4bed274adced830b5f4e56b0d8e12954d95"
+    }
+  },
+  "purpose": "新增跨平台多人视频候选批次：B站中文50条、YouTube英文50条；每平台影视20、访谈/圆桌20、会议/论坛10。",
+  "manifests": {
+    "bilibili": "config/bilibili_multispeaker_50_20260912.json",
+    "youtube": "config/youtube_multispeaker_50_20260912.json"
+  },
+  "target_counts": {
+    "bilibili": {
+      "影视": 20,
+      "访谈": 20,
+      "会议论坛": 10,
+      "total": 50
+    },
+    "youtube": {
+      "影视": 20,
+      "访谈": 20,
+      "会议论坛": 10,
+      "total": 50
+    },
+    "total": 100
+  },
+  "policies": {
+    "complete_platform_video": true,
+    "assistant_generated_clips": false,
+    "same_language_platform_captions": "best_effort",
+    "retain_when_caption_missing": true,
+    "bilibili_visual_ocr_fallback": true,
+    "speaker_count": "candidate_unverified until manual listening review",
+    "rights": "needs_review",
+    "ai_generation": "unknown unless evidence exists"
+  },
+  "output_root": "downloads/<source>/<dataset_category>/<source_id>/<job_key>/"
+}

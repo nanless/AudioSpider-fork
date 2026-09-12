@@ -58,6 +58,32 @@ PROFILES = {
     "youtube_screen_clips": Profile(
         "youtube_screen_clips", 0.418, 29.888, 11.5, 1, 6
     ),
+    "youtube_screen_parents": Profile(
+        "youtube_screen_parents", 0.418, 4 * 3600, None, 1, 50
+    ),
+    "youtube_conference_forums": Profile(
+        "youtube_conference_forums", 5 * 60, 4 * 3600, None, 2, 100
+    ),
+}
+
+CONTENT_KIND_CATEGORY = {
+    "screen_media": "影视",
+    "interview_roundtable": "访谈",
+    "conference_forum": "会议论坛",
+}
+CATEGORY_CONTENT_KIND = {
+    category: content_kind for content_kind, category in CONTENT_KIND_CATEGORY.items()
+}
+PROFILE_DEFAULT_CONTENT_KIND = {
+    "youtube_interviews": "interview_roundtable",
+    "youtube_screen_clips": "screen_media",
+    "youtube_screen_parents": "screen_media",
+    "youtube_conference_forums": "conference_forum",
+}
+PARENT_DURATION_PROFILES = {
+    "youtube_interviews",
+    "youtube_screen_parents",
+    "youtube_conference_forums",
 }
 
 
@@ -156,6 +182,43 @@ def default_caption_languages(content_language: str) -> list[str]:
     return [content_language] if family not in {"", "und"} else []
 
 
+def normalize_dataset_classification(
+    profile_name: str,
+    dataset_category: Any = None,
+    content_kind: Any = None,
+) -> tuple[str, str]:
+    """Return one controlled semantic category/kind pair.
+
+    Profiles describe acquisition constraints.  These fields describe content,
+    so a valid pair may intentionally differ from the profile's legacy default.
+    """
+
+    if profile_name not in PROFILE_DEFAULT_CONTENT_KIND:
+        raise ValueError(f"unsupported profile: {profile_name!r}")
+    if dataset_category is not None and (
+        not isinstance(dataset_category, str) or dataset_category not in CATEGORY_CONTENT_KIND
+    ):
+        raise ValueError(f"unsupported dataset_category: {dataset_category!r}")
+    if content_kind is not None and (
+        not isinstance(content_kind, str) or content_kind not in CONTENT_KIND_CATEGORY
+    ):
+        raise ValueError(f"unsupported content_kind: {content_kind!r}")
+
+    if content_kind is None and dataset_category is None:
+        content_kind = PROFILE_DEFAULT_CONTENT_KIND[profile_name]
+        dataset_category = CONTENT_KIND_CATEGORY[content_kind]
+    elif content_kind is None:
+        content_kind = CATEGORY_CONTENT_KIND[dataset_category]
+    elif dataset_category is None:
+        dataset_category = CONTENT_KIND_CATEGORY[content_kind]
+    elif CONTENT_KIND_CATEGORY[content_kind] != dataset_category:
+        raise ValueError(
+            "dataset_category and content_kind are inconsistent: "
+            f"{dataset_category!r} != {CONTENT_KIND_CATEGORY[content_kind]!r}"
+        )
+    return dataset_category, content_kind
+
+
 def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
     """Validate and normalize a source manifest without making network requests."""
 
@@ -172,6 +235,16 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
         profile_name = item.get("profile")
         if profile_name not in PROFILES:
             raise ValueError(f"item {index} has unsupported profile: {profile_name!r}")
+        try:
+            dataset_category, content_kind = normalize_dataset_classification(
+                profile_name,
+                item.get("dataset_category"),
+                item.get("content_kind"),
+            )
+        except ValueError as exc:
+            raise ValueError(f"item {index} {exc}") from exc
+        if "candidate_metadata" in item and not isinstance(item["candidate_metadata"], dict):
+            raise ValueError(f"item {index} candidate_metadata must be an object")
         video_id = youtube_video_id(item.get("url", ""))
         languages = item.get("languages") or []
         if not isinstance(languages, list) or any(
@@ -264,6 +337,11 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
         identity = [video_id, profile_name, languages, revision]
         if not require_caption:
             identity.insert(3, require_caption)
+        if content_kind != PROFILE_DEFAULT_CONTENT_KIND[profile_name]:
+            identity.append({
+                "dataset_category": dataset_category,
+                "content_kind": content_kind,
+            })
         fingerprint = hashlib.sha256(
             json.dumps(
                 identity,
@@ -280,6 +358,8 @@ def validate_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
                 "url": f"https://www.youtube.com/watch?v={video_id}",
                 "video_id": video_id,
                 "profile": profile_name,
+                "dataset_category": dataset_category,
+                "content_kind": content_kind,
                 "languages": languages,
                 "content_language": content_language,
                 "require_caption": require_caption,
@@ -392,12 +472,21 @@ def output_paths(
     video_id: str,
     language: str,
     job_key: str | None = None,
+    *,
+    dataset_category: str | None = None,
 ) -> dict[str, Path]:
     if profile not in PROFILES:
         raise ValueError(f"unknown profile: {profile}")
     video_id = _safe_component(video_id, "video_id")
     language = _safe_component(language.replace("_", "-"), "language")
-    section = "interviews" if profile == "youtube_interviews" else "screen_sources"
+    normalized_category, _ = normalize_dataset_classification(
+        profile, dataset_category=dataset_category
+    )
+    section = {
+        "访谈": "interviews",
+        "影视": "screen_sources",
+        "会议论坛": "conference_forums",
+    }[normalized_category]
     root = Path(root).resolve()
     parts = [section, video_id, language]
     if job_key:
@@ -507,6 +596,9 @@ def build_parent_sidecar(
     """Build an allowlisted sidecar that never embeds extractor internals."""
 
     video_id = str(info.get("id") or item["video_id"])
+    dataset_category, content_kind = normalize_dataset_classification(
+        item["profile"], item.get("dataset_category"), item.get("content_kind")
+    )
     if caption and not caption_language_matches_content(
         str(item.get("content_language") or "und"), caption.language
     ):
@@ -530,10 +622,12 @@ def build_parent_sidecar(
         "translation_kind": caption.translation_kind if caption else None,
         "selected_by_rule": caption.selected_by_rule if caption else None,
     }
-    return {
+    sidecar = {
         "schema_version": SCHEMA_VERSION,
         "asset_type": "youtube_parent",
         "profile": item["profile"],
+        "dataset_category": dataset_category,
+        "content_kind": content_kind,
         "job_key": item.get("job_key", ""),
         "source": "youtube",
         "source_id": video_id,
@@ -563,6 +657,9 @@ def build_parent_sidecar(
             "encoding_profile": ENCODING_PROFILE_VERSION,
         },
     }
+    if "candidate_metadata" in item:
+        sidecar["candidate_metadata"] = item["candidate_metadata"]
+    return sidecar
 
 
 def _import_yt_dlp():
@@ -585,8 +682,15 @@ def inspect_item(item: dict[str, Any]) -> tuple[dict[str, Any], CaptionSelection
     if info.get("is_live") or info.get("live_status") in {"is_live", "is_upcoming"}:
         raise ValueError("live and upcoming videos are not accepted")
     duration = float(info.get("duration") or 0)
-    if item["profile"] == "youtube_interviews" and not PROFILES[item["profile"]].accepts_duration(duration):
-        raise ValueError(f"interview duration {duration:.3f}s is outside 1530-3636s")
+    if (
+        item["profile"] in PARENT_DURATION_PROFILES
+        and not PROFILES[item["profile"]].accepts_duration(duration)
+    ):
+        profile = PROFILES[item["profile"]]
+        raise ValueError(
+            f"{item['profile']} parent duration {duration:.3f}s is outside "
+            f"{profile.minimum_duration:.3f}-{profile.maximum_duration:.3f}s"
+        )
     maximum_parent_duration = float(item.get("max_parent_duration_seconds", 4 * 3600))
     if duration <= 0 or duration > maximum_parent_duration:
         raise ValueError(
@@ -603,11 +707,16 @@ def inspect_item(item: dict[str, Any]) -> tuple[dict[str, Any], CaptionSelection
 
 
 def _public_inspection(item: dict[str, Any], info: dict[str, Any], caption: CaptionSelection | None) -> dict[str, Any]:
+    dataset_category, content_kind = normalize_dataset_classification(
+        item["profile"], item.get("dataset_category"), item.get("content_kind")
+    )
     return {
         "status": "accepted",
         "inspected_at": utc_now(),
         "job_key": item["job_key"],
         "profile": item["profile"],
+        "dataset_category": dataset_category,
+        "content_kind": content_kind,
         "video_id": item["video_id"],
         "canonical_url": item["url"],
         "title": str(info.get("title") or ""),
@@ -633,6 +742,8 @@ def _public_inspection(item: dict[str, Any], info: dict[str, Any], caption: Capt
         "speaker_count_status": item["speaker_count_status"],
         "rights": item["rights"],
         "rights_cleared": rights_cleared(item),
+        **({"candidate_metadata": item["candidate_metadata"]}
+           if "candidate_metadata" in item else {}),
     }
 
 
@@ -754,6 +865,7 @@ def _download_item_locked(
         item["video_id"],
         caption.language if caption else item.get("content_language", "und"),
         item["job_key"],
+        dataset_category=item.get("dataset_category"),
     )
     configured_root = Path(output_root).resolve()
     if destination is None:
@@ -1179,6 +1291,18 @@ def _validate_bundle(sidecar_path: Path) -> dict[str, Any]:
         raise ValueError("unsupported or missing asset_type")
     if metadata.get("profile") not in PROFILES:
         raise ValueError("unsupported or missing profile")
+    try:
+        normalized_category, normalized_kind = normalize_dataset_classification(
+            metadata["profile"],
+            metadata.get("dataset_category"),
+            metadata.get("content_kind"),
+        )
+    except ValueError as exc:
+        raise ValueError(f"invalid dataset classification: {exc}") from exc
+    if "dataset_category" in metadata and metadata["dataset_category"] != normalized_category:
+        raise ValueError("invalid dataset_category")
+    if "content_kind" in metadata and metadata["content_kind"] != normalized_kind:
+        raise ValueError("invalid content_kind")
     if not isinstance(metadata.get("language"), str) or not metadata["language"]:
         raise ValueError("content language is required")
     caption = _validate_caption_provenance(

@@ -261,6 +261,7 @@ class Downloader:
         published_since: str | None = None,
         published_before: str | None = None,
         artifact_kind: str | None = None,
+        batch_id: str | None = None,
         items: list[dict] | None = None,
     ):
         pending = items if items is not None else self.storage.claim_pending(
@@ -275,6 +276,7 @@ class Downloader:
             published_since=published_since,
             published_before=published_before,
             artifact_kind=artifact_kind,
+            batch_id=batch_id,
         )
         if not pending:
             logger.info("没有待下载的媒体任务")

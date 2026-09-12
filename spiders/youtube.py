@@ -29,12 +29,6 @@ from youtube_dataset import (
 from youtube_dataset import CaptionSelection
 
 
-PROFILE_CATEGORY = {
-    "youtube_interviews": "访谈",
-    "youtube_screen_clips": "影视",
-}
-
-
 def _inspect_worker(item: dict, result_queue) -> None:
     """Child-process entry point so a blocked extractor can be terminated."""
 
@@ -168,7 +162,7 @@ class YoutubeSpider(BaseSpider):
                 "description": plain_text(str(info.get("description") or "")),
                 "webpage_url": item["url"],
                 "author": str(info.get("channel") or info.get("uploader") or ""),
-                "categories": [PROFILE_CATEGORY[item["profile"]]],
+                "categories": [item["dataset_category"]],
             },
             source_data={
                 "artifact_kind": "video_bundle",
@@ -192,7 +186,7 @@ class YoutubeSpider(BaseSpider):
             file_format="mp4",
             duration=int(float(info.get("duration") or 0)),
             language=item["content_language"],
-            category=PROFILE_CATEGORY[item["profile"]],
+            category=item["dataset_category"],
             speaker=str(info.get("channel") or info.get("uploader") or ""),
             webpage_url=item["url"],
             description=plain_text(str(info.get("description") or "")),

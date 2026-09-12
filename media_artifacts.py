@@ -212,6 +212,11 @@ async def _download_bilibili(
         "speaker_count": task.get("speaker_count"),
         "speaker_count_status": task.get("speaker_count_status", "needs_review"),
         "source_revision": task.get("source_revision", "current"),
+        "batch_id": task.get("batch_id", ""),
+        "content_kind": task.get("content_kind", ""),
+        "dataset_category": task.get("dataset_category", ""),
+        "selection_slot": task.get("selection_slot", ""),
+        "candidate_metadata": task.get("candidate_metadata") or {},
     }
     manifest_item = validate_bilibili_manifest({"items": [raw_manifest]})[0]
     client = BilibiliClient(

@@ -98,7 +98,7 @@ AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a", ".wma", ".o
 
 SPEECH_CATEGORIES = [
     "有声书", "播客", "相声", "评书", "演讲",
-    "脱口秀", "广播剧", "新闻", "访谈", "朗读",
+    "脱口秀", "广播剧", "新闻", "访谈", "朗读", "影视", "会议论坛",
 ]
 
 SPIDER_CONFIGS = {
@@ -170,6 +170,8 @@ SPIDER_CONFIGS = {
     },
     "bilibili": {
         "enabled": True,
+        # 可选的正式清单模式。设置后只采集清单中的 BV，不进行实时搜索。
+        "manifest_path": os.environ.get("AUDIOSPIDER_BILIBILI_MANIFEST", "").strip(),
         # 平台字幕缺失时，可在同一 bundle 内从画面像素自动提取文字。
         # 默认关闭：启用后必须用 audiospider-ocr 环境运行下载 worker。
         # 这只控制新采集任务；旧 bundle 必须用有边界的 backfill 命令。

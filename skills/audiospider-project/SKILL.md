@@ -31,6 +31,9 @@ repair and audit tools rather than the formal entry path.
 
 Before acting, read the matching files in the live repository:
 `docs/architecture.md`, `docs/DOWNLOAD-GUIDE.md`, and `docs/SIDECAR-SCHEMA.md`.
+For the fixed cross-platform six-cell batch, also read
+[the exact batch runbook](../multispeaker-video-batch/references/runbook.md); its manifest identities and
+quota accounting take precedence over whole-database totals.
 
 ## Stable behavior
 
@@ -40,6 +43,9 @@ Before acting, read the matching files in the live repository:
   `audio` rows retain their original semantics.
 - YouTube targets complete parent videos; clips require an explicit separate user request and never run
   by default.
+- Exact multispeaker batches use immutable platform manifests and six controlled cells, not live search:
+  Bilibili Chinese and YouTube English each require `影视=20`, `访谈=20`, `会议论坛=10`. Preserve
+  candidate evidence as `candidate_unverified`; it is not a verified speaker count.
 - Queue claiming, leases, retry and reporting belong to SQLite/main, not source-specific CLIs. An active
   downloader renews every unfinished row in its claimed batch; expired-row recovery must reuse the
   current source/category/language/time/artifact filters so parallel sources cannot reset one another.
@@ -105,7 +111,9 @@ Before acting, read the matching files in the live repository:
 - Visual OCR itself never receives a browser Cookie. An authorized Edge session may only support the
   separately gated platform inventory request under the same minimum, in-memory rules.
 - Validate HTTPS host, public DNS result, each redirect, size limits, disk reserve and safe paths.
-- Run formal source collection sequentially; avoid competing writers during schema migration.
+- Run formal source collection sequentially and keep one downloader writer for an exact batch. Every
+  `multispeaker-video-100-20260912` download and `--retry-failed` claim must include
+  `--batch-id multispeaker-video-100-20260912`; source/category/language remain additional filters.
 
 ## Verification
 

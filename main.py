@@ -23,6 +23,7 @@
 import argparse
 import asyncio
 import logging
+import re
 import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
@@ -84,6 +85,10 @@ def main():
     parser.add_argument("--category", default=None, help="仅下载指定分类 (如 播客, 有声书)")
     parser.add_argument("--language", default=None, help="仅下载指定语种 (如 zh, en)")
     parser.add_argument(
+        "--batch-id", default=None,
+        help="只领取 metadata 中精确匹配该 batch_id 的任务",
+    )
+    parser.add_argument(
         "--artifact-kind", choices=["audio", "video_bundle"], default=None,
         help="仅处理指定产物类型；例如 video_bundle 可避免被历史音频 backlog 阻挡",
     )
@@ -115,6 +120,8 @@ def main():
                         help="仅下载发布时间 <= 此日期的 (如 2024-12-31)")
 
     args = parser.parse_args()
+    if args.batch_id and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", args.batch_id):
+        parser.error("--batch-id 只允许 1-80 位字母、数字、点、下划线或连字符")
     setup_logging()
     storage = Storage()
     # 平台新默认是视频；历史 B站 audio 行只在显式
@@ -157,6 +164,7 @@ def main():
             worker_id=dl.worker_id,
             lease_seconds=DOWNLOAD_LEASE_SECONDS,
             artifact_kind=artifact_kind,
+            batch_id=args.batch_id,
         )
         if not failed_items:
             scope = (
@@ -187,6 +195,7 @@ def main():
         published_since=args.since,
         published_before=args.before,
         artifact_kind=artifact_kind,
+        batch_id=args.batch_id,
     )
 
     convert = args.format == "opus"

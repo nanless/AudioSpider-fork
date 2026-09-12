@@ -33,6 +33,7 @@
 - [统一采集与下载指南](DOWNLOAD-GUIDE.md)
 - [YouTube 完整母视频兼容工具说明](guides/youtube-datasets.md)
 - [B站视频 bundle 兼容工具说明](guides/bilibili-video-datasets.md)
+- [100 条跨平台多人视频小白手册](guides/multispeaker-video-batch-100.md)
 - [150 个中英文完整访谈批次运行手册](guides/interview-batches-150.md)
 
 ## 第 3 层：接口参考
@@ -47,6 +48,7 @@
 - [统一 Sidecar Schema](SIDECAR-SCHEMA.md)
 - [YouTube 数据集 sidecar](reference/youtube-sidecars.md)
 - [B 站视频 bundle 与 sidecar](reference/bilibili-video-sidecars.md)
+- [批次 Manifest 参考](reference/batch-manifests.md)
 
 ## 第 4 层：设计与开发
 
@@ -63,6 +65,7 @@
 - [统一媒体流水线实施计划](plans/2026-09-10-unified-media-pipeline.md)
 - [B 站错配字幕时间轴设计](plans/2026-09-10-bilibili-invalid-caption-timeline-design.md)
 - [B 站错配字幕时间轴实施计划](plans/2026-09-10-bilibili-invalid-caption-timeline.md)
+- [跨平台 100 条多人视频批次设计](plans/2026-09-12-multispeaker-video-batch-design.md)
 - [安全问题报告](../SECURITY.md)
 - [变更记录](../CHANGELOG.md)
 
@@ -118,6 +121,16 @@
 2. [B站完整视频指南](guides/bilibili-video-datasets.md)
 3. [YouTube 完整视频指南](guides/youtube-datasets.md)
 4. [统一 Sidecar Schema](SIDECAR-SCHEMA.md)
+
+### 我要运行 B站中文 50 条 + YouTube 英文 50 条多人视频批次
+
+1. [100 条跨平台多人视频小白手册](guides/multispeaker-video-batch-100.md)
+2. [批次 Manifest 参考](reference/batch-manifests.md)
+3. [跨平台 100 条多人视频批次设计](plans/2026-09-12-multispeaker-video-batch-design.md)
+4. [统一 Sidecar Schema](SIDECAR-SCHEMA.md)
+
+这 100 条按每个平台“影视 20、访谈/圆桌 20、会议/论坛 10”组成，和上面的历史
+150 条访谈批次不是同一个目标集合。
 
 ## 文档验证
 

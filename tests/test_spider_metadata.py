@@ -381,6 +381,35 @@ class BilibiliMetadataTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(records[0].category, "访谈")
 
+    async def test_manifest_mode_is_exact_and_never_falls_back_to_search(self):
+        spider = BilibiliSpider()
+        spider.manifest_path = "config/exact.json"
+        item = {
+            "bvid": "BV1xx411c7mD",
+            "dataset_category": "影视",
+            "content_kind": "screen_media",
+        }
+        spider._extract_manifest_records = AsyncMock(return_value=[
+            AudioRecord(
+                url="https://www.bilibili.com/video/BV1xx411c7mD?p=1",
+                source="bilibili",
+                source_id="BV1xx411c7mD_p1",
+                category="影视",
+                artifact_kind="video_bundle",
+            )
+        ])
+        spider._search_page = AsyncMock(side_effect=AssertionError("search is forbidden"))
+        batches = []
+
+        with patch("spiders.bilibili.load_manifest", return_value=[item]), \
+             patch("spiders.bilibili.aiohttp.ClientSession", return_value=_FakeSession()), \
+             patch("spiders.bilibili.random_delay", new=AsyncMock()):
+            records = await spider.crawl(on_batch=lambda batch: batches.extend(batch))
+
+        self.assertEqual(records, [])
+        self.assertEqual([row.source_id for row in batches], ["BV1xx411c7mD_p1"])
+        spider._search_page.assert_not_awaited()
+
     async def test_collection_applies_title_and_duration_policy(self):
         spider = BilibiliSpider()
         spider.required_title_terms = ["访谈", "专访"]

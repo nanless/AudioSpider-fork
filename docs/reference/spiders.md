@@ -12,7 +12,7 @@
 | `librivox` | LibriVox API + Archive.org | MP3 | 图书 API | Archive.org 可达性 |
 | `xiaoyuzhou` | 种子节目/发现页 | M4A | 节目页 | HTML 结构变化 |
 | `ximalaya` | 种子 track ID 附近探测 | MP3/M4A | checkpoint + ID | 非正式分页、元数据启发式 |
-| `bilibili` | 关键词搜索和视频分P | 完整 MP4+WAV bundle | 搜索页/checkpoint | 风控、签名 URL、大文件 |
+| `bilibili` | 精确 manifest 或关键词搜索 | 完整 MP4+WAV bundle | `job_key`/搜索去重 | 风控、签名 URL、大文件 |
 | `youtube` | 受控 manifest | 完整 MP4+WAV bundle | `job_key` 去重 | 网络限制、字幕/格式变化 |
 
 ## `podcast_rss`
@@ -79,7 +79,7 @@ python collect.py --spiders ximalaya
 
 ## `bilibili`
 
-按关键词搜索视频，对每个视频解析分 P/CID 并登记完整视频 bundle 任务。来源 ID 包含
+可按精确 manifest 或关键词搜索视频，对每个视频解析分 P/CID 并登记完整视频 bundle 任务。来源 ID 包含
 BV 号和分 P，用于稳定去重；DASH 视频/音频地址只在 `main.py` 下载时临时解析。
 
 ```bash
@@ -94,6 +94,13 @@ python probe.py --source bilibili --keywords "有声书 合集" --search-pages 1
 - 视频可访问不等于已经获得下载或训练授权。
 
 默认有每词页数、每词视频数和每视频分P数上限。先用探针小规模确认，再考虑正式采集。
+
+设置 `AUDIOSPIDER_BILIBILI_MANIFEST` 后，manifest 模式优先并完全跳过搜索；清单失败不会
+回退。清单可固定 `screen_media/影视`、`interview_roundtable/访谈`、
+`conference_forum/会议论坛`，并保存 `batch_id`、候选证据和保守 provenance。
+
+采集精确批次后，下载器还要显式传 `--batch-id multispeaker-video-100-20260912`；只写
+`--source bilibili` 或分类可能命中旧任务。
 
 视频简介、UP主、封面、发布时间、分P、权限与统计会保存；player API 公开返回字幕时声明为 transcript 资产。无字幕时保持空列表。
 
@@ -112,6 +119,12 @@ python probe.py --source youtube --manifest config/youtube_sources.example.json 
 python collect.py --spiders youtube
 python main.py --source youtube --artifact-kind video_bundle --limit 1 --workers 1
 ```
+
+完整父视频 profiles 为 `youtube_interviews`、`youtube_screen_parents` 和
+`youtube_conference_forums`。后两者分别对应影视和会议/论坛；它们都不生成 clip。
+`candidate_unverified` 只保存发现线索，不能当作人工核验的说话人数。
+跨平台候选批次下载同样必须叠加 `--batch-id multispeaker-video-100-20260912`，它读取
+YouTube `job.batch_id` 精确领取，不把历史 YouTube 行算入本批。
 
 ## 配置与正式注册
 

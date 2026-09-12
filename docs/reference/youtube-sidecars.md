@@ -8,10 +8,13 @@
 |---|---|---|
 | `schema_version` | integer | 当前为 1 |
 | `asset_type` | string | `youtube_parent` |
-| `profile` | string | `youtube_interviews` 或 `youtube_screen_clips` |
+| `profile` | string | 完整父视频为 `youtube_interviews`、`youtube_screen_parents` 或 `youtube_conference_forums`；`youtube_screen_clips` 仅历史/显式派生 |
 | `job_key` | string | 视频 ID、profile、请求字幕语言和来源修订组成的稳定任务键 |
 | `source_id` | string | 11 字符 YouTube video ID |
 | `source_revision` | string | 清单声明的来源修订，默认 `current` |
+| `content_kind` | string | `screen_media`、`interview_roundtable` 或 `conference_forum` |
+| `dataset_category` | string | 与 content_kind 对应的 `影视`、`访谈` 或 `会议论坛` |
+| `candidate_metadata` | object | 发现阶段证据；`candidate_unverified` 不等于已人工核验 |
 | `canonical_url` | string | 不带查询签名的规范 watch URL |
 | `title` / `description` | string | 平台公开标题和简介 |
 | `duration_seconds` | number | 平台报告的父视频时长 |
@@ -27,6 +30,14 @@
 | `files` | object | bundle 内相对路径、字节数和 SHA-256 |
 | `toolchain` | object | yt-dlp、切分算法和编码 profile 版本 |
 | `acquired_at` | string | UTC ISO 8601 获取时间 |
+
+新 100 条候选批次保守使用 `speaker_count=null`、`speaker_count_status=needs_review`。
+即使 `candidate_metadata.multi_speaker_evidence.minimum_possible_speakers>=2`，只要状态还是
+`candidate_unverified`，就不能宣称实际说话人数已经确认。
+
+`batch_id` 和 `selection_slot` 当前保存在 manifest 与 SQLite `source_data.youtube.job`
+中，由批次审计器读取；父 bundle sidecar 不把它们作为顶层字段。YouTube sidecar 会保留
+`content_kind`、`dataset_category` 和可选 `candidate_metadata`。
 
 ## `caption` 字段
 

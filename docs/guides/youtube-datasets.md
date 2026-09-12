@@ -105,6 +105,18 @@ timeout 20 curl -I https://www.youtube.com
 - `rights.status=needs_review` 表示公开可见但权利尚未清理。
 - `ai_generation.status=unknown` 与字幕是否自动生成没有因果关系。
 
+完整父视频 profile：
+
+| profile | 默认分类 | 时长边界 | 说话人数 schema 边界 |
+|---|---|---:|---:|
+| `youtube_interviews` | `访谈/interview_roundtable` | 25.5–60.6 分钟 | 2–11 |
+| `youtube_screen_parents` | `影视/screen_media` | 0.418 秒–4 小时 | 1–50 |
+| `youtube_conference_forums` | `会议论坛/conference_forum` | 5 分钟–4 小时 | 2–100 |
+
+`youtube_screen_clips` 是历史/显式派生短片 profile，不用于当前完整父视频批次。profile
+只规定采集边界，不自动证明实际多人；`candidate_metadata.*.status=candidate_unverified`
+仍需人工听审，`speaker_count` 未核验时必须保持 null/`needs_review`。
+
 `require_caption`、语言策略、profile 和来源修订会进入不可变 `job_key` 身份。同一个视频
 采用不同策略时不会互相覆盖。
 
@@ -136,6 +148,25 @@ sqlite3 -readonly audiospider.db \
 
 采集日志中的“清单 50 项”不等于“新增 50 项”：重复 `job_key` 不会重复插入，网络失败、
 下架、直播或时长不合格项也不会静默算成功。
+
+跨平台候选批次使用 `config/youtube_multispeaker_50_20260912.json`，并由
+`config/multispeaker_video_100_20260912.batch.json` 与 B站 50 条清单一起对账：
+
+```bash
+AUDIOSPIDER_YOUTUBE_MANIFEST=config/youtube_multispeaker_50_20260912.json \
+AUDIOSPIDER_YOUTUBE_MAX_ITEMS=50 \
+python collect.py --spiders youtube
+python main.py --batch-id multispeaker-video-100-20260912 \
+  --source youtube --category 影视 --artifact-kind video_bundle \
+  --limit 1 --workers 1 --format original
+python scripts/audit_multispeaker_batch.py \
+  --batch-index config/multispeaker_video_100_20260912.batch.json
+```
+
+该命令输出 expected/queued/done 等父视频数；只有实际要求不完整即失败时才加
+`--require-complete`。清单存在和静态测试通过不代表 50 条已经下载。
+本批下载的 `--batch-id` 不能省略：它精确匹配 YouTube 任务的 `job.batch_id`，平台和分类
+只能进一步缩小范围，不能排除历史同类任务。
 
 ## 5. 正式下载：完整母视频，不生成 clip
 
@@ -215,6 +246,8 @@ python main.py --retry-failed --source youtube \
   --limit 5 --workers 1 --format original
 ```
 
+若重试本批，再加 `--batch-id multispeaker-video-100-20260912`，避免领取历史 failed 行。
+
 ## 8. 统一审计与抽查
 
 ```bash
@@ -259,5 +292,6 @@ python -m json.tool \
 `downloads/youtube/...`。旧目录使用 `scripts/migrate_video_bundles.py` 默认 dry-run，
 确认后才 `--apply`，迁移结束再跑统一审计。
 
-本次 100+50 访谈批次的完整步骤见
+新跨平台候选批次见[100 条跨平台多人视频小白手册](multispeaker-video-batch-100.md)；
+历史 100+50 访谈任务仍见
 [150 个中英文完整访谈批次运行手册](interview-batches-150.md)。

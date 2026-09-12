@@ -1,0 +1,2924 @@
+{
+  "schema_version": 2,
+  "batch_id": "multispeaker-video-100-20260912",
+  "platform": "bilibili",
+  "content_language": "zh",
+  "target_counts": {
+    "screen_media": 20,
+    "interview_roundtable": 20,
+    "conference_forum": 10
+  },
+  "selection_policy": {
+    "complete_platform_video": true,
+    "all_parts_up_to": 200,
+    "assistant_generated_clips": false,
+    "same_language_caption": "best_effort",
+    "keep_without_caption": true,
+    "visual_ocr_when_no_usable_platform_caption": true,
+    "rights": "needs_review",
+    "ai_generation": "unknown_without_evidence",
+    "speaker_count": "needs_review_until_manual_verification"
+  },
+  "items": [
+    {
+      "bvid": "BV1P5411h7qh",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "经典小品《疯狂旅游团》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-01",
+      "candidate_metadata": {
+        "title_at_discovery": "经典小品《疯狂旅游团》",
+        "uploader_at_discovery": "乐嘟嘟开心一刻",
+        "duration_at_discovery": "13:23",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1mtsheHEHV",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "表演艺考多人小品《未接来电》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-02",
+      "candidate_metadata": {
+        "title_at_discovery": "表演艺考多人小品《未接来电》",
+        "uploader_at_discovery": "表演宋老师",
+        "duration_at_discovery": "10:03",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV18d4y127VY",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "小品《明日富豪》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-03",
+      "candidate_metadata": {
+        "title_at_discovery": "小品《明日富豪》",
+        "uploader_at_discovery": "账号已注销",
+        "duration_at_discovery": "10:57",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1CM4m1o7dB",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "大学生诚信主题微小品《小抄》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-04",
+      "candidate_metadata": {
+        "title_at_discovery": "大学生诚信主题微小品《小抄》",
+        "uploader_at_discovery": "野泡椒",
+        "duration_at_discovery": "04:51",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV14A411E7gJ",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "小品《同学会》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-05",
+      "candidate_metadata": {
+        "title_at_discovery": "小品《同学会》",
+        "uploader_at_discovery": "喜嘻笑",
+        "duration_at_discovery": "10:21",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1KvkYY7EAt",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "经典小品：打扑克（1994年）",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-06",
+      "candidate_metadata": {
+        "title_at_discovery": "经典小品：打扑克（1994年）",
+        "uploader_at_discovery": "爱生活的梨花猫",
+        "duration_at_discovery": "18:01",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1GF411p74J",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "小品《一百块》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-07",
+      "candidate_metadata": {
+        "title_at_discovery": "小品《一百块》",
+        "uploader_at_discovery": "小布丁刺客",
+        "duration_at_discovery": "07:36",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV178411f7fk",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "毕业晚会小品《反诈风波》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-08",
+      "candidate_metadata": {
+        "title_at_discovery": "毕业晚会小品《反诈风波》",
+        "uploader_at_discovery": "摩尔根的秘密研究",
+        "duration_at_discovery": "12:19",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1pv4y1z7Y8",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "小品《这世界那么多人》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-09",
+      "candidate_metadata": {
+        "title_at_discovery": "小品《这世界那么多人》",
+        "uploader_at_discovery": "子青姑娘",
+        "duration_at_discovery": "15:05",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1fq4y1r73R",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "小品《TFgirls》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-10",
+      "candidate_metadata": {
+        "title_at_discovery": "小品《TFgirls》",
+        "uploader_at_discovery": "张飞打野第一天",
+        "duration_at_discovery": "06:54",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1DtbPzDEaN",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "小品表演《问路》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-11",
+      "candidate_metadata": {
+        "title_at_discovery": "小品表演《问路》",
+        "uploader_at_discovery": "阳光思瑞口才课堂",
+        "duration_at_discovery": "09:44",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1JtkwYDECt",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "喜剧大会《没画三弄》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-12",
+      "candidate_metadata": {
+        "title_at_discovery": "喜剧大会《没画三弄》",
+        "uploader_at_discovery": "中医课代表",
+        "duration_at_discovery": "20:49",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1uM4y1c71V",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "小品《站台》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-13",
+      "candidate_metadata": {
+        "title_at_discovery": "小品《站台》",
+        "uploader_at_discovery": "张飞打野第一天",
+        "duration_at_discovery": "17:19",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1i6cXzfEyg",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "小品《邻居》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-14",
+      "candidate_metadata": {
+        "title_at_discovery": "小品《邻居》",
+        "uploader_at_discovery": "小品欢乐多",
+        "duration_at_discovery": "14:10",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1CTFxePExu",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "春晚小品《花架子》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-15",
+      "candidate_metadata": {
+        "title_at_discovery": "春晚小品《花架子》",
+        "uploader_at_discovery": "央视新闻",
+        "duration_at_discovery": "09:34",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1fi4y1V7S3",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "学生作业短对话《暗角》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-16",
+      "candidate_metadata": {
+        "title_at_discovery": "学生作业短对话《暗角》",
+        "uploader_at_discovery": "插苹果",
+        "duration_at_discovery": "02:10",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1TM4y1g7Wp",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "对话作业《谁是我》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-17",
+      "candidate_metadata": {
+        "title_at_discovery": "对话作业《谁是我》",
+        "uploader_at_discovery": "你好番茄酱",
+        "duration_at_discovery": "05:03",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1ZQpneMExD",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "教师节微电影《与更好的你相遇》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-18",
+      "candidate_metadata": {
+        "title_at_discovery": "教师节微电影《与更好的你相遇》",
+        "uploader_at_discovery": "文青指北",
+        "duration_at_discovery": "10:32",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1wV411q7Ce",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "双人对话拍摄作业《纸条》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-19",
+      "candidate_metadata": {
+        "title_at_discovery": "双人对话拍摄作业《纸条》",
+        "uploader_at_discovery": "一只蛋堡er",
+        "duration_at_discovery": "02:00",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1oZ4y1w7hY",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "影视",
+      "content_kind": "screen_media",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "校园微电影《矛盾》",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-screen-20",
+      "candidate_metadata": {
+        "title_at_discovery": "校园微电影《矛盾》",
+        "uploader_at_discovery": "明白特",
+        "duration_at_discovery": "05:14",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "sketch_dialogue_or_drama_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1oy4y1m7yY",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "十三邀：许知远对话罗翔",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-01",
+      "candidate_metadata": {
+        "title_at_discovery": "十三邀：许知远对话罗翔",
+        "uploader_at_discovery": "腾讯新闻",
+        "duration_at_discovery": "08:21",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1uy2vBAEAX",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "见非凡·十三邀团队特别制作 X 梁家辉",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-02",
+      "candidate_metadata": {
+        "title_at_discovery": "见非凡·十三邀团队特别制作 X 梁家辉",
+        "uploader_at_discovery": "十三邀",
+        "duration_at_discovery": "25:41",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1bHuS6yEJ6",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "许知远 @ 鲁豫",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-03",
+      "candidate_metadata": {
+        "title_at_discovery": "许知远 @ 鲁豫",
+        "uploader_at_discovery": "听有营养的声音",
+        "duration_at_discovery": "196:07",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1eu4y1k7yW",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "俞飞鸿 @ 许知远",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-04",
+      "candidate_metadata": {
+        "title_at_discovery": "俞飞鸿 @ 许知远",
+        "uploader_at_discovery": "听有营养的声音",
+        "duration_at_discovery": "40:46",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1QrY26iE8H",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "锵锵三人行｜名人说真心话",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-05",
+      "candidate_metadata": {
+        "title_at_discovery": "锵锵三人行｜名人说真心话",
+        "uploader_at_discovery": "黑鲔鱼霈",
+        "duration_at_discovery": "33:13",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV15q4y1i7NG",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "锵锵三人行 王菲（完整版）",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-06",
+      "candidate_metadata": {
+        "title_at_discovery": "锵锵三人行 王菲（完整版）",
+        "uploader_at_discovery": "王菲关于你的眉",
+        "duration_at_discovery": "47:57",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1YiUfBCEiM",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "当年明月锵锵三人行",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-07",
+      "candidate_metadata": {
+        "title_at_discovery": "当年明月锵锵三人行",
+        "uploader_at_discovery": "生活见闻录",
+        "duration_at_discovery": "53:21",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1V8PQzbETc",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "锵锵三人行：本期建议反复观看",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-08",
+      "candidate_metadata": {
+        "title_at_discovery": "锵锵三人行：本期建议反复观看",
+        "uploader_at_discovery": "B站名人演讲堂",
+        "duration_at_discovery": "19:45",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1hS4y1u7jy",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "当年明月：锵锵三人行",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-09",
+      "candidate_metadata": {
+        "title_at_discovery": "当年明月：锵锵三人行",
+        "uploader_at_discovery": "锵锵老友记",
+        "duration_at_discovery": "38:47",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV19HVU6bEia",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "窦文涛×马家辉老友对谈",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-10",
+      "candidate_metadata": {
+        "title_at_discovery": "窦文涛×马家辉老友对谈",
+        "uploader_at_discovery": "金瓯离眸",
+        "duration_at_discovery": "46:51",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1gW411g7N7",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "锵锵四人行",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-11",
+      "candidate_metadata": {
+        "title_at_discovery": "锵锵四人行",
+        "uploader_at_discovery": "唐颂缘明卿",
+        "duration_at_discovery": "36:35",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1bkdVB4Eoh",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "锵锵三人行",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-12",
+      "candidate_metadata": {
+        "title_at_discovery": "锵锵三人行",
+        "uploader_at_discovery": "经典301",
+        "duration_at_discovery": "22:25",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1PAjq69EaD",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "王朔：锵锵三人行",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-13",
+      "candidate_metadata": {
+        "title_at_discovery": "王朔：锵锵三人行",
+        "uploader_at_discovery": "锵锵之行",
+        "duration_at_discovery": "188:01",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1qtbH6vEZ9",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "锵锵三人行｜南海仲裁",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-14",
+      "candidate_metadata": {
+        "title_at_discovery": "锵锵三人行｜南海仲裁",
+        "uploader_at_discovery": "黑鲔鱼霈",
+        "duration_at_discovery": "33:09",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1R1tJ6nEGW",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "王蒙：锵锵三人行",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-15",
+      "candidate_metadata": {
+        "title_at_discovery": "王蒙：锵锵三人行",
+        "uploader_at_discovery": "锵锵行者",
+        "duration_at_discovery": "46:07",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1vP4y1T7K9",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "锵锵三人行：周星驰、梁文道",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-16",
+      "candidate_metadata": {
+        "title_at_discovery": "锵锵三人行：周星驰、梁文道",
+        "uploader_at_discovery": "mokkasusu",
+        "duration_at_discovery": "68:42",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1Z3tU6TEvh",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "窦文涛、许子东、梁文道对谈",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-17",
+      "candidate_metadata": {
+        "title_at_discovery": "窦文涛、许子东、梁文道对谈",
+        "uploader_at_discovery": "锵锵行者",
+        "duration_at_discovery": "45:06",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1LW9MB7E8n",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "锵锵三人行：欧洲与俄罗斯",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-18",
+      "candidate_metadata": {
+        "title_at_discovery": "锵锵三人行：欧洲与俄罗斯",
+        "uploader_at_discovery": "3人锵锵行",
+        "duration_at_discovery": "42:30",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV19mEt6UEer",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "马未都、当年明月对谈",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-19",
+      "candidate_metadata": {
+        "title_at_discovery": "马未都、当年明月对谈",
+        "uploader_at_discovery": "锵锵行者",
+        "duration_at_discovery": "84:45",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1LoRyBsEoA",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "访谈",
+      "content_kind": "interview_roundtable",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "窦文涛、当年明月对谈",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-interview-20",
+      "candidate_metadata": {
+        "title_at_discovery": "窦文涛、当年明月对谈",
+        "uploader_at_discovery": "锵锵行者",
+        "duration_at_discovery": "37:41",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "named_program_or_multiple_participant_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1uGYE6XEry",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "2026（秋季）亚洲充电大会圆桌论坛",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-conference-01",
+      "candidate_metadata": {
+        "title_at_discovery": "2026（秋季）亚洲充电大会圆桌论坛",
+        "uploader_at_discovery": "充电头网学堂",
+        "duration_at_discovery": "39:35",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_forum_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1324ezPE6a",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "教育与人才培养分论坛圆桌讨论",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-conference-02",
+      "candidate_metadata": {
+        "title_at_discovery": "教育与人才培养分论坛圆桌讨论",
+        "uploader_at_discovery": "开放处理器创新中心",
+        "duration_at_discovery": "59:16",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_forum_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1Gg411D7i7",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "企业家圆桌对话：科技创新与产业升级",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-conference-03",
+      "candidate_metadata": {
+        "title_at_discovery": "企业家圆桌对话：科技创新与产业升级",
+        "uploader_at_discovery": "雁栖湖论坛",
+        "duration_at_discovery": "28:59",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_forum_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1GX9pB9E6N",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "OpenClaw与AI开源圆桌会议",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-conference-04",
+      "candidate_metadata": {
+        "title_at_discovery": "OpenClaw与AI开源圆桌会议",
+        "uploader_at_discovery": "六翼长老",
+        "duration_at_discovery": "35:44",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_forum_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1YuHhe9EDu",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "凤凰湾区财经论坛2024圆桌讨论",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-conference-05",
+      "candidate_metadata": {
+        "title_at_discovery": "凤凰湾区财经论坛2024圆桌讨论",
+        "uploader_at_discovery": "杨韵涵涵涵",
+        "duration_at_discovery": "42:23",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_forum_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1SAwRzdEz7",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "有爱就有一切圆桌论坛",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-conference-06",
+      "candidate_metadata": {
+        "title_at_discovery": "有爱就有一切圆桌论坛",
+        "uploader_at_discovery": "雪漠文化研究所",
+        "duration_at_discovery": "55:51",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_forum_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1br42187Nr",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "2024世界氮化镓大会圆桌论坛",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-conference-07",
+      "candidate_metadata": {
+        "title_at_discovery": "2024世界氮化镓大会圆桌论坛",
+        "uploader_at_discovery": "充电头网学堂",
+        "duration_at_discovery": "32:15",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_forum_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1GghpeWErv",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "中国责任投资论坛夏季峰会圆桌对话",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-conference-08",
+      "candidate_metadata": {
+        "title_at_discovery": "中国责任投资论坛夏季峰会圆桌对话",
+        "uploader_at_discovery": "商道融绿",
+        "duration_at_discovery": "54:42",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_forum_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1LhqcYwEQD",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "银发经济圆桌论坛",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-conference-09",
+      "candidate_metadata": {
+        "title_at_discovery": "银发经济圆桌论坛",
+        "uploader_at_discovery": "智友雅瑞科创平台",
+        "duration_at_discovery": "37:50",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_forum_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    },
+    {
+      "bvid": "BV1h24y1u7p1",
+      "parts": [],
+      "max_parts": 200,
+      "max_height": 720,
+      "max_duration_seconds": 14400,
+      "content_language": "zh",
+      "languages": [
+        "zh",
+        "zh-Hans",
+        "zh-Hant",
+        "zh-CN",
+        "zh-TW",
+        "zh-HK",
+        "ai-zh",
+        "yue"
+      ],
+      "require_caption": false,
+      "visual_ocr_fallback": true,
+      "visual_ocr_profile": "bilibili-visual-ocr-zh-v1",
+      "dataset_category": "会议论坛",
+      "content_kind": "conference_forum",
+      "speaker_count": null,
+      "speaker_count_status": "needs_review",
+      "program": "2023她世界她力量圆桌论坛",
+      "rights": {
+        "status": "needs_review",
+        "note": "公开视频不等于已取得下载、训练或再分发授权。"
+      },
+      "ai_generation": {
+        "status": "unknown",
+        "evidence": []
+      },
+      "source_revision": "multispeaker-video-100-20260912",
+      "batch_id": "multispeaker-video-100-20260912",
+      "selection_slot": "bilibili-conference-10",
+      "candidate_metadata": {
+        "title_at_discovery": "2023她世界她力量圆桌论坛",
+        "uploader_at_discovery": "智联招聘",
+        "duration_at_discovery": "55:26",
+        "full_platform_item": true,
+        "caption_status": "pending_platform_inspection",
+        "language_evidence": {
+          "status": "candidate_unverified",
+          "basis": "Chinese title/program context; acoustic verification still required"
+        },
+        "multi_speaker_evidence": {
+          "status": "candidate_unverified",
+          "evidence_kind": "roundtable_or_forum_title",
+          "minimum_possible_speakers": 2,
+          "limitations": [
+            "Title/program framing does not prove that every visible or named person speaks audibly.",
+            "Final speaker_count remains needs_review until listening verification."
+          ]
+        },
+        "discovered_at": "2026-09-12"
+      }
+    }
+  ]
+}
