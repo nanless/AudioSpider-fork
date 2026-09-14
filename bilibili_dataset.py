@@ -1100,6 +1100,36 @@ def _media_summary(path: Path) -> dict[str, Any]:
     }
 
 
+def _first_stream_duration(path: Path, codec_type: str) -> float:
+    """Return the first matching stream duration without changing sidecar schema.
+
+    A merged MP4 may legitimately keep a few seconds of video after its audio
+    stream ends.  The extracted WAV must therefore be compared with the MP4's
+    audio stream, not with the container duration (which follows the longest
+    stream).
+    """
+
+    if codec_type not in {"audio", "video"}:
+        raise ValueError("unsupported media stream type")
+    selector = "a:0" if codec_type == "audio" else "v:0"
+    try:
+        result = subprocess.run([
+            "ffprobe", "-v", "error", "-select_streams", selector,
+            "-show_entries", "stream=duration", "-of", "json", str(path),
+        ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120,
+           env=_subprocess_env())
+    except subprocess.CalledProcessError as exc:
+        raise ValueError(f"ffprobe rejected {path.name}") from exc
+    probe = json.loads(result.stdout.decode("utf-8"))
+    streams = probe.get("streams") or []
+    if not streams:
+        raise ValueError(f"{path.name} has no {codec_type} stream")
+    duration = float(streams[0].get("duration") or 0)
+    if not math.isfinite(duration) or duration <= 0:
+        raise ValueError(f"{path.name} has invalid {codec_type} stream duration")
+    return duration
+
+
 async def download_job(
     client: BilibiliClient, job: dict[str, Any], view: dict[str, Any], output_root: Path,
     *, destination: Path | None = None,
@@ -1640,7 +1670,8 @@ def validate_bundle(sidecar_path: Path, *, allow_staging: bool = False) -> dict[
         raise ValueError("audio.wav must be 16 kHz mono PCM16")
     if video["duration_seconds"] <= 0 or audio["duration_seconds"] <= 0:
         raise ValueError("bundle media has invalid duration")
-    if abs(video["duration_seconds"] - audio["duration_seconds"]) > 0.5:
+    source_audio_duration = _first_stream_duration(paths["video"], "audio")
+    if abs(source_audio_duration - audio["duration_seconds"]) > 0.5:
         raise ValueError("video/audio duration drift exceeds 0.5 seconds")
     declared_duration = float(metadata.get("declared_duration_seconds") or 0)
     if not math.isfinite(declared_duration) or declared_duration <= 0:

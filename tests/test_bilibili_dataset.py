@@ -495,6 +495,8 @@ class CaptionTimelineDownloadTests(unittest.IsolatedAsyncioTestCase):
             side_effect=lambda path: (
                 audio_summary if path.name == "audio.wav" else video_summary
             ),
+        ), mock.patch(
+            "bilibili_dataset._first_stream_duration", return_value=10.0,
         ):
             return await download_job(
                 client, self._job(require_caption), {"title": "synthetic"}, root,
@@ -713,13 +715,18 @@ class AuditTests(unittest.TestCase):
             video = bundle / "source.mp4"
             subprocess.run([
                 "ffmpeg", "-nostdin", "-loglevel", "error", "-y",
-                "-f", "lavfi", "-i", "color=c=black:s=320x240:r=25",
-                "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
-                "-t", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+                "-f", "lavfi", "-i", "color=c=black:s=320x240:r=25:d=1.8",
+                "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:d=1",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
                 str(video),
             ], check=True)
             audio = bundle / "audio.wav"
             _extract_wav(video, audio)
+            self.assertGreater(
+                _media_summary(video)["duration_seconds"]
+                - _media_summary(audio)["duration_seconds"],
+                0.5,
+            )
             document = {"body": [{"from": 0.0, "to": 0.9, "content": "人工字幕样例"}]}
             cues = parse_subtitle_document(document)
             raw = bundle / "captions.zh-Hans.manual.1.json"
