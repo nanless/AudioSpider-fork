@@ -50,6 +50,10 @@ quota accounting take precedence over whole-database totals.
   downloader renews every unfinished row in its claimed batch; expired-row recovery must reuse the
   current source/category/language/time/artifact filters so parallel sources cannot reset one another.
 - Artifact handlers may produce different files, but `done` always means the documented closure passed.
+- For Bilibili bundles, compare `audio.wav` duration with the MP4's first audio stream, not the MP4
+  container duration. A complete MP4 may legitimately retain silent video tail frames after the audio
+  stream ends. Keep the 0.5-second audio-stream/WAV tolerance and separately compare the container
+  duration with the manifest-declared part duration.
 - Bilibili captions are classified per track against the actual MP4 duration. A valid track writes
   credential-sanitized platform JSON plus derived VTT/TXT; an overlong/mismatched track writes only a
   quarantined `.rejected.json` with versioned numeric evidence. Mixed bundles remain `downloaded`;
@@ -99,9 +103,10 @@ quota accounting take precedence over whole-database totals.
 - Keep signed URLs and credentials out of the database, sidecars, logs and reports.
 - Keep transport credentials out of caption payload JSON as well. Preserve cue text and safe platform
   structure, but sanitize signed URLs, credential fields/markers and unsafe keys before persistence.
-- Never read browser cookies without explicit user authorization. After authorization, extract only the
-  minimum current Bilibili-origin cookie allow-list, keep values in memory, and inject them through stdin
-  or a one-shot loopback bridge into the gated process. Never print or persist them. Even an ambient
+- Never read browser cookies without explicit user authorization. The repository currently has no
+  Bilibili Edge extraction helper, so do not claim automatic minimum-cookie extraction or copy a browser
+  profile. A separately reviewed future helper must use stdin or a one-shot memory bridge. Never print
+  or persist values. Even an ambient
   `BILIBILI_COOKIE` is ignored unless the command uses `--allow-bilibili-cookie`; send the session only to
   `api.bilibili.com`, never to media/subtitle CDN or subprocesses.
 - The unified downloader must consume `BILIBILI_COOKIE` once at construction and immediately remove it
@@ -110,7 +115,31 @@ quota accounting take precedence over whole-database totals.
   allow-list. Reuse the validated in-memory value across the bounded Bilibili batch.
 - Visual OCR itself never receives a browser Cookie. An authorized Edge session may only support the
   separately gated platform inventory request under the same minimum, in-memory rules.
+- A Bilibili Cookie authorization never authorizes Google/YouTube Cookie access. For YouTube transport
+  failures, first use the authorized loopback-only CONNECT proxy and an anonymous exact-batch canary.
+  Distinguish media/read timeouts from the platform's bot challenge. Only after separate explicit
+  YouTube/Google authorization may `scripts/run_youtube_edge_gate.py` read the allow-listed current
+  Edge `.youtube.com` session and send it through SSH stdin to `main.py --allow-youtube-cookie`.
+- The YouTube gate is valid only for bounded `download`, explicit `--source youtube`, effective
+  `video_bundle`, explicit batch/category/language, `--workers 1`, no grouped claims, and no `--loop`.
+  It consumes bounded JSON before queue claims, discards any ambient
+  `YOUTUBE_COOKIE_JSON`, keeps values in an in-memory domain-scoped CookieJar, and injects them into
+  YouTube inspection/download only. Never use `--cookies-from-browser`, copy a browser profile, write a
+  cookie file, put values in argv/environment/logs/SQLite/sidecars, or send them to Googlevideo.
+- Scope YouTube proxy variables to the one YouTube process: set upper- and lowercase HTTP(S) proxy
+  variables, unset both `ALL_PROXY` variants, and restrict `NO_PROXY` to loopback. The CONNECT proxy
+  must bind loopback, allow only proven YouTube/Googlevideo 443 hosts, reject unrelated HTTPS with 403,
+  and reject non-public DNS results.
+- Use the reviewed `scripts/youtube_whitelist_proxy.py` for the macOS loopback CONNECT allow-list;
+  the Edge gate helper does not start this proxy, the PO-token provider, or reverse tunnels for you.
+- Keep each YouTube reverse tunnel identical on both machines: the CONNECT proxy is
+  `127.0.0.1:18797` and the PO-token provider is `127.0.0.1:4416`. The logged-in yt-dlp path deliberately selects `mweb`; keep Deno,
+  `yt-dlp-ejs`, and `bgutil-ytdlp-pot-provider` installed and validate the PO-token provider before a
+  real canary. Do not fall back to the known-broken logged-in `tv_downgraded` client.
 - Validate HTTPS host, public DNS result, each redirect, size limits, disk reserve and safe paths.
+- Treat the post-run Cookie audit as fail-closed: stream large candidate files, scan common reversible
+  encodings and all SQLite tables, report read errors as `error`, and never describe a partial scan as
+  `clean`. Exclude only declared binary media payloads; never echo the matched secret.
 - Run formal source collection sequentially and keep one downloader writer for an exact batch. Every
   `multispeaker-video-100-20260912` download and `--retry-failed` claim must include
   `--batch-id multispeaker-video-100-20260912`; source/category/language remain additional filters.
@@ -126,4 +155,7 @@ git diff --check
 
 After code changes run `bash scripts/test.sh`. After environment/database changes also run
 `python doctor.py` and `python main.py stats`. Real downloads require ffprobe, JSON/SHA-256 closure,
-database/path reconciliation and explicit accounting of subtitle/rights/AI limitations.
+database/path reconciliation and explicit accounting of subtitle/rights/AI limitations. For an exact
+batch, run its auditor with `--artifacts --downloads downloads --require-complete` to add scoped
+bundle-by-bundle validation and staging/partial checks. Final evidence also requires no active writer;
+run the unified media audit as well when claiming whole-repository bundle/orphan health.

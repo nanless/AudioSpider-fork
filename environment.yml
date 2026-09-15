@@ -3,6 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.11
+  - deno=2.9.0
   - pip
   - pip:
       - -r requirements-lock.txt

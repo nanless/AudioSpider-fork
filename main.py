@@ -23,6 +23,7 @@
 import argparse
 import asyncio
 import logging
+import os
 import re
 import sys
 from datetime import datetime
@@ -36,6 +37,7 @@ from config import (
 )
 from storage import Storage
 from downloader import Downloader
+from youtube_auth import read_cookie_payload
 
 
 def setup_logging():
@@ -75,6 +77,32 @@ def effective_artifact_kind(source: str | None, requested: str | None) -> str | 
     return "video_bundle" if source in {"bilibili", "youtube"} else None
 
 
+def load_youtube_auth_cookies(args, artifact_kind: str | None, stream=None) -> list[dict]:
+    """Consume one explicitly authorized YouTube cookie payload before queue claims."""
+
+    # An ambient variable is never authority and must not leak into descendants.
+    os.environ.pop("YOUTUBE_COOKIE_JSON", None)
+    if not args.allow_youtube_cookie:
+        return []
+    if args.action != "download":
+        raise ValueError("--allow-youtube-cookie 仅允许用于 download")
+    if args.source != "youtube":
+        raise ValueError("--allow-youtube-cookie 必须显式指定 --source youtube")
+    if artifact_kind != "video_bundle":
+        raise ValueError("--allow-youtube-cookie 仅允许用于 video_bundle")
+    if args.loop:
+        raise ValueError("--allow-youtube-cookie 不允许与 --loop 同时使用")
+    if not args.batch_id or not args.category or not args.language:
+        raise ValueError(
+            "--allow-youtube-cookie 必须同时限定 --batch-id/--category/--language"
+        )
+    if args.workers != 1:
+        raise ValueError("--allow-youtube-cookie 必须显式使用 --workers 1")
+    if args.per_source or args.per_category:
+        raise ValueError("--allow-youtube-cookie 不允许与分组领取参数同时使用")
+    return read_cookie_payload(stream or sys.stdin.buffer)
+
+
 def main():
     parser = argparse.ArgumentParser(description="AudioSpider 统一媒体下载器")
     parser.add_argument("action", nargs="?", default="download",
@@ -110,6 +138,10 @@ def main():
         "--allow-bilibili-cookie", action="store_true",
         help="明确授权本次 B站视频任务使用环境中 BILIBILI_COOKIE；默认强制匿名",
     )
+    parser.add_argument(
+        "--allow-youtube-cookie", action="store_true",
+        help="明确授权本次 YouTube 视频任务从标准输入读取一次性 Cookie JSON；默认强制匿名",
+    )
     parser.add_argument("--retry-failed", action="store_true",
                         help="按本次过滤条件和 --limit 原子领取 failed 并重新下载")
     parser.add_argument("--loop", action="store_true", help="持续循环消费下载")
@@ -122,11 +154,15 @@ def main():
     args = parser.parse_args()
     if args.batch_id and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", args.batch_id):
         parser.error("--batch-id 只允许 1-80 位字母、数字、点、下划线或连字符")
-    setup_logging()
-    storage = Storage()
     # 平台新默认是视频；历史 B站 audio 行只在显式
     # ``--artifact-kind audio`` 时消费。
     artifact_kind = effective_artifact_kind(args.source, args.artifact_kind)
+    try:
+        youtube_auth_cookies = load_youtube_auth_cookies(args, artifact_kind)
+    except ValueError as exc:
+        parser.error(str(exc))
+    setup_logging()
+    storage = Storage()
 
     if args.action == "stats":
         storage.show_stats()
@@ -142,6 +178,7 @@ def main():
             storage, max_workers=args.workers, convert=False,
             background_mode=args.background,
             allow_bilibili_cookie=args.allow_bilibili_cookie,
+            youtube_auth_cookies=youtube_auth_cookies,
         )
         asyncio.run(downloader.refresh_background(args.limit, args.source))
         return
@@ -151,7 +188,8 @@ def main():
         dl = Downloader(storage, max_workers=args.workers,
                         convert=args.format == "opus",
                         background_mode=args.background,
-                        allow_bilibili_cookie=args.allow_bilibili_cookie)
+                        allow_bilibili_cookie=args.allow_bilibili_cookie,
+                        youtube_auth_cookies=youtube_auth_cookies)
         failed_items = storage.claim_failed(
             limit=args.limit,
             source=args.source,
@@ -205,6 +243,7 @@ def main():
             storage, max_workers=args.workers, convert=convert,
             background_mode=args.background,
             allow_bilibili_cookie=args.allow_bilibili_cookie,
+            youtube_auth_cookies=youtube_auth_cookies,
         )
         return await dl.download_all(**dl_kwargs)
 
@@ -218,6 +257,7 @@ def main():
                 storage, max_workers=args.workers, convert=convert,
                 background_mode=args.background,
                 allow_bilibili_cookie=args.allow_bilibili_cookie,
+                youtube_auth_cookies=youtube_auth_cookies,
             )
             stats = await dl.download_all(**dl_kwargs)
             storage.show_stats()

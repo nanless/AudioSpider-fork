@@ -152,6 +152,36 @@ du -sh downloads logs tmp
 
 当前下载器会根据 Content-Type、文件签名和 ffprobe 拒绝明显错误页。查日志中是否有登录、防盗链、403、412 或签名过期信息。
 
+### YouTube 报 `Sign in to confirm you’re not a bot`
+
+1. 不要盲目重试全批；先确认匿名 `--limit 1 --workers 1` 金丝雀的失败原因。
+2. 只有用户明确授权当前任务读取 Edge 的最小 YouTube 登录字段后，才能运行
+   `scripts/run_youtube_edge_gate.py`。
+3. helper 只经 stdin 调用 `main.py --allow-youtube-cookie`；不要手工导出 Cookie，不要放入
+   argv/环境变量，不要复制 Edge profile，不要改成全局 Cookie header。
+4. 只先跑一条，然后核对 MP4/WAV、字幕、sidecar、哈希和日志脱敏；通过后再有界扩大。
+
+### YouTube 登录后报 `tv_downgraded` / `UNPLAYABLE` / `page needs to be reloaded`
+
+这是 yt-dlp 当前官方已知的登录 client 路径边界。受审阅门禁不使用该默认组合，
+而是固定 `mweb` + `bgutil-ytdlp-pot-provider==2.0.0`，本机 provider 使用
+Deno 2.9.0 / EJS 0.8.0。不要通过关闭格式检查或伪造成功来“解决”。
+
+### YouTube 只看到 SABR，没有可下载格式
+
+SABR-only 可能是当前平台响应和提取器路径的外部限制。保留脱敏后的 format ID
+清单和失败阶段，不要把它当成“视频无字幕”或 `done`。上游升级后需重做真实 canary。
+
+### PO-token provider 连不上或无关域名也能穿过代理
+
+- CONNECT 白名单代理用 `127.0.0.1:18797`，PO Token provider 用
+  `127.0.0.1:4416`；两条 SSH 反向转发分别同号映射，不要把两个服务混成一个端口。
+- 允许 YouTube/Googlevideo 是媒体传输白名单，不表示 YouTube Cookie 会发给 Googlevideo；
+  CookieJar 仍按 `.youtube.com` 域隔离。
+- 任意选一个无关 HTTPS 域做反向测试，必须得到 403。否则立即停止批次并修复白名单。
+- npm audit 已知 `qs` 为中危。当前因只绑定 loopback 且有域名白名单而减少暴露，
+  但不能声称无风险；跟踪上游可兼容版本并在升级后重做通路/拒绝测试。
+
 ### Opus 转码失败
 
 先对原文件运行：

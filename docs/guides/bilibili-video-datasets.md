@@ -178,8 +178,8 @@ python main.py --source bilibili --artifact-kind video_bundle \
 服务器环境中恰好存在 `BILIBILI_COOKIE`，没有 `--allow-bilibili-cookie` 也会强制匿名。
 
 只有用户明确授权且对内容有合法访问权时，才可把本机已登录会话一次性传给当前
-`main.py` 进程。推荐由受控脚本通过 SSH 标准输入注入，Cookie 只成为该进程的临时
-环境变量，进程结束后立即清除。人工操作示例：
+`main.py` 进程。仓库目前没有 B站 Edge 自动提取 helper；下面是高级操作者的人工
+一次性环境变量流程，不应描述成自动最小化提取：
 
 ```bash
 read -r -s BILIBILI_COOKIE

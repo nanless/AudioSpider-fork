@@ -96,6 +96,7 @@ set adds VTT/TXT. The result stays `human_review_status=unreviewed`. Review scen
 danmaku, lower thirds, no-subtitle and bilingual samples. Apply shares backup, exact lock, rollback,
 validator and CAS; after SIGKILL/power loss retain recovery artifacts and audit before changes.
 
-OCR receives no Cookie or proxy environment. If a logged-in platform refresh is explicitly authorized,
-perform that separate API step first with the minimum Bilibili-origin allow-list kept in memory and sent
-only to `api.bilibili.com`; never forward it to subtitle/media CDN, ffmpeg, Paddle, or a generic child.
+OCR receives no Cookie or proxy environment. The repository currently has no Bilibili Edge extraction
+helper. If a logged-in platform refresh is explicitly authorized, use only the documented process-local
+gate; never claim automatic minimum-cookie extraction, copy the browser profile, or forward the session
+to subtitle/media CDN, ffmpeg, Paddle, or a generic child.

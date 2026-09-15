@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import io
 import json
 import os
 import tempfile
@@ -39,7 +40,7 @@ class MediaArtifactTests(unittest.IsolatedAsyncioTestCase):
                 "media_artifacts.validate_youtube_manifest", return_value=[job]
             ), mock.patch(
                 "media_artifacts._run_youtube_download_bounded",
-                side_effect=lambda queued, base, destination: fake_download(
+                side_effect=lambda queued, base, destination, **_kwargs: fake_download(
                     queued, base, destination=destination
                 ),
             ), mock.patch("media_artifacts.validate_youtube_bundle"):
@@ -48,6 +49,157 @@ class MediaArtifactTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["bundle_path"], str(expected))
         self.assertEqual(result["local_path"], str(expected / "source.mp4"))
         self.assertFalse(result["reused"])
+
+    async def test_youtube_cookies_are_forwarded_only_to_youtube(self):
+        cookies = [{"name": "LOGIN_INFO", "value": "fictional"}]
+        expected = {"bundle_path": "/tmp/y", "local_path": "/tmp/y/source.mp4"}
+        with tempfile.TemporaryDirectory() as temp, mock.patch(
+            "media_artifacts._download_youtube",
+            new=mock.AsyncMock(return_value=expected),
+        ) as youtube_worker:
+            observed = await media_artifacts.download_video_bundle(
+                {"source": "youtube"}, object(), Path(temp),
+                youtube_auth_cookies=cookies,
+            )
+        self.assertEqual(observed, expected)
+        self.assertEqual(youtube_worker.await_args.kwargs["auth_cookies"], cookies)
+
+        with tempfile.TemporaryDirectory() as temp, mock.patch(
+            "media_artifacts._download_bilibili",
+            new=mock.AsyncMock(return_value=expected),
+        ) as bilibili_worker:
+            await media_artifacts.download_video_bundle(
+                {"source": "bilibili"}, object(), Path(temp),
+                youtube_auth_cookies=cookies,
+            )
+        self.assertNotIn("auth_cookies", bilibili_worker.await_args.kwargs)
+
+    def test_youtube_worker_clears_environment_and_redacts_errors(self):
+        secret = "fictional-cookie-secret"
+        cookies = [{"name": "LOGIN_INFO", "value": secret}]
+        result_queue = mock.Mock()
+        with mock.patch.dict(
+            os.environ, {"YOUTUBE_COOKIE_JSON": secret}, clear=False
+        ), mock.patch(
+            "media_artifacts.download_youtube_item",
+            side_effect=RuntimeError(f"request exposed LOGIN_INFO={secret}"),
+        ):
+            media_artifacts._youtube_download_worker(
+                {}, "/tmp", "/tmp/out", cookies, result_queue
+            )
+            self.assertNotIn("YOUTUBE_COOKIE_JSON", os.environ)
+        result = result_queue.put.call_args.args[0]
+        self.assertEqual(result[0], "error")
+        self.assertNotIn(secret, repr(result))
+        self.assertIn("[youtube-cookie]", result[2])
+
+    def test_authorized_worker_discards_unflushed_third_party_output(self):
+        secret = "fictional-buffered-cookie-secret"
+        cookies = [{"name": "LOGIN_INFO", "value": secret}]
+        result_queue = mock.Mock()
+        captured = io.StringIO()
+
+        def noisy_failure(*_args, **_kwargs):
+            print(secret, end="")
+            raise SystemExit(7)
+
+        with mock.patch.object(media_artifacts.sys, "stdout", captured), mock.patch(
+            "media_artifacts.download_youtube_item", side_effect=noisy_failure
+        ):
+            media_artifacts._youtube_download_worker(
+                {}, "/tmp", "/tmp/out", cookies, result_queue
+            )
+        self.assertNotIn(secret, captured.getvalue())
+        result = result_queue.put.call_args.args[0]
+        self.assertEqual(result[:2], ("error", "SystemExit"))
+
+    def test_bounded_worker_fails_immediately_after_exit_without_result(self):
+        class EmptyQueue:
+            def get(self, timeout):
+                raise media_artifacts.queue.Empty()
+
+            def get_nowait(self):
+                raise media_artifacts.queue.Empty()
+
+            def close(self):
+                pass
+
+            def join_thread(self):
+                pass
+
+        class ExitedProcess:
+            exitcode = 17
+
+            def start(self):
+                pass
+
+            def is_alive(self):
+                return False
+
+            def join(self, timeout=None):
+                pass
+
+        context = mock.Mock()
+        context.Queue.return_value = EmptyQueue()
+        context.Process.return_value = ExitedProcess()
+        with mock.patch.object(
+            media_artifacts.multiprocessing, "get_context", return_value=context
+        ):
+            with self.assertRaisesRegex(RuntimeError, "exitcode=17"):
+                media_artifacts._run_youtube_download_bounded(
+                    {}, Path("/tmp"), Path("/tmp/out"), timeout_seconds=5
+                )
+
+    def test_bounded_worker_finally_terminates_and_kills_stubborn_child(self):
+        class FailingQueue:
+            def get(self, timeout):
+                raise RuntimeError("queue transport failed")
+
+            def close(self):
+                pass
+
+            def join_thread(self):
+                pass
+
+        class StubbornProcess:
+            exitcode = None
+
+            def __init__(self):
+                self.alive = False
+                self.terminate_calls = 0
+                self.kill_calls = 0
+                self.join_timeouts = []
+
+            def start(self):
+                self.alive = True
+
+            def is_alive(self):
+                return self.alive
+
+            def terminate(self):
+                self.terminate_calls += 1
+
+            def kill(self):
+                self.kill_calls += 1
+                self.alive = False
+
+            def join(self, timeout=None):
+                self.join_timeouts.append(timeout)
+
+        child = StubbornProcess()
+        context = mock.Mock()
+        context.Queue.return_value = FailingQueue()
+        context.Process.return_value = child
+        with mock.patch.object(
+            media_artifacts.multiprocessing, "get_context", return_value=context
+        ):
+            with self.assertRaisesRegex(RuntimeError, "queue transport failed"):
+                media_artifacts._run_youtube_download_bounded(
+                    {}, Path("/tmp"), Path("/tmp/out"), timeout_seconds=5
+                )
+        self.assertEqual(child.terminate_calls, 1)
+        self.assertEqual(child.kill_calls, 1)
+        self.assertFalse(child.is_alive())
 
     async def test_unknown_video_source_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:

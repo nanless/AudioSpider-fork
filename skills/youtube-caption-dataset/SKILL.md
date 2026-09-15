@@ -45,7 +45,8 @@ For exact batches or real downloads, also read [references/runbook.md](reference
 - Mark done only after the policy-dependent closure passes: strict jobs require MP4/WAV/caption/TXT/
   sidecar; best-effort captionless jobs require MP4/WAV/sidecar with zero fake caption files.
 - Metadata inspection and download run in killable child processes with explicit hard timeouts;
-  preserve staging for safe resume when a transfer times out.
+  preserve deterministic `.staging/<job_key>` files for best-effort resume when a transfer times out.
+  Treat `.part` as resumable evidence, not proof that a later format selection will reuse it.
 - Migrate old standalone roots with default-dry-run `scripts/migrate_video_bundles.py`; only `--apply`
   moves and registers bundles.
 - Run `python scripts/audit_media_queue.py` to reconcile every done row with its bundle and detect orphans.
@@ -69,13 +70,50 @@ For exact batches or real downloads, also read [references/runbook.md](reference
 ## Rights and review
 
 When `dev_L4_1gpus` cannot reach YouTube directly and the user authorizes a local transport path,
-terminate an SSH reverse forward at a temporary local HTTP CONNECT proxy whose allow-list is limited
-to YouTube, Googlevideo and the static/API suffixes yt-dlp actually needs. Before collecting, verify a
-YouTube request succeeds through the server loopback port and a non-allow-listed request is rejected
-with 403. Run only the YouTube-scoped `collect.py` or `main.py` process with uppercase and lowercase
-`HTTP_PROXY`/`HTTPS_PROXY`, unset `ALL_PROXY`/`all_proxy`, and keep `NO_PROXY` limited to loopback.
-Never put credentials in the proxy URL or persist proxy endpoints/signed URLs in SQLite, sidecars or
-logs. Keep the proxy and tunnel alive for the whole batch, then stop them and remove temporary scripts.
+terminate an SSH reverse forward at a temporary loopback-only HTTP CONNECT proxy. Begin with the hosts
+allowed by the reviewed proxy: `youtube.com` and its subdomains plus `googlevideo.com` and its
+subdomains, all on port 443. Reject non-public DNS results, non-443 destinations, deceptive suffixes and
+unrelated HTTPS. Keep each tunnel identical on both ends: the CONNECT proxy is `127.0.0.1:18797` and
+the PO-token provider is `127.0.0.1:4416`. Before collection or retry, prove a
+YouTube request succeeds and an unrelated host is rejected with 403.
+Use `scripts/youtube_whitelist_proxy.py` as the reviewed local CONNECT implementation. The cookie-gate
+helper does not start it, the PO-token provider, or the SSH reverse forwards; keep all three prerequisites
+alive for the bounded run.
+
+Run only the YouTube-scoped `collect.py` or `main.py` process with uppercase and lowercase
+`HTTP_PROXY`/`HTTPS_PROXY`, unset both `ALL_PROXY` variants, and keep both `NO_PROXY` variants limited
+to loopback. Never put credentials in the proxy URL or persist proxy endpoints/signed URLs in SQLite,
+sidecars or logs. Keep the proxy and tunnel alive for the bounded run.
+
+Before Cookie use, classify exact failed rows and staging evidence. Give transfer/read/proxy timeouts an
+anonymous one-item canary first and preserve `.part`; a platform bot challenge is separate evidence.
+Only after separate explicit YouTube/Google authorization use `scripts/run_youtube_edge_gate.py` for a
+single failed-item canary. It reads only allow-listed current Edge `.youtube.com` cookies, validates an
+authenticated session, sends bounded JSON through SSH stdin, and launches explicit source/batch/cell,
+one worker, finite limit, no loop. Cookie values must never appear in stdout, stderr, argv, environment,
+temporary files, SQLite, sidecars or failure records.
+
+`main.py --allow-youtube-cookie` is the reviewed receiver. It is restricted to `download`, explicit
+`--source youtube`, effective `video_bundle`, explicit batch/category/language, `--workers 1`, no
+grouped claims, and no `--loop`; it consumes stdin before queue claims,
+discards ambient `YOUTUBE_COOKIE_JSON`, and installs the entries only in an in-memory `.youtube.com`
+CookieJar for yt-dlp inspection and download. It never sends login cookies to Googlevideo or unrelated
+hosts. Do not substitute `--cookies-from-browser`, a copied profile, Netscape cookie file, global
+`Cookie` header, argv secret or hand-written export.
+
+The authorized yt-dlp path selects `mweb` instead of the currently broken logged-in `tv_downgraded`
+client. Keep the pinned Deno runtime, `yt-dlp-ejs`, and `bgutil-ytdlp-pot-provider` dependencies present;
+confirm the EJS runtime and PO-token provider load before blaming the Cookie or widening the allow-list.
+Expand beyond one canary only after it succeeds, then run a bounded retry with one writer and audit.
+The helper resolves Edge's current `last_used` profile from Local State, or accepts an explicitly bounded
+`Default`/`Profile N` directory; never silently fall back to another profile. The final leak audit must
+stream large candidate files, inspect common reversible encodings and all SQLite tables, and return an
+error rather than `clean` if any candidate cannot be read.
+
+The current `main.py` can bound a retry by batch/source/category/language/artifact, but cannot claim one
+specified YouTube `job_key`. Therefore `--limit 1` means the first eligible database row, not necessarily
+the failure class an operator wanted. Verify the claimed row immediately. If a class-specific canary is
+required, add and test an exact-job claim filter in the repository; never reorder or hand-edit queue state.
 
 Public visibility does not clear download, training or redistribution rights. Keep rights at
 `needs_review` without evidence. Keep unreviewed speaker counts null/needs_review and media AI status
@@ -93,5 +131,9 @@ Every download and `--retry-failed` run for the exact multispeaker batch must in
 Report video ID, queue job, full-parent duration, output path/bytes, MP4/WAV ffprobe, selected native
 caption language and kind, SHA-256 closure, rights/AI/speaker-review state, audit failures and staging.
 Reconcile exactly the manifest job keys and distinct parent video IDs requested; every intended row must
-be `done` and pass both bundle and unified queue audits. Do not count archived/historical clips, unrelated
-whole-database totals or worker exit as completion, and do not use synthetic fixtures as real caption evidence.
+be `done` and pass the exact auditor with `--artifacts --downloads downloads --require-complete`.
+That mode adds bundle hash/ffprobe/sidecar validation and target staging inspection to manifest/queue
+membership and counts. Do not count archived/historical clips, unrelated whole-database totals or worker exit as
+completion, and do not use synthetic fixtures as real caption evidence. If unrelated historical staging
+causes a source-wide audit failure, report it separately; do not delete it or silently waive exact target
+validation. Run the unified queue audit separately when claiming whole-repository health.

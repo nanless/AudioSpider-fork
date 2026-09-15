@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import parse_qs, urlsplit, urlunsplit
 
+from youtube_auth import install_cookiejar, redact_cookie_values
 from youtube_vtt import Cue, CueGroup, group_cues, parse_vtt, render_vtt
 
 
@@ -528,7 +529,7 @@ def build_download_options(
         "outtmpl": str(Path(directory) / "source.%(ext)s"),
         "format": (
             "bestvideo[height<=720][vcodec^=avc1]+bestaudio[acodec^=mp4a]/"
-            "bestvideo[height<=720]+bestaudio/best[height<=720]"
+            "bestvideo[height<=720]+bestaudio/best[height<=720]/18"
         ),
         "merge_output_format": "mp4",
         "overwrites": False,
@@ -672,9 +673,33 @@ def _import_yt_dlp():
     return yt_dlp
 
 
-def inspect_item(item: dict[str, Any]) -> tuple[dict[str, Any], CaptionSelection | None]:
+def _authorized_youtube_options(options: dict[str, Any]) -> dict[str, Any]:
+    """Avoid yt-dlp's currently broken logged-in ``tv_downgraded`` client."""
+
+    authorized = dict(options)
+    # Preserve the sanitized inspection result when YouTube exposes only SABR
+    # so the final error can report a public format-id inventory.
+    authorized["ignore_no_formats_error"] = True
+    # The current logged-in default expands to ``tv_downgraded`` and may
+    # return UNPLAYABLE/"page needs to be reloaded".  The reviewed gate uses
+    # yt-dlp's current recommended mweb + PO-token-provider path; the
+    # anonymous path retains yt-dlp defaults.
+    authorized["extractor_args"] = {
+        "youtube": {"player_client": ["mweb"]}
+    }
+    return authorized
+
+
+def inspect_item(
+    item: dict[str, Any], *, auth_cookies: list[dict[str, Any]] | None = None,
+) -> tuple[dict[str, Any], CaptionSelection | None]:
     yt_dlp = _import_yt_dlp()
-    with yt_dlp.YoutubeDL(build_inspect_options()) as ydl:
+    options = build_inspect_options()
+    if auth_cookies:
+        options = _authorized_youtube_options(options)
+    with yt_dlp.YoutubeDL(options) as ydl:
+        if auth_cookies:
+            install_cookiejar(ydl.cookiejar, auth_cookies)
         info = ydl.extract_info(item["url"], download=False)
         info = ydl.sanitize_info(info)
     if not isinstance(info, dict) or str(info.get("id")) != item["video_id"]:
@@ -836,16 +861,34 @@ def _exclusive_file_lock(path: Path):
 
 
 def download_item(
-    item: dict[str, Any], output_root: Path, *, destination: Path | None = None
+    item: dict[str, Any], output_root: Path, *, destination: Path | None = None,
+    auth_cookies: list[dict[str, Any]] | None = None,
 ) -> Path:
     """Download one complete parent bundle and atomically promote its directory."""
 
-    info, caption = inspect_item(item)
+    info, caption = inspect_item(item, auth_cookies=auth_cookies)
     lock = Path(output_root).resolve() / ".locks" / f"{item['job_key']}.lock"
-    with _exclusive_file_lock(lock):
-        return _download_item_locked(
-            item, output_root, info, caption, destination=destination
-        )
+    try:
+        with _exclusive_file_lock(lock):
+            return _download_item_locked(
+                item, output_root, info, caption, destination=destination,
+                auth_cookies=auth_cookies,
+            )
+    except Exception as exc:
+        if not auth_cookies:
+            raise
+        format_ids = []
+        for entry in info.get("formats") or []:
+            if not isinstance(entry, dict):
+                continue
+            format_id = re.sub(r"[^A-Za-z0-9._+-]", "?", str(entry.get("format_id") or ""))
+            if format_id and format_id not in format_ids:
+                format_ids.append(format_id[:32])
+        inventory = ",".join(format_ids[:32]) if format_ids else "none"
+        raise RuntimeError(
+            f"{redact_error(redact_cookie_values(str(exc), auth_cookies))}; "
+            f"authorized inspect format_ids={inventory}"
+        ) from exc
 
 
 def _download_item_locked(
@@ -855,6 +898,7 @@ def _download_item_locked(
     caption: CaptionSelection | None,
     *,
     destination: Path | None = None,
+    auth_cookies: list[dict[str, Any]] | None = None,
 ) -> Path:
     caption_status = caption_availability_status(
         info, item.get("languages") or [], caption
@@ -887,7 +931,12 @@ def _download_item_locked(
     stage.mkdir(parents=True, exist_ok=True)
     try:
         yt_dlp = _import_yt_dlp()
-        with yt_dlp.YoutubeDL(build_download_options(stage, caption)) as ydl:
+        options = build_download_options(stage, caption)
+        if auth_cookies:
+            options = _authorized_youtube_options(options)
+        with yt_dlp.YoutubeDL(options) as ydl:
+            if auth_cookies:
+                install_cookiejar(ydl.cookiejar, auth_cookies)
             downloaded_info = ydl.extract_info(item["url"], download=True)
             downloaded_info = ydl.sanitize_info(downloaded_info)
         confirmed_caption = select_caption(downloaded_info, item.get("languages") or [])
@@ -964,7 +1013,7 @@ def _download_item_locked(
                 "status": "failed",
                 "job_key": item["job_key"],
                 "failed_at": utc_now(),
-                "error": redact_error(str(exc)),
+                "error": redact_error(redact_cookie_values(str(exc), auth_cookies)),
             },
         )
         raise

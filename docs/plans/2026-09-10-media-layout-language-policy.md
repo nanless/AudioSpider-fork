@@ -1,5 +1,8 @@
 # Media Layout and Caption Language Policy Implementation Plan
 
+> **历史计划（已被统一流水线取代）：** 下文的 standalone 入口和过渡目录只用于追溯，
+> 当前运行合同见[统一下载指南](../DOWNLOAD-GUIDE.md)和[统一媒体架构](../architecture.md)。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Put all Bilibili video bundles under `downloads/`, keep YouTube as parent videos only, and enforce content-matching platform captions.

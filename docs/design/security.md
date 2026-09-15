@@ -45,7 +45,50 @@ AudioSpider 会处理不可信的远程 URL、HTTP 头、XML/HTML/JSON、标题�
 
 ## 凭据
 
-Podcast Index Key/Secret 仅从环境变量读取。仓库不提供 Cookie 管理或秘密存储。部署时使用任务平台、systemd 凭据或秘密管理器；避免把值写进 shell 历史。
+Podcast Index Key/Secret 仅从环境变量读取。部署时使用任务平台、systemd
+凭据或秘密管理器；避免把值写进 shell 历史。
+
+### YouTube 一次性 Cookie 门禁
+
+YouTube 始终从匿名路径开始。只有用户已针对当前任务明确授权，且匿名路径命中平台
+bot challenge 时，才可以使用 `main.py --allow-youtube-cookie`。门禁还要求
+`download + source=youtube + artifact_kind=video_bundle`、显式 batch/category/language、
+`workers=1`且不使用分组领取，并禁止循环任务；不加门禁时，
+即使环境里残留同名数据也不会使用。
+
+```mermaid
+flowchart LR
+    E[Edge 当前会话] -->|.youtube.com 允许字段| H[macOS 受控 helper]
+    H -->|SSH stdin；一次性 JSON| G[main.py 显式门禁]
+    G -->|Python 进程内传递| J[yt-dlp 域限定 CookieJar]
+    J --> Y[YouTube origin]
+    J -. 不携带 .-> V[Googlevideo/字幕 CDN/FFmpeg]
+```
+
+实现约束：
+
+- helper 从 Edge Local State 解析当前 `last_used` profile，或只接受显式
+  `Default`/`Profile N`；只读对应 Cookie SQLite，用系统 Keychain 在内存解密，
+  不复制整个 profile，也不静默改用另一个 profile。
+- 只允许 `.youtube.com`/`youtube.com`/`www.youtube.com` 和固定 Cookie 名单；不接受
+  `.google.com`、`.googlevideo.com` 或伪装后缀。
+- payload 有总字节、条目数、单值长度、有效期、路径、secure 和控制字符上限；必须具备
+  能表示已登录 YouTube 的最小必要字段。
+- 只通过 stdin 进入，只存在于 helper、`main.py` 和单个可终止 worker 的内存中。
+- 禁止 cookie file、`--cookies-from-browser`、argv、环境变量、临时 profile 和全局
+  `Cookie` header；错误、IPC 和 `failure.json` 必须脱敏。
+- Cookie 只由 CookieJar 按域/路径/secure 规则发送到 YouTube origin，不传给
+  Googlevideo、字幕 CDN、代理、FFmpeg、B站或其他任务。
+- 事后泄漏审计对大候选文件分块扫描，包含常见可逆编码形态和所有 SQLite
+  表；候选文件读取失败必须返回 `error`，不得仍报 `clean`。
+
+本地网络助手是受限 loopback 边界，不是对外服务。YouTube CONNECT 白名单代理使用
+两端同号 `127.0.0.1:18797`，PO Token provider 使用两端同号
+`127.0.0.1:4416`，并使用 `mweb` client、`bgutil-ytdlp-pot-provider==2.0.0`、
+Deno 2.9.0 和 EJS 0.8.0。启动后必须同时证明 YouTube/Googlevideo 允许域可用、
+无关 HTTPS 域名被 403 拒绝。npm 依赖 `qs` 的已知中危属于该本机 loopback
+provider 的依赖风险；回环绑定和域名白名单降低暴露面，但不代表风险为零，应在上游
+兼容时升级并重做金丝雀。
 
 `.env.example` 只列变量名和非秘密默认值。项目不会自动加载 `.env`。
 
@@ -55,7 +98,8 @@ SQLite 原子领取防止多个 worker 获得同一任务。lease 防止进程�
 
 ## 不在当前边界内
 
-- 绕过登录、付费墙、验证码、DRM 或平台风控。
+- 绕过付费墙、验证码、DRM、会员或未获授权的平台访问控制。一次性门禁只使用
+  用户已有、已明确授权的普通 YouTube 会话，不用于扩大账号权限。
 - 证明某份音频拥有训练或商业使用授权。
 - 在不可信多租户环境中提供隔离。
 - 对外暴露 Web API 或管理端。

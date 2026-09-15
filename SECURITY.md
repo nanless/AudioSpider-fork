@@ -17,7 +17,14 @@ AudioSpider 处理不可信 URL、网页响应和媒体文件。运行前请使�
 
 当前项目不会绕过登录、验证码、DRM、付费墙或平台访问控制，也不对第三方内容授予版权或训练许可。
 
-YouTube 流水线只接受固定 HTTPS YouTube 单视频 URL，拒绝播放列表、直播和待开播内容；不读取 Cookie、账号或密码，限制 720p、单视频 8 GiB、父视频最长 4 小时和单次派生片段数。远程标题不会进入输出路径，yt-dlp 的临时媒体/字幕 URL 不写入 sidecar。
+YouTube 流水线只接受固定 HTTPS YouTube 单视频 URL，拒绝播放列表、直播和待开播内容；默认匿名，限制 720p、单视频 8 GiB、父视频最长 4 小时和单次派生片段数。远程标题不会进入输出路径，yt-dlp 的临时媒体/字幕 URL 不写入 sidecar。
+
+用户针对某次 YouTube 任务明确授权后，可以给该次命令添加
+`main.py --allow-youtube-cookie`。这是一个显式门禁，不是持久配置：受控的 macOS helper
+只读当前 Edge 中 `.youtube.com` 的允许字段，通过 SSH 标准输入一次送给远程进程，
+内存校验后装入 yt-dlp 的域限定 `CookieJar`。禁止 Cookie 文件、argv/命令行值、
+浏览器 profile 复制、全局 `Cookie` 请求头和跨域重绑。Cookie 不会发给
+`googlevideo.com`、代理服务、FFmpeg 或其他来源，也不得进入日志、SQLite、sidecar、下载目录或 Git。
 
 平台公开可访问不代表具备下载、切片、训练或再分发授权。`rights_cleared=false` 的视频与片段必须视作隔离候选，正式使用前需要独立权利审核。人工字幕与自动字幕分别标记为 `platform_manual`、`platform_auto`，不得把自动字幕伪装成人工标注。
 

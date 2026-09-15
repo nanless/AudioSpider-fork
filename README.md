@@ -112,7 +112,32 @@ python main.py --batch-id multispeaker-video-100-20260912 \
 # 只读对账候选批次；加 --require-complete 后，不完整会返回非零
 python scripts/audit_multispeaker_batch.py \
   --batch-index config/multispeaker_video_100_20260912.batch.json
+
+# 最终验收：只校验该批次的 bundle/sidecar/哈希/时长与 staging
+python scripts/audit_multispeaker_batch.py \
+  --batch-index config/multispeaker_video_100_20260912.batch.json \
+  --db audiospider.db --artifacts --downloads downloads --require-complete
 ```
+
+YouTube 默认匿名。如果匿名金丝雀明确失败为“需要登录以确认不是机器人”，只能在
+用户明确授权后，用 macOS 上的受控 helper 运行一次性门禁：
+
+```bash
+# 在已登录 YouTube 的本机 Edge 所在 Mac 执行；不会输出 Cookie 值
+python scripts/run_youtube_edge_gate.py \
+  --batch-id multispeaker-video-100-20260912 --category 影视 --limit 1
+```
+
+helper 只读 `.youtube.com` 的最小允许字段，经 SSH stdin 一次送入
+`main.py --allow-youtube-cookie`，内存校验后只加到 yt-dlp 的域限定 CookieJar。
+不得改用 Cookie 文件、`--cookies-from-browser`、命令行值、复制 Edge profile 或
+全局 `Cookie` header。媒体 CONNECT 白名单代理使用 `127.0.0.1:18797`，
+PO Token provider 使用 `127.0.0.1:4416`；两条 SSH 反向转发分别保持同号映射。
+yt-dlp 授权路径使用 `mweb` + `bgutil-ytdlp-pot-provider==2.0.0`，
+本机运行 Deno 2.9.0 / EJS 0.8.0。详见
+[YouTube 完整视频指南](docs/guides/youtube-datasets.md)。
+仓库内的 `scripts/youtube_whitelist_proxy.py` 实现该回环 CONNECT 白名单；
+helper 不会替你自动启动代理、provider 或 SSH 反向隧道。
 
 仓库已经提供 100 个候选父视频的三个配置文件和对账脚本，但这不表示平台核验、人工听审、
 下载或 bundle 验收已经完成。执行批次前请看
@@ -127,9 +152,10 @@ python scripts/audit_multispeaker_batch.py \
 上述回填命令的参数以当前部署的
 `python scripts/backfill_bilibili_captions.py --help` 为准。视觉 OCR 不需要 Cookie；只有
 重查受登录保护的平台字幕清单时，才在用户明确授权后使用
-`--allow-bilibili-cookie`。即使使用用户当前 Edge 的 B站登录态，也只能最小化提取、经
-stdin/一次性内存桥注入并只发往 `api.bilibili.com`，不得复制浏览器 profile 或把 Cookie
-写进命令行、聊天、日志、SQLite、sidecar、下载目录或 Git。
+`--allow-bilibili-cookie`。仓库当前没有 B站 Edge 自动提取 helper；因此不能把人工
+`BILIBILI_COOKIE` 环境变量流程描述成自动最小化提取。若确需登录态，只能在用户明确授权后
+由操作者一次性输入当前会话，并只发往 `api.bilibili.com`；不得复制浏览器 profile，或把
+Cookie 写进命令行、聊天、日志、SQLite、sidecar、下载目录或 Git。
 
 统一下载器会在创建时一次性读取并立即从进程环境删除 `BILIBILI_COOKIE`。下载 HTTP
 会话使用 `DummyCookieJar`，不吸收平台响应 Cookie，也不再做匿名首页预热；Edge 登录态
@@ -582,6 +608,7 @@ python main.py background --limit 10000 --workers 4 --background all
 - [B 站错配字幕时间轴设计](docs/plans/2026-09-10-bilibili-invalid-caption-timeline-design.md)
 - [B 站错配字幕时间轴实施计划](docs/plans/2026-09-10-bilibili-invalid-caption-timeline.md)
 - [跨平台 100 条多人视频批次设计](docs/plans/2026-09-12-multispeaker-video-batch-design.md)
+- [YouTube Edge Cookie 门禁与批次续跑报告](docs/reports/2026-09-15-youtube-cookie-gate-and-batch-resume.md)
 - [安全问题报告](SECURITY.md)
 - [变更记录](CHANGELOG.md)
 - [dev_L4_1gpus 服务器验收报告](docs/reports/2026-09-08-dev-l4-validation.md)

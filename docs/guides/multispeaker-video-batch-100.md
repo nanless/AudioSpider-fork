@@ -1,8 +1,9 @@
 # 小白手册：采集 100 条跨平台多人视频
 
-> 实施状态：配套 manifest、B站正式 manifest 模式、三分类、`main.py --batch-id` 和批次
-> 审计器已经实现。100 条目前仍是待平台核验、人工听审和下载的候选；接口已实现不等于
-> 数据已经完成。
+> 实施状态：配套 manifest、B站正式 manifest 模式、三分类、`main.py --batch-id`
+> 和批次审计器已经实现。某次执行的实时数字和故障证据只记在
+> [2026-09-15 YouTube 门禁与批次续跑报告](../reports/2026-09-15-youtube-cookie-gate-and-batch-resume.md)，
+> 避免长期手册因一次运行状态而过期。
 
 ## 1. 这次到底要得到什么
 
@@ -196,6 +197,27 @@ python main.py --batch-id multispeaker-video-100-20260912 \
   --limit 1 --workers 1 --format original
 ```
 
+YouTube 始终先跑上面的匿名命令。如果它确认返回 bot challenge，用户又已经明确
+授权使用当前 Edge 的 YouTube 会话，则在本机 Mac 改用：
+
+```bash
+python scripts/run_youtube_edge_gate.py \
+  --batch-id multispeaker-video-100-20260912 --category 影视 --limit 1
+```
+
+该 helper 把 `.youtube.com` 允许字段经 SSH stdin 送入远程
+`main.py --allow-youtube-cookie`，并只在 yt-dlp 内存 CookieJar 中按域发送。不得
+保存 Cookie 文件、放入 argv、复制 Edge profile 或设置全局 Cookie header。当前受控
+运行组合是 `mweb` + `bgutil-ytdlp-pot-provider==2.0.0` + Deno 2.9.0/EJS 0.8.0；
+CONNECT 白名单代理使用 `127.0.0.1:18797`，PO Token provider 使用
+`127.0.0.1:4416`，两条 SSH 反向转发分别同号映射。
+上述版本是 2026-09-15 的已验证组合，以后应先对照锁定依赖和执行报告。
+
+helper 不会自动启动白名单代理、PO-token provider 或 SSH 反向隧道；三者是
+任务期前置设施，执行 helper 前必须已经就绪，且在整个远程下载期间保持存活。
+helper 默认在精确过滤下领取 `failed`；只有显式加 `--pending` 才领取
+`pending`。每次运行结束都自动做 Cookie 泄漏审计，也可用 `--audit-only` 只审计。
+
 另外四格分别把 `--category` 改为 `访谈` 和 `会议论坛`。`--batch-id` 会从 B站
 `download_task.batch_id` 或 YouTube `job.batch_id` 精确过滤；旧任务、其他批次及无效旧
 metadata 不会被领取。`--source/--category` 是六格切片条件，不能单独替代 `--batch-id`。
@@ -324,13 +346,14 @@ python main.py --retry-failed --batch-id multispeaker-video-100-20260912 \
 ```bash
 python scripts/audit_multispeaker_batch.py \
   --batch-index config/multispeaker_video_100_20260912.batch.json \
-  --require-complete
+  --db audiospider.db --artifacts --downloads downloads --require-complete
 
 python scripts/audit_media_queue.py
 ```
 
-第一个审计回答“本批 100 条是否一条不少、没有混入”；第二个回答“所有完成视频包是否
-符合统一闭包”。两者都要通过。
+第一个审计回答“本批 100 条是否一条不少、没有混入，且它们的
+bundle/sidecar/哈希/时长/字幕与精确 staging 是否闭合”；第二个补充检查
+全库其他 done bundle 和 orphan。最终报告中应保留两者的结果。
 
 ```mermaid
 flowchart LR

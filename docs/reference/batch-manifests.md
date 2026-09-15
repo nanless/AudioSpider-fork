@@ -376,14 +376,23 @@ python main.py --batch-id multispeaker-video-100-20260912 \
 | 异常 | `missing`、`extras` |
 | 基线 | 可用时校验旧库父 ID 数量、摘要以及与新清单是否重叠 |
 
+默认输出保持上述轻量合同。最终验收可显式加
+`--artifacts --downloads downloads`：审计器只读打开 SQLite，仅选取该 `batch_id`
+的任务行，逐 bundle 复用平台 validator 与闭包指纹，并检查正式路径、
+sidecar、字节/哈希、媒体时长、同语言字幕以及本批精确 `job_key` 的
+staging/partial。输出只汇总字幕/OCR/rights/AI/说话人 provenance，不输出
+URL、字幕文本或凭据。`--artifacts` 发现未完成行、闭包错误或本批 staging
+时会 fail closed 并返回非零。
+
 候选阶段运行上面的无门禁命令；只有在要求 100 个父目标全部完成时，才增加严格门禁：
 
 ```bash
 python scripts/audit_multispeaker_batch.py \
   --batch-index config/multispeaker_video_100_20260912.batch.json \
-  --require-complete
+  --db audiospider.db --artifacts --downloads downloads --require-complete
 python scripts/audit_media_queue.py
 ```
 
-全库 `scripts/audit_media_queue.py` 仍必须运行，但它不能替代批次审计：前者证明所有 done
-bundle 的统一闭包，后者证明这 100 个目标和六格配额恰好完成。
+带 `--artifacts` 的批次审计证明这 100 个目标、六格配额与其精确文件
+闭包恰好完成。全库 `scripts/audit_media_queue.py` 仍建议运行，它另外检查
+其他 done bundle 和 orphan，但历史数据的失败不会被误计入本批。

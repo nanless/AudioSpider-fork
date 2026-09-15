@@ -123,9 +123,10 @@ session uses a non-persisting cookie jar and must not perform anonymous homepage
 cookies must never mix with or override the Edge allow-list. Do not infer successful authentication from
 process liveness; verify the API result or caption inventory without logging credential values.
 
-If the user authorizes their current Edge Bilibili session, extract only the minimum Bilibili-origin
-allow-list through stdin or a one-shot memory bridge; never copy the profile or inspect other-origin
-cookies. OCR itself uses local pixels and must not receive the Cookie.
+The repository currently has no Bilibili Edge extraction helper. Do not claim automatic minimum-cookie
+extraction or copy a browser profile. If a user explicitly authorizes a lawful one-shot session, follow
+the documented process-local environment gate, never print or persist its value, and keep OCR entirely
+cookie-free.
 
 ## Completion evidence
 

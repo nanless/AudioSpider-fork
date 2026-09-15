@@ -6,3 +6,5 @@ lxml>=5.1.0
 fake-useragent>=1.4.0
 brotli>=1.1.0
 yt-dlp==2026.8.19
+yt-dlp-ejs==0.8.0
+bgutil-ytdlp-pot-provider==2.0.0

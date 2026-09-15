@@ -51,8 +51,8 @@ python main.py stats
 df -h .
 ```
 
-工具不登录 YouTube、不读取浏览器 Cookie，也不绕过 DRM、会员、付费、验证码、年龄或
-地区限制。网络不可达时记录失败，不把失败伪装成“无字幕”。
+工具默认不登录 YouTube、不读取浏览器 Cookie，也不绕过 DRM、会员、付费、
+验证码、年龄或地区限制。网络不可达时记录失败，不把失败伪装成“无字幕”。
 
 正式采集前先验证服务器出口：
 
@@ -61,7 +61,84 @@ timeout 20 curl -I https://www.youtube.com
 ```
 
 若返回 `Network is unreachable` 或超时，必须先取得用户批准的合规 HTTP(S) 代理或
-任务期临时受限隧道。凭据只放当前进程环境，不写 `.env`、Git、SQLite、日志或 sidecar。
+任务期临时受限隧道。代理地址/代理凭据只放当前进程环境，不写 `.env`、Git、
+SQLite、日志或 sidecar；YouTube Cookie 则禁止进入环境变量，只经 stdin 和内存 CookieJar。
+
+### 2.1 匿名失败后的 Edge 一次性门禁
+
+当且仅当匿名金丝雀命中 `Sign in to confirm you’re not a bot`，且用户已明确
+授权本轮使用当前 Edge 的 YouTube 会话时，可在 Mac 上执行：
+
+先在本机三个终端准备受限网络设施（下载期间不要关）：
+
+```bash
+# 终端 A：只允许 YouTube/Googlevideo:443，默认绑定 127.0.0.1:18797
+python scripts/youtube_whitelist_proxy.py
+
+# 终端 B：在 bgutil-ytdlp-pot-provider 2.0.0 的 server 目录
+node build/main.js -H 127.0.0.1 -p 4416
+
+# 终端 C：两个远程入口也只绑定服务器回环
+ssh -N \
+  -R 127.0.0.1:18797:127.0.0.1:18797 \
+  -R 127.0.0.1:4416:127.0.0.1:4416 \
+  dev_L4_1gpus
+```
+
+白名单正反验证：允许的 YouTube 请求应能建立，无关域必须是 403；测试不带 Cookie：
+
+```bash
+curl -I -x http://127.0.0.1:18797 https://www.youtube.com/
+curl -I -x http://127.0.0.1:18797 https://example.com/  # 必须 403
+```
+
+三项都通过后，再在第四个本机终端启动一次性门禁：
+
+```bash
+python scripts/run_youtube_edge_gate.py \
+  --batch-id multispeaker-video-100-20260912 --category 影视 --limit 1
+```
+
+运行前要先确认回环白名单代理、PO-token provider 和 SSH 反向隧道都在；helper
+只负责最小 Cookie 读取、stdin 传递、远程有界调用和事后审计，不会启动这些
+网络设施。默认重试精确边界内的 `failed`；加 `--pending` 才改为领取 `pending`。
+每次下载后都自动执行 Cookie 泄漏审计；`--audit-only` 可以不下载、只做该审计。
+
+```mermaid
+sequenceDiagram
+    participant E as Edge Cookie DB + Keychain
+    participant H as 本机受控 helper
+    participant M as 远程 main.py 门禁
+    participant Y as yt-dlp CookieJar
+    E->>H: 只读 .youtube.com 允许字段
+    H->>M: SSH stdin（一次性 JSON）
+    M->>Y: 内存对象；域/路径/secure 约束
+    Y->>Y: 只对 YouTube origin 匹配发送
+```
+
+`--allow-youtube-cookie` 只允许当前
+`main.py download --source youtube --artifact-kind video_bundle`，并必须显式限定
+batch/category/language、`--workers 1`、不使用分组领取，也不允许 `--loop`。
+helper 不会打印 Cookie，不创建 Cookie
+文件，不把值放入 argv/环境变量，不复制 Edge profile，也不使用全局
+`Cookie` header。`googlevideo.com`、字幕 CDN、代理、FFmpeg 和其他来源都不会收到该
+Cookie。门禁不扩大账号权限，不适用于 DRM、付费、会员、年龄或地区限制。
+
+当前受控网络栈为：
+
+| 层 | 固定值 | 目的 |
+|---|---|---|
+| yt-dlp client | `mweb` | 避开已知登录 `tv_downgraded` UNPLAYABLE/重载页问题 |
+| PO token provider | `bgutil-ytdlp-pot-provider==2.0.0` | 为 `mweb` 路径提供受控 PO token |
+| 本机运行时 | Deno 2.9.0 / EJS 0.8.0 | 2026-09-15 已验证的 provider 执行栈 |
+| CONNECT 白名单代理 | 本机与服务器均为 `127.0.0.1:18797` | 只允许 YouTube/Googlevideo 的 443 流量 |
+| PO Token provider | 本机与服务器均为 `127.0.0.1:4416` | 为远程 yt-dlp 提供回环 provider endpoint |
+
+yt-dlp 官方的当前诊断也记录了两类上游边界：登录默认可选到
+`tv_downgraded`，并出现 `UNPLAYABLE`/“page needs to be reloaded”；某些响应只暴露
+SABR 而没有可直下的普通格式。这些是外部平台/提取器状态，不能被重分类为
+`caption.status=missing`。截至 2026-09-15，本机 provider 的 npm 依赖 `qs` 存在已知中危；因其只绑定
+loopback 并由域名白名单保护，外部暴露面较小，但不是零风险，应继续跟踪上游升级。
 
 ## 3. 编写受控 manifest
 

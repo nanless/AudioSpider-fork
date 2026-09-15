@@ -27,5 +27,7 @@ manifest files, current commands, single-writer gate, Bilibili formal-manifest r
 OCR fallback, credential/proxy boundaries, and manifest-to-database-to-disk reconciliation.
 
 Do not announce completion from process exit, whole-database totals, or directory counts. Require the
-exact batch audit plus bundle validation. Every new-batch download or failed-row retry must include
+exact batch audit with `--artifacts --downloads downloads --require-complete`; it proves manifest/queue
+membership, parent counts, exact bundle ffprobe/hash/sidecar closure and target staging/partials. Final
+evidence still needs a quiescent database. Every new-batch download or failed-row retry must include
 `--batch-id multispeaker-video-100-20260912`; source/category are additional bounds, not substitutes.

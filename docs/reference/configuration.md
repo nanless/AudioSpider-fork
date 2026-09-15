@@ -70,6 +70,27 @@ python doctor.py
 
 `main.py` 默认使用 4 个 downloader worker；`AUDIOSPIDER_MAX_WORKERS` 是允许用户传入的上限，不是默认并发数。
 
+### YouTube 授权不是环境变量配置
+
+YouTube 默认匿名。Cookie 不得写入 `.env`、配置表、manifest 或自定义环境变量。
+用户对当前任务明确授权后，本机 helper 才会把受限 JSON 经 SSH stdin 送给
+`main.py --allow-youtube-cookie`；远程只保留内存 CookieJar。因此不存在
+`AUDIOSPIDER_YOUTUBE_COOKIE`、Cookie 文件路径或浏览器 profile 路径这类可配置项。
+
+当前已验证的受控运行栈不建议在批次中临时更改：
+
+| 项 | 值 |
+|---|---|
+| yt-dlp 授权 client | `mweb` |
+| PO-token 提供器 | `bgutil-ytdlp-pot-provider==2.0.0` |
+| 本机 runtime | Deno 2.9.0，EJS 0.8.0 |
+| CONNECT 白名单代理 | 本机与服务器反向入口同号 `127.0.0.1:18797` |
+| PO Token provider | 本机与服务器反向入口同号 `127.0.0.1:4416` |
+
+这两个端口是受控运维约定，不需要持久化到任务 metadata。允许列表由本机
+CONNECT 代理实施，并用无关 HTTPS 域的 403 响应验证失败关闭；provider 只负责
+PO Token，不承担通用网络代理职责。
+
 ### B站清单模式与搜索模式
 
 这两种模式一次只运行一种。`AUDIOSPIDER_BILIBILI_MANIFEST` 非空时，Spider 直接调用清单

@@ -282,7 +282,56 @@ class YoutubeDatasetTests(unittest.TestCase):
         self.assertFalse(options["writesubtitles"])
         self.assertNotIn("cookiefile", options)
         self.assertNotIn("username", options)
+        self.assertNotIn("http_headers", options)
+        self.assertNotIn("cookiesfrombrowser", options)
+        self.assertTrue(options["format"].endswith("/18"))
         self.assertFalse(options["format"].endswith("/best"))
+
+    def test_inspection_installs_cookiejar_without_putting_secret_in_options(self):
+        item = dataset.validate_manifest({"items": [{
+            "url": "https://youtu.be/dQw4w9WgXcQ",
+            "profile": "youtube_interviews",
+            "content_language": "en",
+            "languages": ["en"],
+            "require_caption": False,
+        }]})[0]
+        cookies = [{
+            "name": "LOGIN_INFO", "value": "fictional-secret",
+            "domain": ".youtube.com", "path": "/", "secure": True,
+            "expires": None,
+        }]
+        observed_options = []
+        fake_jar = object()
+
+        class FakeYDL:
+            def __init__(self, options):
+                observed_options.append(options)
+                self.cookiejar = fake_jar
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def extract_info(self, _url, download=False):
+                return {"id": item["video_id"], "duration": 1800,
+                        "subtitles": {}, "automatic_captions": {}}
+
+            def sanitize_info(self, info):
+                return info
+
+        fake_module = mock.Mock(YoutubeDL=FakeYDL)
+        with mock.patch(
+            "youtube_dataset._import_yt_dlp", return_value=fake_module
+        ), mock.patch("youtube_dataset.install_cookiejar") as installer:
+            dataset.inspect_item(item, auth_cookies=cookies)
+        installer.assert_called_once_with(fake_jar, cookies)
+        self.assertNotIn("fictional-secret", repr(observed_options))
+        self.assertEqual(
+            observed_options[0]["extractor_args"]["youtube"]["player_client"],
+            ["mweb"],
+        )
 
     def test_download_options_without_caption_do_not_request_subtitles(self):
         options = dataset.build_download_options(Path("/tmp/job"), None)
@@ -392,6 +441,7 @@ class YoutubeDatasetTests(unittest.TestCase):
         class FakeYDL:
             def __init__(self, options):
                 observed_options.append(options)
+                self.cookiejar = object()
 
             def __enter__(self):
                 return self
@@ -414,16 +464,20 @@ class YoutubeDatasetTests(unittest.TestCase):
             "streams": [{"codec_type": "video"}, {"codec_type": "audio"}],
             "format": {"duration": "1800"},
         }
+        cookies = [{"name": "LOGIN_INFO", "value": "fictional-secret"}]
         with tempfile.TemporaryDirectory() as temp, mock.patch(
             "youtube_dataset._import_yt_dlp", return_value=fake_module
         ), mock.patch(
             "youtube_dataset._extract_wav", side_effect=lambda _video, target: target.write_bytes(b"wav")
         ), mock.patch(
             "youtube_dataset.probe_media", return_value=video_probe
-        ), mock.patch("youtube_dataset._validate_bundle"):
+        ), mock.patch("youtube_dataset._validate_bundle"), mock.patch(
+            "youtube_dataset.install_cookiejar"
+        ) as installer:
             destination = Path(temp) / item["job_key"]
             result = dataset._download_item_locked(
-                item, Path(temp), info, None, destination=destination
+                item, Path(temp), info, None, destination=destination,
+                auth_cookies=cookies,
             )
             produced_names = sorted(path.name for path in destination.iterdir())
             metadata = json.loads(
@@ -435,6 +489,12 @@ class YoutubeDatasetTests(unittest.TestCase):
         self.assertEqual(produced_names, ["audio.wav", "metadata.json", "source.mp4"])
         self.assertEqual(metadata["caption"]["status"], "missing")
         self.assertEqual(set(metadata["files"]), {"video", "audio"})
+        installer.assert_called_once_with(mock.ANY, cookies)
+        self.assertNotIn("fictional-secret", repr(observed_options))
+        self.assertEqual(
+            observed_options[0]["extractor_args"]["youtube"]["player_client"],
+            ["mweb"],
+        )
 
     def test_cli_accepts_repeatable_video_filter(self):
         args = dataset.build_parser().parse_args(

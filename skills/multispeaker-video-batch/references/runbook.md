@@ -110,6 +110,11 @@ python main.py --batch-id multispeaker-video-100-20260912 \
 Use the analogous Bilibili source/language when retrying Bilibili. Never run this batch's normal or
 failed-row claim without its exact `--batch-id`.
 
+The current `main.py` cannot select one YouTube `job_key`; a category-scoped `--limit 1` claims the first
+eligible row in database order. Verify the claimed identity immediately. Do not reorder rows or hand-edit
+statuses to target a timeout/bot-challenge class; implement and test an exact-job filter if that precision
+is required.
+
 ## Captions and Bilibili OCR
 
 - Bilibili Chinese candidates accept only the Chinese/Mandarin/Cantonese family; YouTube English
@@ -124,16 +129,41 @@ failed-row claim without its exact `--batch-id`.
 
 ## Cookie and proxy boundary
 
-Cookie access and local proxying require explicit user authorization at the time of use. For Bilibili,
-extract only the minimum Bilibili-origin Edge allow-list, keep it in memory, pass it through stdin or a
-one-shot loopback bridge, add `--allow-bilibili-cookie`, and send it only to `api.bilibili.com`; never
-send it to CDN, ffmpeg, OCR, logs, argv, disk, SQLite, or sidecars.
+Cookie access and local proxying require explicit user authorization at the time of use. The repository
+currently has no Bilibili Edge extraction helper; do not claim automatic minimum-cookie extraction or
+copy a browser profile. An explicitly authorized one-shot session must use `--allow-bilibili-cookie`,
+stay process-local, and be sent only to `api.bilibili.com`; never send it to CDN, ffmpeg, OCR, logs, argv,
+disk, SQLite, or sidecars.
 
 When a reverse proxy is authorized, Bilibili uses only the source-scoped
 `AUDIOSPIDER_BILIBILI_PROXY`; YouTube uses a temporary allow-list proxy for YouTube/Googlevideo and only
-the YouTube process receives its proxy environment. Verify an allowed host succeeds and an unrelated
-host is rejected before collection. Keep tunnels bounded to the active run and persist no endpoint or
-signed media URL.
+the YouTube process receives its proxy environment. For YouTube, allow `youtube.com`/subdomains and
+`googlevideo.com`/subdomains on port 443, reject non-public DNS results, set upper- and lowercase HTTP(S)
+proxy variables, unset both `ALL_PROXY` variants, and keep `NO_PROXY` loopback-only. Bind both ends to
+loopback: the CONNECT proxy is `127.0.0.1:18797` and the PO-token provider is `127.0.0.1:4416`, with
+each reverse tunnel preserving its own port. Verify an allowed host succeeds
+and an unrelated host is rejected with 403 before collection or retry.
+
+For YouTube, preserve `.part` files and classify transfer timeouts separately from bot challenges. Run
+an anonymous one-item canary before concluding login is required. Bilibili Cookie authorization never
+authorizes Google/YouTube credentials. After separate explicit YouTube/Google authorization, use only
+`scripts/run_youtube_edge_gate.py` to send the allow-listed current Edge `.youtube.com` session through
+SSH stdin into `main.py --allow-youtube-cookie`; never copy a profile, use `--cookies-from-browser`, write
+a cookie file, set a global Cookie header, or put values in argv/environment/logs/SQLite/sidecars.
+
+The receiver only permits bounded YouTube `download`/`video_bundle` with explicit batch/category/language,
+one worker, no grouped claims and no `--loop`, consumes stdin
+before claims, discards ambient `YOUTUBE_COOKIE_JSON`, uses a domain-scoped in-memory CookieJar for
+inspection and transfer, and sends no login Cookie to Googlevideo. Authenticated yt-dlp uses `mweb` plus
+the pinned Deno/EJS/`bgutil-ytdlp-pot-provider` stack, not the broken logged-in `tv_downgraded` client.
+First run exactly one authenticated canary, verify its claimed job and full bundle closure, then expand
+with one writer and finite exact-batch/cell retries. Keep tunnels bounded and persist no endpoint,
+credential or signed media URL.
+
+Resolve the explicitly selected or current Edge `last_used` profile before reading its Cookie database;
+never guess a different profile. After every authenticated run, use the fail-closed leak auditor: it must
+stream large candidate files, cover common reversible encodings and every SQLite table, and return
+`error` for unreadable candidates instead of claiming `clean`.
 
 ## Completion and recovery
 
@@ -141,13 +171,18 @@ signed media URL.
 python scripts/audit_media_queue.py
 python scripts/audit_multispeaker_batch.py \
   --batch-index config/multispeaker_video_100_20260912.batch.json \
-  --db audiospider.db --require-complete
+  --db audiospider.db --artifacts --downloads downloads --require-complete
 ```
 
 Completion requires all six cells at exactly 20/20/10 per source, 100 distinct expected parents queued
-and done, no missing/extras in the batch audit, and every bundle passing the unified validator/audit.
+and done, no missing/extras in the batch audit, and every exact bundle passing the platform validator,
+closure fingerprint and target staging/partial checks. Require no active writer before the final claim.
 Report caption availability/provenance, OCR separately, bytes/duration, rights/AI/speaker review state,
 failures and staging. Candidate evidence remains unverified until the separate human media review.
+
+Preserve failed-job staging throughout recovery. If all exact jobs are done but stale target staging
+remains, do not delete it ad hoc: identify ownership against manifest/job keys, use or add a reviewed
+batch-scoped cleanup/quarantine workflow, and retain unrelated historical staging.
 
 For interruption, identify the one writer and its exact claims, stop it gracefully, take a SQLite backup,
 and use the repository's scoped recovery tooling in dry-run before apply. Never perform a global

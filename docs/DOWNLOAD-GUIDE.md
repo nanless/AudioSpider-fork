@@ -164,6 +164,35 @@ python collect.py --spiders youtube
 python main.py --source youtube --artifact-kind video_bundle --limit 1 --workers 1 --format original
 ```
 
+这条命令默认匿名，也是首选路径。只有用户明确授权且匿名金丝雀被
+YouTube bot challenge 拒绝时，才使用本机 Edge 一次性门禁：
+
+```bash
+# 在已登录 YouTube 的本机 macOS/Edge 上执行
+python scripts/run_youtube_edge_gate.py \
+  --batch-id multispeaker-video-100-20260912 --category 影视 --limit 1
+```
+
+helper 固定调用远程 `main.py --allow-youtube-cookie`。Cookie JSON 只经 SSH stdin
+进入当前进程，再以 Python 内存对象传给可终止 worker；yt-dlp 只使用
+`.youtube.com` 域限定 CookieJar。未加门禁时仍为匿名。禁止以下替代方法：
+
+- 生成 Netscape/JSON Cookie 文件；
+- 在 argv、shell 历史或环境变量中携带 Cookie 值；
+- 使用 `--cookies-from-browser` 或复制整个 Edge profile；
+- 设置全局 `Cookie` header，或把 YouTube Cookie 发给 Googlevideo、字幕 CDN、代理、
+  FFmpeg 与其他来源。
+
+当前登录下载组合是 yt-dlp `mweb` client +
+`bgutil-ytdlp-pot-provider==2.0.0` + 本机 loopback provider（Deno 2.9.0 / EJS 0.8.0）。
+CONNECT 白名单代理固定为 `127.0.0.1:18797`，PO Token provider 固定为
+`127.0.0.1:4416`；两条 SSH 反向转发各自保持本机和服务器端口同号。
+启动后应同时检查 YouTube/Googlevideo 请求可用和一个无关 HTTPS 域名被 403
+拒绝。
+本机白名单实现在 `scripts/youtube_whitelist_proxy.py`；完整的代理、provider、反向
+隧道启动命令参见 [YouTube 完整视频指南](guides/youtube-datasets.md)。helper 本身不会
+启动这三项设施。
+
 当前完整父视频 profiles 为：`youtube_interviews`（25.5–60.6 分钟访谈）、
 `youtube_screen_parents`（0.418 秒–4 小时影视/节目父视频）和
 `youtube_conference_forums`（5 分钟–4 小时会议/论坛）。历史
@@ -214,6 +243,18 @@ python scripts/audit_multispeaker_batch.py \
 时才加 `--require-complete`。当前清单保守写为 `candidate_unverified`、
 `speaker_count=null/needs_review`；它们是待平台核验和人工听审的候选，不是已经下载完成、
 语言已声学确认或人数已验证的数据。
+
+最终验收使用显式的精确产物门禁：
+
+```bash
+python scripts/audit_multispeaker_batch.py \
+  --batch-index config/multispeaker_video_100_20260912.batch.json \
+  --db audiospider.db --artifacts --downloads downloads --require-complete
+```
+
+`--artifacts` 只审计该 `batch_id` 的任务和正式 bundle，复用两平台 validator 复验
+sidecar、哈希、媒体时长、字幕 provenance 及本批 staging/partial。它只读 SQLite，
+不输出 URL、字幕文本或凭据。
 
 采集完成后，各平台先做一条精确 canary。`--batch-id` 是防止历史同类任务混入的必要条件：
 
@@ -332,8 +373,10 @@ python scripts/audit_media_queue.py
 - 拒绝私网、loopback、link-local、凭据 URL和未重新校验的重定向；
 - 不把 signed URL query 写入数据库、sidecar 或日志；
 - 不从浏览器自动读取 Cookie；
-- 只有用户明确授权使用当前 Edge 的 B站会话后，才最小化读取 B站 origin Cookie；不得复制
-  整个 Edge profile，不得浏览或导出其他站点 Cookie；
+- YouTube 默认匿名；只有本轮明确授权后，才可由本机受控 helper 只读
+  `.youtube.com` 允许字段，经 stdin 送入 `--allow-youtube-cookie` 门禁；
+- 仓库当前没有 B站 Edge 自动提取 helper；不要把人工环境变量流程描述成自动最小化
+  提取，也不得复制整个 Edge profile、浏览或导出其他站点 Cookie；
 - Bilibili Cookie 只在用户明确授权且有合法访问权时临时注入，只发往
   `api.bilibili.com`；
 - 下载器一次性消费该环境变量并禁用响应 CookieJar；不要依赖匿名首页预热取得 Cookie；
@@ -382,4 +425,6 @@ python scripts/audit_media_queue.py
 - 无 signed query、Cookie、绝对外逸路径；
 - staging 为空，audit failure 为零。
 
-设计与实施状态见[统一架构](architecture.md)和[实施计划](plans/2026-09-10-unified-media-pipeline.md)。
+设计与实施状态见[统一架构](architecture.md)、
+[实施计划](plans/2026-09-10-unified-media-pipeline.md) 和
+[YouTube Edge Cookie 门禁与批次续跑报告](reports/2026-09-15-youtube-cookie-gate-and-batch-resume.md)。

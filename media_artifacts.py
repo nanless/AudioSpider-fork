@@ -14,6 +14,8 @@ import multiprocessing
 import os
 import queue
 import re
+import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +35,7 @@ from youtube_dataset import (
     download_item as download_youtube_item,
     validate_manifest as validate_youtube_manifest,
 )
+from youtube_auth import redact_cookie_values
 
 
 SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -109,24 +112,79 @@ def _result(bundle: Path, *, reused: bool) -> dict[str, Any]:
     }
 
 
-def _youtube_download_worker(job: dict, output_root: str, destination: str, result_queue) -> None:
+def _youtube_download_worker(
+    job: dict, output_root: str, destination: str,
+    auth_cookies: list[dict[str, Any]], result_queue,
+) -> None:
+    saved_stdout = saved_stderr = None
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+    sink = None
     try:
         for name in (
-            "BILIBILI_COOKIE", "AUDIOSPIDER_BILIBILI_PROXY",
+            "BILIBILI_COOKIE", "YOUTUBE_COOKIE_JSON", "AUDIOSPIDER_BILIBILI_PROXY",
             "PODCAST_INDEX_KEY", "PODCAST_INDEX_SECRET",
         ):
             os.environ.pop(name, None)
+        # Third-party extractors and PO-token plugins must not be able to write
+        # authenticated diagnostics directly to inherited logs.  The parent
+        # receives only the explicitly redacted queue result below.
+        if auth_cookies:
+            original_stdout.flush()
+            original_stderr.flush()
+            sink = open(os.devnull, "w", encoding="utf-8")
+            saved_stdout = os.dup(1)
+            saved_stderr = os.dup(2)
+            os.dup2(sink.fileno(), 1)
+            os.dup2(sink.fileno(), 2)
+            sys.stdout = sink
+            sys.stderr = sink
         bundle = download_youtube_item(
-            job, Path(output_root), destination=Path(destination)
+            job, Path(output_root), destination=Path(destination),
+            auth_cookies=auth_cookies,
         )
         result_queue.put(("ok", str(bundle)))
-    except Exception as exc:
-        result_queue.put(("error", type(exc).__name__, str(exc)[:2000]))
+    except BaseException as exc:
+        safe_error = redact_cookie_values(str(exc), auth_cookies)
+        result_queue.put(("error", type(exc).__name__, safe_error[:2000]))
+    finally:
+        if sink is not None:
+            # Logging handlers may retain the original TextIOWrapper. Flush
+            # every Python buffer while fd 1/2 still point at /dev/null.
+            sink.flush()
+            original_stdout.flush()
+            original_stderr.flush()
+        if saved_stdout is not None:
+            os.dup2(saved_stdout, 1)
+            os.close(saved_stdout)
+        if saved_stderr is not None:
+            os.dup2(saved_stderr, 2)
+            os.close(saved_stderr)
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
+        if sink is not None:
+            sink.close()
+
+
+def _stop_youtube_worker(process) -> None:
+    """Always reap a credential-bearing worker, escalating to kill if needed."""
+
+    if not process.is_alive():
+        process.join(timeout=0)
+        return
+    process.terminate()
+    process.join(timeout=10)
+    if process.is_alive():
+        process.kill()
+        process.join(timeout=5)
+    if process.is_alive():
+        raise RuntimeError("YouTube download worker could not be stopped")
 
 
 def _run_youtube_download_bounded(
     job: dict, output_root: Path, destination: Path,
     timeout_seconds: int = YOUTUBE_DOWNLOAD_TIMEOUT,
+    *, auth_cookies: list[dict[str, Any]] | None = None,
 ) -> Path:
     """Run yt-dlp in a killable process; partial staging remains resumable."""
 
@@ -134,34 +192,51 @@ def _run_youtube_download_bounded(
     result_queue = context.Queue(maxsize=1)
     process = context.Process(
         target=_youtube_download_worker,
-        args=(job, str(output_root), str(destination), result_queue),
+        args=(job, str(output_root), str(destination), auth_cookies or [], result_queue),
     )
-    process.start()
+    started = False
     try:
-        try:
-            result = result_queue.get(timeout=timeout_seconds)
-        except queue.Empty as exc:
-            process.terminate()
-            process.join(timeout=10)
-            if process.is_alive():
-                process.kill()
-                process.join(timeout=5)
-            raise TimeoutError(
-                f"YouTube download exceeded {timeout_seconds}s hard limit"
-            ) from exc
+        process.start()
+        started = True
+        deadline = time.monotonic() + timeout_seconds
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"YouTube download exceeded {timeout_seconds}s hard limit"
+                )
+            try:
+                result = result_queue.get(timeout=min(0.5, remaining))
+                break
+            except queue.Empty:
+                if process.is_alive():
+                    continue
+                process.join(timeout=1)
+                try:
+                    result = result_queue.get_nowait()
+                    break
+                except queue.Empty as exc:
+                    raise RuntimeError(
+                        f"YouTube download worker exited without a result "
+                        f"(exitcode={process.exitcode})"
+                    ) from exc
         process.join(timeout=10)
-        if process.is_alive():
-            process.terminate()
-            process.join(timeout=5)
         if result[0] != "ok":
             raise RuntimeError(f"YouTube download failed: {result[1]}: {result[2]}")
         return Path(result[1])
     finally:
-        result_queue.close()
-        result_queue.join_thread()
+        try:
+            if started:
+                _stop_youtube_worker(process)
+        finally:
+            result_queue.close()
+            result_queue.join_thread()
 
 
-async def _download_youtube(item: dict[str, Any], output_root: Path) -> dict[str, Any]:
+async def _download_youtube(
+    item: dict[str, Any], output_root: Path,
+    *, auth_cookies: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     data = _source_data(item, "youtube")
     raw_job = data.get("job")
     if not isinstance(raw_job, dict):
@@ -178,7 +253,8 @@ async def _download_youtube(item: dict[str, Any], output_root: Path) -> dict[str
     )
     reused = (destination / "metadata.json").is_file()
     bundle = await asyncio.to_thread(
-        _run_youtube_download_bounded, job, output_root, destination
+        _run_youtube_download_bounded, job, output_root, destination,
+        auth_cookies=auth_cookies,
     )
     validate_youtube_bundle(bundle / "metadata.json")
     return _result(bundle, reused=reused)
@@ -253,6 +329,7 @@ async def _download_bilibili(
 async def download_video_bundle(
     item: dict[str, Any], session: Any, output_root: Path,
     *, bilibili_auth_cookie: str = "",
+    youtube_auth_cookies: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Materialize one claimed video bundle below a shared source/category root."""
 
@@ -260,7 +337,9 @@ async def download_video_bundle(
     root.mkdir(parents=True, exist_ok=True)
     source = item.get("source")
     if source == "youtube":
-        return await _download_youtube(item, root)
+        return await _download_youtube(
+            item, root, auth_cookies=youtube_auth_cookies,
+        )
     if source == "bilibili":
         for attempt in range(1, BILIBILI_JOB_ATTEMPTS + 1):
             try:

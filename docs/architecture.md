@@ -85,6 +85,23 @@ flowchart LR
     Q --> A
 ```
 
+YouTube 下载 handler 默认匿名。对某次任务明确授权后，可在不新建队列、不改变目录的
+前提下，经 `main.py --allow-youtube-cookie` 进入同一 handler。
+
+```mermaid
+flowchart LR
+    A[默认匿名] --> H[YouTube unified handler]
+    E[Edge 最小 .youtube.com 字段] -->|SSH stdin| G[main.py 显式门禁]
+    G -->|Python 内存| J[域限定 CookieJar]
+    J --> H
+    H --> D[(audiospider.db + downloads/youtube/...)]
+```
+
+授权分支仅改变 YouTube origin 请求的身份，不改变任务身份、字幕语言、完整母视频
+契约、bundle 路径或 audit。Cookie 不持久化，不发往 Googlevideo/字幕 CDN/FFmpeg；
+媒体网络通路使用本机 `127.0.0.1:18797` CONNECT 白名单代理，PO Token 则由本机
+`127.0.0.1:4416` provider 提供，两条反向通道分别同号映射到服务器回环地址。
+
 总控和清单存在只证明候选集合与 20/20/10 配额可被静态核验。当前候选的语言和多人线索
 可为 `candidate_unverified`；在人工听审、真实下载和 bundle audit 前不能宣称批次完成。
 

@@ -35,6 +35,7 @@ from config import (
 from network_safety import UnsafeURLError, safe_get
 from media_artifacts import download_video_bundle
 from storage import Storage
+from youtube_auth import redact_cookie_values
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +204,8 @@ class Downloader:
                  max_download_bytes: int = MAX_DOWNLOAD_BYTES,
                  min_disk_free_bytes: int = MIN_FREE_DISK_BYTES,
                  background_mode: str = "all",
-                 allow_bilibili_cookie: bool = False):
+                 allow_bilibili_cookie: bool = False,
+                 youtube_auth_cookies: list[dict] | None = None):
         self.storage = storage
         self.max_workers = max_workers or MAX_CONCURRENT_DOWNLOADS
         if self.max_workers <= 0:
@@ -219,6 +221,7 @@ class Downloader:
         self.bilibili_auth_cookie = _consume_bilibili_cookie(
             allow_bilibili_cookie
         )
+        self.youtube_auth_cookies = list(youtube_auth_cookies or [])
         # Validate the explicit source proxy before any queue row is claimed.
         self.bilibili_proxy = get_bilibili_proxy()
         self.worker_id = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:12]}"
@@ -425,7 +428,8 @@ class Downloader:
                 self.stats["failed"] += 1
                 parsed = urlparse(url)
                 safe_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path[:80]}"
-                logger.error(f"{progress} ✗ {filename} | {safe_url} | {e}")
+                safe_error = redact_cookie_values(str(e), self.youtube_auth_cookies)
+                logger.error(f"{progress} ✗ {filename} | {safe_url} | {safe_error}")
 
     async def _download_video_bundle(
         self, session: aiohttp.ClientSession, item: dict, progress: str
@@ -439,6 +443,9 @@ class Downloader:
             item, session, output_root,
             bilibili_auth_cookie=(
                 self.bilibili_auth_cookie if source == "bilibili" else ""
+            ),
+            youtube_auth_cookies=(
+                self.youtube_auth_cookies if source == "youtube" else []
             ),
         )
         self.storage.finalize_artifact(

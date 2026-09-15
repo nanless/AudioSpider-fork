@@ -1,5 +1,9 @@
 # Bilibili Video and Caption Dataset Implementation Plan
 
+> **历史计划（已被统一流水线取代）：** 本文记录 2026-09-10 的设计过程，其中的
+> standalone 入口和目录不是当前操作合同。实际运行请以
+> [统一下载指南](../DOWNLOAD-GUIDE.md)和[B站视频指南](../guides/bilibili-video-datasets.md)为准。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add an auditable Bilibili video dataset pipeline that downloads public multipart videos, platform captions and rich sidecars while preserving the legacy audio-only workflow.

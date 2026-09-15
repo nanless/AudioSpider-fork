@@ -147,10 +147,38 @@ python main.py [download|stats|fix-meta|background] [参数]
 | `--before DATE` | 不限 | 发布时间上界，包含该日 |
 | `--background` | `all` | `none`、`metadata` 或 `all` |
 | `--allow-bilibili-cookie` | 关闭 | 仅对本次 B站视频任务显式启用进程内登录态 |
+| `--allow-youtube-cookie` | 关闭 | 仅对本次 YouTube 完整视频下载显式启用 stdin/内存 Cookie 门禁 |
 
 `--per-source` 与 `--per-category` 互斥。
 `--retry-failed` 会继承 `--source`、`--category`、`--language`、发布时间、分组和
 `--artifact-kind` 过滤；仍建议先用数据库/审计命令核对待领取集合。
+
+`--allow-youtube-cookie` 不接受 Cookie 字符串参数。它只能和
+`download --source youtube --artifact-kind video_bundle` 一起使用，还必须显式限定
+`--batch-id/--category/--language --workers 1`；不能和 `--loop`或分组领取一起使用。
+格式受限的 JSON 从 stdin 读入。正常操作不手写 JSON，而是在已授权的
+macOS/Edge 本机运行：
+
+```bash
+python scripts/run_youtube_edge_gate.py \
+  --batch-id multispeaker-video-100-20260912 --category 影视 --limit 1
+```
+
+远程 `main.py` 不会读 Cookie 文件、浏览器 profile、argv Cookie 或全局 Cookie
+header。未加门禁时 YouTube 仍默认匿名。
+
+`run_youtube_edge_gate.py` 的领取和审计语义：
+
+| helper 参数 | 含义 |
+|---|---|
+| 不加 `--pending` | 默认在精确 batch/source/category/language/artifact 边界内重试 `failed` |
+| `--pending` | 改为领取精确边界内的 `pending` |
+| `--limit N` | 限制本次领取量，取值 `1..50` |
+| `--audit-only` | 不下载，只用当次内存载荷执行泄漏审计 |
+
+远程下载正常返回退出码后，无论退出码是 0 还是非 0，helper 都会再运行
+`scripts/audit_youtube_cookie_leaks.py`。helper 本身不启动回环白名单代理、PO-token
+provider 或 SSH 反向隧道；这些都是运行前置条件。
 
 ## `scripts/recover_download_claims.py`
 

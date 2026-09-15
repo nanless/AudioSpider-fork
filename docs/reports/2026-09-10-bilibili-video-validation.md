@@ -1,5 +1,9 @@
 # 2026-09-10 B 站视频数据管线首批验收
 
+> **历史快照：** 本报告中的 `downloads/bilibili-video-20260910` 是当时的过渡目录。
+> 当前正式产物位于 `downloads/bilibili/<分类>/<source_id>/<job_key>/`，请以
+> [统一下载指南](../DOWNLOAD-GUIDE.md)为准。
+
 ## 环境与范围
 
 - 服务器：`dev_L4_1gpus`
