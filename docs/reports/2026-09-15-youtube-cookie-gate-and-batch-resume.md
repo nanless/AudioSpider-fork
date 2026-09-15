@@ -4,7 +4,7 @@
 >
 > 批次：`multispeaker-video-100-20260912`
 >
-> 结论状态：两个真实 canary 已通过，固定批次正在由唯一写入器续跑；本文只记录已审计数字
+> 结论状态：100/100 完成；精确批次审计、全库视频闭包审计和 Cookie 泄漏审计全部通过
 
 ## 1. 为什么增加这个门禁
 
@@ -154,3 +154,42 @@ python scripts/run_youtube_edge_gate.py \
 
 下载静止后仍必须运行 `--require-complete`、批次范围媒体闭包审计和 Cookie 泄漏审计；
 若最终数字变化，应在最终提交中追加终态结果，不覆盖这份带时间的中途证据。
+
+## 8. 最终终态验收
+
+2026-09-15 08:47 UTC，最后两个断点任务均成功完成：
+
+- `3yXORYk-FgM` 于 08:39 UTC 完成，保留完整英文平台字幕；
+- `nz-jba7x_JE` 于 08:47 UTC 完成，保留完整英文平台字幕；
+- 本轮两条均复用了此前因 Googlevideo 读取超时保留的 `.part`，没有重新生成 clip，
+  也没有另建下载根目录。
+
+最终 `audit_multispeaker_batch.py --artifacts --downloads downloads --require-complete` 结果：
+
+| 验收项 | 最终结果 |
+|---|---:|
+| 预期/入队/完成父视频 | 100 / 100 / 100 |
+| B站三格 | 影视 20、访谈 20、会议论坛 10 |
+| YouTube 三格 | 影视 20、访谈 20、会议论坛 10 |
+| bundle 行 | 110（B站 60、YouTube 50） |
+| 已审计 bundle | 110/110 |
+| bundle 总闭包 | 27,175,111,103 bytes |
+| 总媒体时长 | 240,804.966 秒（约 66.89 小时） |
+| 精确批次 staging / partial | 0 / 0 |
+| 文件闭包失败 | 0 |
+| manifest missing / extras | 0 / 0 |
+
+最终字幕与 provenance 汇总：
+
+- bundle 字幕状态：`downloaded=89`、`invalid_timeline=9`、
+  `invalid_track_inventory=3`、`not_provided_publicly=7`、`missing=2`；
+- 平台字幕轨来源：`platform_auto=83`、`platform_manual=5`、
+  `platform_unknown=3`；轨道计数不等同于 bundle 计数；
+- B站画面 OCR：`downloaded=19`、`not_run=41`；
+- 110 个 bundle 的 `rights.status=needs_review`、`ai_generation.status=unknown`、
+  `speaker_count_status=needs_review`，没有把候选线索误标成已核验事实。
+
+全库 `audit_media_queue.py` 同样通过：284/284 个已完成视频 bundle 验证成功，
+`failure_count=0`、`orphan_count=0`。最终 Cookie 泄漏审计为 `clean`：扫描
+24,351 个候选文件，排除 1,008 个经 sidecar 路径、大小、SHA-256 和媒体魔数共同
+验证的二进制媒体；读取错误、文件命中、SQLite 命中均为 0。
